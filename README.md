@@ -1,0 +1,2 @@
+# PokemonCrescent
+discord bot
