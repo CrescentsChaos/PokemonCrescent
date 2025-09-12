@@ -1089,7 +1089,7 @@ async def action(bot, ctx, tr1, tr2, x, y):
                 elif "9" in inaction:
                     inaction=9
                 else:
-                    inaction=1                   
+                    inaction=1   
             if inaction == 2:
                 if y.trap==x or y.trap==y or (y.ability == "Magnet Pull" and "Steel" in (x.primaryType, x.secondaryType, x.teraType)) or (y.ability == "Shadow Tag" and ("Ghost" not in (x.primaryType, x.secondaryType, x.teraType) or x.item!="Shed Shell")) or (y.ability == "Arena Trap" and (x.ability!="Levitate" or x.item!="Shed Shell")) or True in (x.firespin,x.infestation,x.sandtomb,x.whirlpool):
                     return 1
