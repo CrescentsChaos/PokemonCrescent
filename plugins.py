@@ -9,7 +9,7 @@ from pokemon import calcst
 from typematchup import *
 from AI import *
 from hiddenpower import *
-megastones=("Malamarite","Hawluchaite","Victreebelite","Dragonitite","Gyaradosite","Venusaurite","Charizardite X","Charizardite Y","Abomasite","Absolite","Aerodactylite","Aggronite","Alakazite","Altarianite","Ampharosite","Audinite","Banettite","Beedrillite","Blastoisinite","Blazikenite","Camerupite","Diancite","Galladite","Garchompite","Gardevoirite","Gengarite","Glalitite","Heracronite","Houndoominite","Kangaskhanite","Latiasite","Latiosite","Lopunnite","Lucarionite","Manectite","Mawilite","Medichamite","Metagrossite","Mewtwonite X","Mewtwonite Y","Pidgeotite","Pinsirite","Sablenite","Salamencite","Sceptilite","Scizorite","Sharpedonite","Slowbronite","Steelixite","Seampertite","Tyranitarite")
+megastones=("Raichutite X","Raichutite Y","Greninjite","Delphoxite","Chesnaughtite","Malamarite","Hawluchaite","Victreebelite","Dragonitite","Gyaradosite","Venusaurite","Charizardite X","Charizardite Y","Abomasite","Absolite","Aerodactylite","Aggronite","Alakazite","Altarianite","Ampharosite","Audinite","Banettite","Beedrillite","Blastoisinite","Blazikenite","Camerupite","Diancite","Galladite","Garchompite","Gardevoirite","Gengarite","Glalitite","Heracronite","Houndoominite","Kangaskhanite","Latiasite","Latiosite","Lopunnite","Lucarionite","Manectite","Mawilite","Medichamite","Metagrossite","Mewtwonite X","Mewtwonite Y","Pidgeotite","Pinsirite","Sablenite","Salamencite","Sceptilite","Scizorite","Sharpedonite","Slowbronite","Steelixite","Seampertite","Tyranitarite")
 
 async def pokeicon(nm):
     async with sqlite3.connect("pokemondata.db") as db:
@@ -1490,6 +1490,45 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             x.sprite="https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/f/e57c0ca5-c162-43e7-b0dc-40f215c30321/dkdwzg9-0e6d2014-4568-4fbf-9edd-446c5f3692ec.gif?token=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1cm46YXBwOjdlMGQxODg5ODIyNjQzNzNhNWYwZDQxNWVhMGQyNmUwIiwiaXNzIjoidXJuOmFwcDo3ZTBkMTg4OTgyMjY0MzczYTVmMGQ0MTVlYTBkMjZlMCIsIm9iaiI6W1t7InBhdGgiOiJcL2ZcL2U1N2MwY2E1LWMxNjItNDNlNy1iMGRjLTQwZjIxNWMzMDMyMVwvZGtkd3pnOS0wZTZkMjAxNC00NTY4LTRmYmYtOWVkZC00NDZjNWYzNjkyZWMuZ2lmIn1dXSwiYXVkIjpbInVybjpzZXJ2aWNlOmZpbGUuZG93bmxvYWQiXX0.n5OK72woHYorz6Ew8JAwZn30dvMu3ohJychhoLqFeYA"
             calcst(x)
             x.hp=x.maxhp*per
+        if x.item=="Greninjite" and "Greninja" in x.name:
+            x.ability="Protean"
+            per=x.hp/x.maxhp
+            x.weight=672.41
+            x.hp=72
+            x.atk=125
+            x.defense=77
+            x.spatk=145
+            x.spdef=91
+            x.speed=149
+            x.sprite="https://cdn.discordapp.com/attachments/1102579499989745764/1416292988400828486/ei_1757740695331-removebg-preview.png"
+            calcst(x)
+            x.hp=x.maxhp*per
+        if x.item=="Delphoxite" and "Delphox" in x.name:
+            x.ability="Psychic Surge"
+            per=x.hp/x.maxhp
+            x.weight=672.41
+            x.hp=75
+            x.atk=69
+            x.defense=92
+            x.spatk=154
+            x.spdef=140
+            x.speed=129
+            x.sprite="https://cdn.discordapp.com/attachments/1102579499989745764/1416292988790767760/ei_1757740883667-removebg-preview.png"
+            calcst(x)
+            x.hp=x.maxhp*per
+        if x.item=="Chesnaughtite" and "Chesnaught" in x.name:
+            x.ability="Iron Barbs"
+            per=x.hp/x.maxhp
+            x.weight=672.41
+            x.hp=88
+            x.atk=137
+            x.defense=172
+            x.spatk=84
+            x.spdef=115
+            x.speed=65
+            x.sprite="https://cdn.discordapp.com/attachments/1102579499989745764/1416292988098969610/ei_1757739262961-removebg-preview.png"
+            calcst(x)
+            x.hp=x.maxhp*per
         if x.item=="Hawluchaite" and "Hawlucha" in x.name:
             x.ability="Mold Breaker"
             per=x.hp/x.maxhp
@@ -1543,6 +1582,32 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             x.spatk=130
             x.spdef=85
             x.speed=100
+            calcst(x)
+            x.hp=x.maxhp*per
+        elif x.item=="Raichutite X" and "Raichu" in x.name:
+            x.ability="Reckless"
+            x.weight=243.61
+            x.sprite="https://cdn.discordapp.com/attachments/1102579499989745764/1416305417214103574/ei_1757743892629-removebg-preview.png"
+            per=x.hp/x.maxhp
+            x.hp=60
+            x.atk=130
+            x.defense=85
+            x.spatk=110
+            x.spdef=95
+            x.speed=150
+            calcst(x)
+            x.hp=x.maxhp*per
+        elif x.item=="Raichutite Y" and "Raichu" in x.name:
+            x.ability="Static"
+            x.weight=243.61
+            x.sprite="https://cdn.discordapp.com/attachments/1102579499989745764/1416305417541128297/ei_1757743871863-removebg-preview.png"
+            per=x.hp/x.maxhp
+            x.hp=60
+            x.atk=85
+            x.defense=85
+            x.spatk=155
+            x.spdef=105
+            x.speed=140
             calcst(x)
             x.hp=x.maxhp*per
         elif x.item=="Charizardite Y" and "Charizard" in x.name:
