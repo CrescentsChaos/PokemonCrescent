@@ -18,7 +18,6 @@ from attack import *
 from typematchup import *
 from movelist import *
 from hiddenpower import *
-import os
 from dotenv import load_dotenv
 load_dotenv()
 token=os.getenv("TOKEN")
