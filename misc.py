@@ -565,7 +565,7 @@ async def spawn(ctx:discord.Interaction):
             except:             
                 await ctx.channel.send(embed=flee)
         else:
-            await ctx.channel.send("You don't have an account. Type `!start` to create an account.")              
+            await ctx.channel.send("You don't have an account. Type `/start` to create an account.")              
     else:
         await ctx.channel.send("You don't have enough money.")         
 @bot.command(aliases=["ch"])            

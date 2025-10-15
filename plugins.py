@@ -9,7 +9,7 @@ from pokemon import calcst
 from typematchup import *
 from AI import *
 from hiddenpower import *
-megastones=("Raichutite X","Raichutite Y","Greninjite","Delphoxite","Chesnaughtite","Malamarite","Hawluchaite","Victreebelite","Dragonitite","Gyaradosite","Venusaurite","Charizardite X","Charizardite Y","Abomasite","Absolite","Aerodactylite","Aggronite","Alakazite","Altarianite","Ampharosite","Audinite","Banettite","Beedrillite","Blastoisinite","Blazikenite","Camerupite","Diancite","Galladite","Garchompite","Gardevoirite","Gengarite","Glalitite","Heracronite","Houndoominite","Kangaskhanite","Latiasite","Latiosite","Lopunnite","Lucarionite","Manectite","Mawilite","Medichamite","Metagrossite","Mewtwonite X","Mewtwonite Y","Pidgeotite","Pinsirite","Sablenite","Salamencite","Sceptilite","Scizorite","Sharpedonite","Slowbronite","Steelixite","Seampertite","Tyranitarite")
+megastones=("Floettiite","Chandelurite","Scolipedite","Falinksite","Pyroarite","Scraftite","Drampite","Eelektrossite","Dragalgite","Barbaraclite","Clefablite","Starmite","Meganiumite","Excadrillite","Emboarite","Froslassite","Feraligatrite","Skarmorite","Raichutite X","Raichutite Y","Greninjite","Delphoxite","Chesnaughtite","Malamarite","Hawluchaite","Victreebelite","Dragonitite","Gyaradosite","Venusaurite","Charizardite X","Charizardite Y","Abomasite","Absolite","Aerodactylite","Aggronite","Alakazite","Altarianite","Ampharosite","Audinite","Banettite","Beedrillite","Blastoisinite","Blazikenite","Camerupite","Diancite","Galladite","Garchompite","Gardevoirite","Gengarite","Glalitite","Heracronite","Houndoominite","Kangaskhanite","Latiasite","Latiosite","Lopunnite","Lucarionite","Manectite","Mawilite","Medichamite","Metagrossite","Mewtwonite X","Mewtwonite Y","Pidgeotite","Pinsirite","Sablenite","Salamencite","Sceptilite","Scizorite","Sharpedonite","Slowbronite","Steelixite","Seampertite","Tyranitarite")
 
 async def pokeicon(nm):
     async with sqlite3.connect("pokemondata.db") as db:
@@ -1451,98 +1451,337 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
     em.set_thumbnail(url="https://cdn.discordapp.com/attachments/1102579499989745764/1108284098641940521/Mega.png")
     tr1.canmega=False
     if True:
-        if x.item=="Malamarite" and "Malamar" in x.name:
+        if x.item=="Feraligatrite" and "Feraligatr" in x.name:
+            x.ability="Strong Jaw"
+            x.secondaryType="Dragon"
+            per=x.hp/x.maxhp
+            x.weight=153.41
+            x.hp=85
+            x.atk=160
+            x.defense=125
+            x.spatk=89
+            x.spdef=93
+            x.speed=78
+            calcst(x)
+            x.sprite="https://i.postimg.cc/SNB9LFtP/mega-fetaligatr.png"
+            x.hp=x.maxhp*per
+        if x.item=="Chandelurite" and "Chandelure" in x.name:
+            per=x.hp/x.maxhp
+            x.weight=153.41
+            x.hp=60
+            x.atk=75
+            x.defense=110
+            x.spatk=175
+            x.spdef=110
+            x.speed=90
+            x.sprite="https://i.postimg.cc/NFcpF2vY/mega-chandelure.png"
+            calcst(x)
+            x.hp=x.maxhp*per
+        elif x.item=="Froslassite" and "Froslass" in x.name:
+            x.ability="Intimidate"
+            per=x.hp/x.maxhp
+            x.weight=153.41
+            x.hp=70
+            x.atk=80
+            x.defense=70
+            x.spatk=140
+            x.spdef=100
+            x.speed=120
+            x.sprite="https://i.postimg.cc/MTqpnk1L/mega-froslass.png"
+            calcst(x)
+            x.hp=x.maxhp*per
+        elif x.item=="Scolipedite" and "Scolipede" in x.name:
+            x.ability="Tinted Lens"
+            per=x.hp/x.maxhp
+            x.weight=153.41
+            x.hp=60
+            x.atk=130
+            x.defense=109
+            x.spatk=65
+            x.spdef=995
+            x.speed=122
+            x.sprite="https://pbs.twimg.com/media/G0ghgGtXUAE1XSd.png"
+            calcst(x)
+            x.hp=x.maxhp*per
+        elif x.item=="Emboarite" and "Emboar" in x.name:
+            x.ability="Supreme Overlord"
+            per=x.hp/x.maxhp
+            x.weight=153.41
+            x.hp=110
+            x.atk=148
+            x.defense=75
+            x.spatk=110
+            x.spdef=110
+            x.speed=75
+            x.sprite="https://i.postimg.cc/1RV857vP/mega-emboar.png"
+            calcst(x)
+            x.hp=x.maxhp*per
+        elif x.item=="Excadrillite" and "Excadrill" in x.name:
+            x.ability="Tough Claws"
+            per=x.hp/x.maxhp
+            x.weight=153.41
+            x.hp=110
+            x.atk=165
+            x.defense=100
+            x.spatk=65
+            x.spdef=65
+            x.speed=103
+            x.sprite="https://i.postimg.cc/NFB55BJq/mega-excadrill.png"
+            calcst(x)
+            x.hp=x.maxhp*per
+        elif x.item=="Falinksite" and "Falinks" in x.name:
+            per=x.hp/x.maxhp
+            x.weight=153.41
+            x.hp=65
+            x.atk=135
+            x.defense=135
+            x.spatk=70
+            x.spdef=65
+            x.speed=100
+            x.sprite="https://i.postimg.cc/x1pkdrV6/mega-falinks.png"
+            calcst(x)
+            x.hp=x.maxhp*per
+        elif x.item=="Meganiumite" and "Meganium" in x.name:
+            x.ability="Natural Cure"
+            x.secondaryType="Fairy"
+            per=x.hp/x.maxhp
+            x.weight=153.41
+            x.hp=80
+            x.atk=92
+            x.defense=115
+            x.spatk=143
+            x.spdef=115
+            x.speed=80
+            x.sprite="https://i.postimg.cc/rmjFWh9n/mega-meganium.png"
+            calcst(x)
+            x.hp=x.maxhp*per
+        elif x.item=="Pyroarite" and "Pyroar" in x.name:
+            per=x.hp/x.maxhp
+            x.weight=153.41
+            x.hp=86
+            x.atk=88
+            x.defense=92
+            x.spatk=129
+            x.spdef=86
+            x.speed=126
+            x.sprite="https://i.postimg.cc/VkZSNyPZ/mega-pyroar.png"
+            calcst(x)
+            x.hp=x.maxhp*per
+        elif x.item=="Starmite" and "Starmie" in x.name:
+            per=x.hp/x.maxhp
+            x.weight=153.41
+            x.hp=60
+            x.atk=140
+            x.defense=105
+            x.spatk=130
+            x.spdef=105
+            x.speed=120
+            x.sprite="https://i.postimg.cc/ydjY9fTG/mega-starmie.png"
+            calcst(x)
+            x.hp=x.maxhp*per
+        elif x.item=="Clefablite" and "Clefable" in x.name:
+            x.ability="Aerialate"
+            x.secondaryType="Flying"
+            per=x.hp/x.maxhp
+            x.weight=153.41
+            x.hp=95
+            x.atk=80
+            x.defense=93
+            x.spatk=135
+            x.spdef=110
+            x.speed=70
+            x.sprite="https://i.postimg.cc/5yjYtdMS/mega-clefable.png"
+            calcst(x)
+            x.hp=x.maxhp*per
+        elif x.item=="Scolipedite" and "Scolipede" in x.name:
+            per=x.hp/x.maxhp
+            x.weight=153.41
+            x.hp=60
+            x.atk=140
+            x.defense=149
+            x.spatk=75
+            x.spdef=99
+            x.speed=62
+            x.sprite="https://i.postimg.cc/fbxbWWSx/mega-scolipede.png"
+            calcst(x)
+            x.hp=x.maxhp*per
+        elif x.item=="Scraftite" and "Scrafty" in x.name:
+            per=x.hp/x.maxhp
+            x.weight=153.41
+            x.hp=60
+            x.atk=130
+            x.defense=135
+            x.spatk=55
+            x.spdef=135
+            x.speed=68
+            x.sprite="https://i.postimg.cc/TPrP225g/mega-scrafty.png"
+            calcst(x)
+            x.hp=x.maxhp*per
+        elif x.item=="Skarmorite" and "Skarmory" in x.name:
+            per=x.hp/x.maxhp
+            x.weight=153.41
+            x.hp=65
+            x.atk=140
+            x.defense=110
+            x.spatk=40
+            x.spdef=100
+            x.speed=110
+            x.sprite="https://i.postimg.cc/85Nz78Lq/mega-skarmory.png"
+            calcst(x)
+            x.hp=x.maxhp*per
+        elif x.item=="Malamarite" and "Malamar" in x.name:
             x.ability="Contrary"
             per=x.hp/x.maxhp
             x.weight=153.41
             x.hp=86
-            x.atk=110
-            x.defense=120
-            x.spatk=130
-            x.spdef=105
-            x.speed=1120
-            x.sprite="https://pbs.twimg.com/media/G0ghgGtXUAE1XSd.png"
+            x.atk=102
+            x.defense=88
+            x.spatk=98
+            x.spdef=120
+            x.speed=88
+            x.sprite="https://i.postimg.cc/XvTDL3s2/mega-malamar.png"
             calcst(x)
             x.hp=x.maxhp*per
-        if x.item=="Dragonitite" and "Dragonite" in x.name:
+        elif x.item=="Dragonitite" and "Dragonite" in x.name:
             x.ability="Aerilate"
             per=x.hp/x.maxhp
             x.weight=672.41
             x.hp=91
-            x.atk=155
-            x.defense=95
+            x.atk=124
+            x.defense=115
             x.spatk=145
-            x.spdef=100
-            x.speed=80
-            x.sprite="https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/f/e57c0ca5-c162-43e7-b0dc-40f215c30321/dk7cjv0-cd2d611e-a1bc-442e-aafb-68928e0f9e7c.gif?token=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1cm46YXBwOjdlMGQxODg5ODIyNjQzNzNhNWYwZDQxNWVhMGQyNmUwIiwiaXNzIjoidXJuOmFwcDo3ZTBkMTg4OTgyMjY0MzczYTVmMGQ0MTVlYTBkMjZlMCIsIm9iaiI6W1t7InBhdGgiOiJcL2ZcL2U1N2MwY2E1LWMxNjItNDNlNy1iMGRjLTQwZjIxNWMzMDMyMVwvZGs3Y2p2MC1jZDJkNjExZS1hMWJjLTQ0MmUtYWFmYi02ODkyOGUwZjllN2MuZ2lmIn1dXSwiYXVkIjpbInVybjpzZXJ2aWNlOmZpbGUuZG93bmxvYWQiXX0.LI9ZMIkGZPnXlmIMPt3itYY8-Ri9dpgKIgQhu5FrGRE"
+            x.spdef=125
+            x.speed=100
+            x.sprite="https://i.postimg.cc/KYLZhCZs/mega-dragonite.png"
             calcst(x)
             x.hp=x.maxhp*per
-        if x.item=="Victreebelite" and "Victreebel" in x.name:
+        elif x.item=="Drampite" and "Drampa" in x.name:
+            per=x.hp/x.maxhp
+            x.weight=672.41
+            x.hp=78
+            x.atk=85
+            x.defense=110
+            x.spatk=160
+            x.spdef=116
+            x.speed=36
+            x.sprite="https://i.postimg.cc/fR9CcvWk/mega-drampa.png"
+            calcst(x)
+            x.hp=x.maxhp*per
+        elif x.item=="Eelektrossite" and "Eelektross" in x.name:
+            per=x.hp/x.maxhp
+            x.weight=672.41
+            x.hp=85
+            x.atk=145
+            x.defense=80
+            x.spatk=135
+            x.spdef=90
+            x.speed=80
+            x.sprite="https://i.postimg.cc/tghgRRns/mega-eelektross.png"
+            calcst(x)
+            x.hp=x.maxhp*per
+        elif x.item=="Victreebelite" and "Victreebel" in x.name:
             x.ability="Corrosion"
             per=x.hp/x.maxhp
             x.weight=672.41
             x.hp=80
-            x.atk=110
-            x.defense=90
-            x.spatk=125
-            x.spdef=115
+            x.atk=125
+            x.defense=85
+            x.spatk=135
+            x.spdef=95
             x.speed=70
-            x.sprite="https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/f/e57c0ca5-c162-43e7-b0dc-40f215c30321/dkdwzg9-0e6d2014-4568-4fbf-9edd-446c5f3692ec.gif?token=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1cm46YXBwOjdlMGQxODg5ODIyNjQzNzNhNWYwZDQxNWVhMGQyNmUwIiwiaXNzIjoidXJuOmFwcDo3ZTBkMTg4OTgyMjY0MzczYTVmMGQ0MTVlYTBkMjZlMCIsIm9iaiI6W1t7InBhdGgiOiJcL2ZcL2U1N2MwY2E1LWMxNjItNDNlNy1iMGRjLTQwZjIxNWMzMDMyMVwvZGtkd3pnOS0wZTZkMjAxNC00NTY4LTRmYmYtOWVkZC00NDZjNWYzNjkyZWMuZ2lmIn1dXSwiYXVkIjpbInVybjpzZXJ2aWNlOmZpbGUuZG93bmxvYWQiXX0.n5OK72woHYorz6Ew8JAwZn30dvMu3ohJychhoLqFeYA"
+            x.sprite="https://i.postimg.cc/c4ByJKXj/mega-victreebel.png"
             calcst(x)
             x.hp=x.maxhp*per
-        if x.item=="Greninjite" and "Greninja" in x.name:
-            x.ability="Protean"
+        elif x.item=="Greninjite" and "Greninja" in x.name:
+            x.ability="Techician"
             per=x.hp/x.maxhp
             x.weight=672.41
             x.hp=72
             x.atk=125
             x.defense=77
-            x.spatk=145
-            x.spdef=91
-            x.speed=149
-            x.sprite="https://cdn.discordapp.com/attachments/1102579499989745764/1416292988400828486/ei_1757740695331-removebg-preview.png"
+            x.spatk=133
+            x.spdef=81
+            x.speed=142
+            x.sprite="https://i.postimg.cc/63tp8sCr/mega-greninja.png"
             calcst(x)
             x.hp=x.maxhp*per
-        if x.item=="Delphoxite" and "Delphox" in x.name:
-            x.ability="Psychic Surge"
+        elif x.item=="Floettiite" and "Eternal Floette" in x.name:
+            per=x.hp/x.maxhp
+            x.weight=672.41
+            x.hp=74
+            x.atk=85
+            x.defense=87
+            x.spatk=155
+            x.spdef=148
+            x.speed=102
+            x.sprite="https://i.postimg.cc/8zXFC8gy/mega-foette.png"
+            calcst(x)
+            x.hp=x.maxhp*per
+        elif x.item=="Delphoxite" and "Delphox" in x.name:
+            x.ability="Levitate"
             per=x.hp/x.maxhp
             x.weight=672.41
             x.hp=75
             x.atk=69
-            x.defense=92
-            x.spatk=154
-            x.spdef=140
-            x.speed=129
-            x.sprite="https://cdn.discordapp.com/attachments/1102579499989745764/1416292988790767760/ei_1757740883667-removebg-preview.png"
+            x.defense=72
+            x.spatk=159
+            x.spdef=125
+            x.speed=134
+            x.sprite="https://i.postimg.cc/HxdkrGb7/mega-delphox.png"
             calcst(x)
             x.hp=x.maxhp*per
-        if x.item=="Chesnaughtite" and "Chesnaught" in x.name:
-            x.ability="Iron Barbs"
+        elif x.item=="Dragalgite" and "Dragalge" in x.name:
+            per=x.hp/x.maxhp
+            x.weight=672.41
+            x.hp=65
+            x.atk=85
+            x.defense=105
+            x.spatk=132
+            x.spdef=163
+            x.speed=44
+            x.sprite="https://i.postimg.cc/JzYyhwC6/mega-dragalge.png"
+            calcst(x)
+            x.hp=x.maxhp*per
+        elif x.item=="Chesnaughtite" and "Chesnaught" in x.name:
+            x.ability="Stamina"
             per=x.hp/x.maxhp
             x.weight=672.41
             x.hp=88
             x.atk=137
             x.defense=172
-            x.spatk=84
+            x.spatk=74
             x.spdef=115
-            x.speed=65
-            x.sprite="https://cdn.discordapp.com/attachments/1102579499989745764/1416292988098969610/ei_1757739262961-removebg-preview.png"
+            x.speed=44
+            x.sprite="https://i.postimg.cc/PxT5CG1b/mega-chesnaught.png"
             calcst(x)
             x.hp=x.maxhp*per
-        if x.item=="Hawluchaite" and "Hawlucha" in x.name:
-            x.ability="Mold Breaker"
+        elif x.item=="Hawluchaite" and "Hawlucha" in x.name:
+            x.ability="Defiant"
             per=x.hp/x.maxhp
             x.weight=72.41
             x.hp=78
-            x.atk=132
-            x.defense=85
+            x.atk=137
+            x.defense=100
             x.spatk=74
-            x.spdef=83
-            x.speed=148
-            x.sprite="https://pbs.twimg.com/media/Gzd8SPiXIAAaS1t.png"
+            x.spdef=93
+            x.speed=118
+            x.sprite="https://i.postimg.cc/5ymd2MTt/mega-hawlucha.png"
             calcst(x)
             x.hp=x.maxhp*per
-        if x.item=="Gyaradosite" and "Gyarados" in x.name:
+        elif x.item=="Barabaraclite" and "Barabaracle" in x.name:
+            x.secondaryType="Fighting"
+            per=x.hp/x.maxhp
+            x.weight=72.41
+            x.hp=72
+            x.atk=140
+            x.defense=130
+            x.spatk=64
+            x.spdef=106
+            x.speed=88
+            x.sprite="https://i.postimg.cc/8cPhJRct/mega-barbaracle.png"
+            calcst(x)
+            x.hp=x.maxhp*per
+        elif x.item=="Gyaradosite" and "Gyarados" in x.name:
             x.secondaryType="Dark"
             x.ability="Mold Breaker"
             per=x.hp/x.maxhp
@@ -1587,7 +1826,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
         elif x.item=="Raichutite X" and "Raichu" in x.name:
             x.ability="Reckless"
             x.weight=243.61
-            x.sprite="https://cdn.discordapp.com/attachments/1102579499989745764/1416305417214103574/ei_1757743892629-removebg-preview.png"
+            x.sprite="https://i.postimg.cc/FKjKFFkb/mega-raichu-x.png"
             per=x.hp/x.maxhp
             x.hp=60
             x.atk=130
@@ -1600,7 +1839,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
         elif x.item=="Raichutite Y" and "Raichu" in x.name:
             x.ability="Static"
             x.weight=243.61
-            x.sprite="https://cdn.discordapp.com/attachments/1102579499989745764/1416305417541128297/ei_1757743871863-removebg-preview.png"
+            x.sprite="https://i.postimg.cc/hG9G44QV/mega-raichu-y.png"
             per=x.hp/x.maxhp
             x.hp=60
             x.atk=85
@@ -2175,45 +2414,6 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             calcst(x)
             x.hp=x.maxhp*per      
             x.sprite="https://cdn.discordapp.com/attachments/1102579499989745764/1148175796431753216/20230904_144035.png"
-        elif x.item=="Meganiumite":
-            x.ability="Magic Bounce"
-            x.weight=61.29
-            per=x.hp/x.maxhp
-            x.hp=80
-            x.atk=82
-            x.defense=140
-            x.spatk=83
-            x.spdef=140
-            x.speed=100
-            calcst(x)
-            x.hp=x.maxhp*per
-            x.sprite="https://cdn.discordapp.com/attachments/1102579499989745764/1148176788971847740/20230904_144401.png"
-        elif x.item=="Typhlosionite":
-            x.ability="Grim Neigh"
-            x.weight=61.29
-            per=x.hp/x.maxhp
-            x.hp=78
-            x.atk=89
-            x.defense=88
-            x.spatk=159
-            x.spdef=110
-            x.speed=110
-            calcst(x)
-            x.hp=x.maxhp*per
-            x.sprite="https://cdn.discordapp.com/attachments/1102579499989745764/1148176796186054726/20230904_144416.png"
-        elif x.item=="Feraligatrite":
-            x.ability="Tough Claws"
-            x.weight=61.29
-            per=x.hp/x.maxhp
-            x.hp=85
-            x.atk=140
-            x.defense=110
-            x.spatk=89
-            x.spdef=103
-            x.speed=103
-            calcst(x)
-            x.hp=x.maxhp*per
-            x.sprite="https://cdn.discordapp.com/attachments/1102579499989745764/1148176804327206972/20230904_144430.png"
         em.set_image(url=x.sprite)            
         await entryeff(ctx,x,y,tr1,tr2,field,turn)
     return x,em                                           
@@ -3433,7 +3633,7 @@ async def rankedteam(ctx):
     tr1=Trainer(name,mons,"Earth",sprite=sprite,ai=True)
     return tr1    
 async def gameteam(ctx,num=0,p1team=None):
-    players=("World Champion Ash","Professor Oak","Researcher Gary Oak","Team Rocket James","Team Rocket Jessie","Pokemon Breeder Brock","Gym Leader Brock","Tomboyish Mermaid Misty","Gym Leader Misty","Gym Leader Lt.Surge","Gym Leader Erika","Gym Leader Janine","Gym Leader Sabrina","Gym Leader Blaine","Gym Leader Blue","Elite Four Lorelei","Champion Lorelei(Rain)","Champion Lorelei(Hail)","Elite Four Bruno","Elite Four Agatha","Kanto Champion Lance","Pokemon Trainer Green","Pokemon Trainer Trace","Kanto Champion Red","Rocket Boss Giovanni","Pokemon Trainer Silver","Gym Leader Falkner","Gym Leader Bugsy","Gym Leader Morty","Gym Leader Chuck","Gym Leader Jasmine","Gym Leader Pryce","Gym Leader Clair","Elite Four Will","Elite Four Koga","Elite Four Karen","Rocket Admin Archer","Rocket Admin Ariana","Pokemon Trainer Harrison","Pokemon Trainer May","Gym Leader Roxanne","Gym Leader Brawly","Gym Leader Wattson","Gym Leader Flannery","Gym Leader Norman","Gym Leader Winona","Gym Leader Tate","Gym Leader Liza","Gym Leader Juan","Elite Four Sidney","Elite Four Phoebe","Elite Four Glacia","Elite Four Drake","Hoenn Champion Steven","Hoenn Champion Wallace","Aqua Leader Archie","Magma Admin Courtney","Magma Leader Maxie","Factory Head Noland","Arena Tycoon Greta","Dome Ace Tucker","Palace Maven Spenser","Pike Queen Lucy","Salon Maiden Anabel","Pyramid King Brandon","Pokemon Trainer Paul","Pokemon Trainer Barry","Pokemon Trainer Conway","Gym Leader Roark","Gym Leader Gardenia","Gym Leader Maylene","Gym Leader Crasher Wake","Gym Leader Fantina","Gym Leader Byron","Gym Leader Candice","Gym Leader Volkner","Elite Four Aaron","Elite Four Bertha","Elite Four Flint","Elite Four Lucian","Sinnoh Champion Cynthia","Pokemon Trainer Tobias","Galactic Commander Mars","Galactic Commander Jupiter","Galactic Commander Saturn","Galactic Leader Cyrus","Pokemon Trainer Riley","Pokemon Trainer Cheryl","Pokemon Trainer Marley","Pokemon Trainer Mira","Pokemon Trainer Buck","Factory Head Thorton","Battle Arcade Dahlia","Castle Velvet Darach","Hall Matron Argenta","Tower Tycoon Palmer","Pokemon Trainer Trip","Pokemon Trainer Cameron","Pokemon Trainer Stephan","Gym Leader Cilan","Gym Leader Cress","Gym Leader Chili","Pokemon Trainer Cheren","Pokemon Trainer Bianca","Gym Leader Lenora","Gym Leader Roxie","Gym Leader Burgh","Gym Leader Elesa","Gym Leader Clay","Gym Leader Skyla","Gym Leader Brycen","Gym Leader Marlon","Gym Leader Drayden","Gym Leader Marlon","Elite Four Marshal","Elite Four Shauntal","Elite Four Grimsley","Elite Four Caitlin","Unova Champion Alder","Unova Champion Iris","Pokemon Trainer Hugh","Plasma Admin Colress","Natural Harmonia Gropius","Plasma Leader Ghetsis","Boss Trainer Benga","Subway Boss Ingo","Subway Boss Emmet","Pokemon Trainer Sawyer","Pokemon Trainer Trevor","Pokemon Trainer Tierno","Pokemon Trainer Shauna","Gym Leader Viola","Gym Leader Grant","Gym Leader Korrina","Gym Leader Ramos","Gym Leader Clemont","Gym Leader Valerie","Gym Leader Olympia","Gym Leader Wulfric","Elite Four Siebold","Elite Four Wikstrom","Elite Four Malva","Elite Four Drasna","Pokemon Trainer Alain","Kalos Champion Diantha","Flare Boss Lysandre","Pokemon Trainer Gladion","Trial Captain Kiawe","Trial Captain Lana","Trial Captain Lillie","Trial Captain Mallow","Island Kahuna Ilima","Trial Captain Nanu","Elite Four Hala","Elite Four Olivia","Elite Four Molayne","Professor Kukui","Skull Admin Plumeria","Skull Leader Guzma","Aether Foundation Faba","Aether President Lusamine","Gym Leader Milo","Gym Leader Nessa","Gym Leader Kabu","Gym Leader Bede","Gym Leader Bea","Gym Leader Allister","Gym Leader Opal","Gym Leader Gordie","Gym Leader Marnie","Gym Leader Piers","Gym Leader Raihan","Pokemon Trainer Hop","Galar Champion Peony","Galar Champion Leon","Chairman Rose","Galar Champion Mustard","Instructor Jacq","Instructor Miriam","Instructor Tyme","Instructor Dendra","Gym Leader Katy","Gym Leader Brassius","Gym Leader Iono","Gym Leader Kofu","Gym Leader Ryme","Gym Leader Tulip","Gym Leader Grusha","Team Star Giacomo","Team Star Mela","Team Star Atticus","Team Star Ortega","Team Star Eri","Star Leader Penny","Elite Four Rika","Elite Four Poppy","Elite Four Larry","Elite Four Hassel","Paldea Champion Geeta","Paldea Champion Nemona","Pokemon Trainer Carmine","Elite Four Crispin","Elite Four Amarys","Elite Four Lacey","Elite Four Drayton","Pokemon Trainer Keiran","Academy Director Cyrano","Director Clavell","Professor Sada","Professor Turo","Elite Four Acerola","Pokemon Trainer Drew","Battle Chatelaine Evelyn","Island Kahuna Hapu","Fusion Creator Darwin","Elite Four Kahili","Coordinator Kenny","Gym Leader Klara","Aqua Admin Matt","Battle Chatelaine Nita","Pokemon Wielder Volo","Nurse Joy","Evil Trainer Crescent","CrescentUwU","Cipher Head Evice",'Gym Leader Jessica','Gym Leader Esmeralda','Gym Leader Lucas','Gym Leader Thomas','Gym Leader Atlur','Gym Leader Rayner','Gym Leader Sophia','Gym Leader Wesley','Elite Four Aisey','Elite Four Triton','Elite Four Rukia','Elite Four Elizabeth','Zhery Champion Kaohri')
+    players=("Pokemon Trainer Naveen","Pokemon Trainer Lida","World Champion Ash","Professor Oak","Researcher Gary Oak","Team Rocket James","Team Rocket Jessie","Pokemon Breeder Brock","Gym Leader Brock","Tomboyish Mermaid Misty","Gym Leader Misty","Gym Leader Lt.Surge","Gym Leader Erika","Gym Leader Janine","Gym Leader Sabrina","Gym Leader Blaine","Gym Leader Blue","Elite Four Lorelei","Champion Lorelei(Rain)","Champion Lorelei(Hail)","Elite Four Bruno","Elite Four Agatha","Kanto Champion Lance","Pokemon Trainer Green","Pokemon Trainer Trace","Kanto Champion Red","Rocket Boss Giovanni","Pokemon Trainer Silver","Gym Leader Falkner","Gym Leader Bugsy","Gym Leader Morty","Gym Leader Chuck","Gym Leader Jasmine","Gym Leader Pryce","Gym Leader Clair","Elite Four Will","Elite Four Koga","Elite Four Karen","Rocket Admin Archer","Rocket Admin Ariana","Pokemon Trainer Harrison","Pokemon Trainer May","Gym Leader Roxanne","Gym Leader Brawly","Gym Leader Wattson","Gym Leader Flannery","Gym Leader Norman","Gym Leader Winona","Gym Leader Tate","Gym Leader Liza","Gym Leader Juan","Elite Four Sidney","Elite Four Phoebe","Elite Four Glacia","Elite Four Drake","Hoenn Champion Steven","Hoenn Champion Wallace","Aqua Leader Archie","Magma Admin Courtney","Magma Leader Maxie","Factory Head Noland","Arena Tycoon Greta","Dome Ace Tucker","Palace Maven Spenser","Pike Queen Lucy","Salon Maiden Anabel","Pyramid King Brandon","Pokemon Trainer Paul","Pokemon Trainer Barry","Pokemon Trainer Conway","Gym Leader Roark","Gym Leader Gardenia","Gym Leader Maylene","Gym Leader Crasher Wake","Gym Leader Fantina","Gym Leader Byron","Gym Leader Candice","Gym Leader Volkner","Elite Four Aaron","Elite Four Bertha","Elite Four Flint","Elite Four Lucian","Sinnoh Champion Cynthia","Pokemon Trainer Tobias","Galactic Commander Mars","Galactic Commander Jupiter","Galactic Commander Saturn","Galactic Leader Cyrus","Pokemon Trainer Riley","Pokemon Trainer Cheryl","Pokemon Trainer Marley","Pokemon Trainer Mira","Pokemon Trainer Buck","Factory Head Thorton","Battle Arcade Dahlia","Castle Velvet Darach","Hall Matron Argenta","Tower Tycoon Palmer","Pokemon Trainer Trip","Pokemon Trainer Cameron","Pokemon Trainer Stephan","Gym Leader Cilan","Gym Leader Cress","Gym Leader Chili","Pokemon Trainer Cheren","Pokemon Trainer Bianca","Gym Leader Lenora","Gym Leader Roxie","Gym Leader Burgh","Gym Leader Elesa","Gym Leader Clay","Gym Leader Skyla","Gym Leader Brycen","Gym Leader Marlon","Gym Leader Drayden","Gym Leader Marlon","Elite Four Marshal","Elite Four Shauntal","Elite Four Grimsley","Elite Four Caitlin","Unova Champion Alder","Unova Champion Iris","Pokemon Trainer Hugh","Plasma Admin Colress","Natural Harmonia Gropius","Plasma Leader Ghetsis","Boss Trainer Benga","Subway Boss Ingo","Subway Boss Emmet","Pokemon Trainer Sawyer","Pokemon Trainer Trevor","Pokemon Trainer Tierno","Pokemon Trainer Shauna","Gym Leader Viola","Gym Leader Grant","Gym Leader Korrina","Gym Leader Ramos","Gym Leader Clemont","Gym Leader Valerie","Gym Leader Olympia","Gym Leader Wulfric","Elite Four Siebold","Elite Four Wikstrom","Elite Four Malva","Elite Four Drasna","Pokemon Trainer Alain","Kalos Champion Diantha","Flare Boss Lysandre","Pokemon Trainer Gladion","Trial Captain Kiawe","Trial Captain Lana","Trial Captain Lillie","Trial Captain Mallow","Island Kahuna Ilima","Trial Captain Nanu","Elite Four Hala","Elite Four Olivia","Elite Four Molayne","Professor Kukui","Skull Admin Plumeria","Skull Leader Guzma","Aether Foundation Faba","Aether President Lusamine","Gym Leader Milo","Gym Leader Nessa","Gym Leader Kabu","Gym Leader Bede","Gym Leader Bea","Gym Leader Allister","Gym Leader Opal","Gym Leader Gordie","Gym Leader Marnie","Gym Leader Piers","Gym Leader Raihan","Pokemon Trainer Hop","Galar Champion Peony","Galar Champion Leon","Chairman Rose","Galar Champion Mustard","Instructor Jacq","Instructor Miriam","Instructor Tyme","Instructor Dendra","Gym Leader Katy","Gym Leader Brassius","Gym Leader Iono","Gym Leader Kofu","Gym Leader Ryme","Gym Leader Tulip","Gym Leader Grusha","Team Star Giacomo","Team Star Mela","Team Star Atticus","Team Star Ortega","Team Star Eri","Star Leader Penny","Elite Four Rika","Elite Four Poppy","Elite Four Larry","Elite Four Hassel","Paldea Champion Geeta","Paldea Champion Nemona","Pokemon Trainer Carmine","Elite Four Crispin","Elite Four Amarys","Elite Four Lacey","Elite Four Drayton","Pokemon Trainer Keiran","Academy Director Cyrano","Director Clavell","Professor Sada","Professor Turo","Elite Four Acerola","Pokemon Trainer Drew","Battle Chatelaine Evelyn","Island Kahuna Hapu","Fusion Creator Darwin","Elite Four Kahili","Coordinator Kenny","Gym Leader Klara","Aqua Admin Matt","Battle Chatelaine Nita","Pokemon Wielder Volo","Nurse Joy","Evil Trainer Crescent","CrescentUwU","Cipher Head Evice",'Gym Leader Jessica','Gym Leader Esmeralda','Gym Leader Lucas','Gym Leader Thomas','Gym Leader Atlur','Gym Leader Rayner','Gym Leader Sophia','Gym Leader Wesley','Elite Four Aisey','Elite Four Triton','Elite Four Rukia','Elite Four Elizabeth','Zhery Champion Kaohri')
     if num==0:
         name=random.choice(players)  
     else:
@@ -3466,6 +3666,8 @@ async def gameteam(ctx,num=0,p1team=None):
     return tr1    
 async def trsprite(name):
     spritelist={
+    "Pokemon Trainer Naveen":"https://archives.bulbagarden.net/media/upload/thumb/1/18/ZA_Naveen.png/140px-ZA_Naveen.png",
+    "Pokemon Trainer Lida":"https://archives.bulbagarden.net/media/upload/thumb/4/4c/ZA_Lida.png/180px-ZA_Lida.png",    
     "Zhery Champion Kaohri":"https://cdn.discordapp.com/attachments/1102579499989745764/1193467672097202256/20240107_141321.png",    
     'Elite Four Elizabeth':'https://cdn.discordapp.com/attachments/1102579499989745764/1193467671883296788/20240107_141305.png',
     'Elite Four Rukia':'https://cdn.discordapp.com/attachments/1102579499989745764/1193467671656800266/20240107_141242.png',

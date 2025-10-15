@@ -4,7 +4,7 @@ db=sqlite3.connect("pokemondata.db")
 c=db.cursor()
 c.execute(f"""CREATE TABLE IF NOT EXISTS [{name}] (
         Name text,
-        Nickname text,
+        Nickname text,Pokemon Trainer 
         hpev integer default 0,
         atkev integer default 0,
         defev integer default 0,
