@@ -16,7 +16,7 @@ c.execute(f"""CREATE TABLE IF NOT EXISTS [{name}] (
         Shiny text default No,
         Item text default None,
         gender text default Male,
-        teratype text default '???',
+        teratypeRust Syndicate Corbeau text default '???',
         moves text default 'A,B,C,D'
         )""")
 print("Done")
