@@ -2,6 +2,7 @@ import random
 import discord
 import sqlite3
 import requests
+import aiohttp
 from pokemon import *
 from movelist import *
 from trainers import *
@@ -241,6 +242,7 @@ async def gensub(num, original_dict):
     sub_dict = dict(zip(keys, values))
 
     return sub_dict
+
 async def listtodic(lst):
     dict_count = {}    
     for element in lst:
@@ -368,65 +370,242 @@ async def teraicon(type):
     "Water":"<:water:1127152085159399475>",
     "Stellar":"<:stellartera:1187804319634964640>"
     }
-    return teradic[type]    
+    return teradic[type] 
+   
 async def entryeff(ctx, x, y, tr1, tr2, field, turn):
     entry = discord.Embed(title="Entry Effects:",color=0xffffff)
     em = None
-    if x.ability=="Download" and y.ability!="Neutralizing Gas":
-        entry.add_field(name=f"{x.icon} {x.name}'s {x.ability}!",value=f"{x.name} analyzing data from its opponent!")
-        x.showability=True
-        m=[a,b,c,d,e]=[y.atk,y.defense,y.spatk,y.spdef,y.speed]
-        if tr2.reflect==True:
-            m=[y.atk,y.defense/2,y.spatk,y.spdef,y.speed]
-        if tr2.lightscreen==True:
-            m=[y.atk,y.defense,y.spatk,y.spdef/2,y.speed]
-        mn=min(m)
-        mx=max(m)
-        if mx==a:
-            await defchange(entry,x,x,1)
-        elif mn==b:
+    if y.ability!="Neutralizing Gas":
+        if x.ability=="Download":
+            entry.add_field(name=f"{x.icon} {x.name}'s {x.ability}!",value=f"{x.name} analyzing data from its opponent!")
+            x.showability=True
+            m=[a,b,c,d,e]=[y.atk,y.defense,y.spatk,y.spdef,y.speed]
+            if tr2.reflect==True:
+                m=[y.atk,y.defense/2,y.spatk,y.spdef,y.speed]
+            if tr2.lightscreen==True:
+                m=[y.atk,y.defense,y.spatk,y.spdef/2,y.speed]
+            mn=min(m)
+            mx=max(m)
+            if mx==a:
+                await defchange(entry,x,x,1)
+            elif mn==b:
+                await atkchange(entry,x,x,1)
+            elif mx==c:
+                await spdefchange(entry,x,x,1)
+            elif mn==d:
+                await spatkchange(entry,x,x,1)
+            elif mx==e:
+                await speedchange(entry,x,x,1)
+        elif x.ability=="Intrepid Sword":
+            entry.add_field(name=f"{x.icon} {x.name}'s {x.ability}!",value=f"{x.name}'s attack rose!")
             await atkchange(entry,x,x,1)
-        elif mx==c:
-            await spdefchange(entry,x,x,1)
-        elif mn==d:
-            await spatkchange(entry,x,x,1)
-        elif mx==e:
-            await speedchange(entry,x,x,1)
-    elif x.ability=="Intrepid Sword" and y.ability!="Neutralizing Gas":
-        entry.add_field(name=f"{x.icon} {x.name}'s {x.ability}!",value=f"{x.name}'s attack rose!")
-        await atkchange(entry,x,x,1)
-        x.showability=True
-    elif x.ability=="Dauntless Shield" and y.ability!="Neutralizing Gas":
-        entry.add_field(name=f"{x.icon} {x.name}'s {x.ability}!",value=f"{x.name}'s defense rose!")
-        await defchange(entry,x,x,1)
-        x.showability=True
-    elif x.ability=="Embody Aspect" and y.ability!="Neutralizing Gas":
-        x.showability=True
-        if x.item=="Wellspring Mask":
-            entry.add_field(name=f"{x.icon} {x.name}'s {x.ability}!",value=f"Wellspring Mask worn by {x.name} shone brilliantly, and {x.name}'s Special Defense rose!")
-            await spdefchange(entry,x,x,1)
-        elif x.item=="Hearthflame Mask":
-            entry.add_field(name=f"{x.icon} {x.name}'s {x.ability}!",value=f"Hearthflame Mask worn by {x.name} shone brilliantly, and {x.name}'s Attack rose!")
-            await atkchange(entry,x,x,1)
-        elif x.item=="Cornerstone Mask":
-            entry.add_field(name=f"{x.icon} {x.name}'s {x.ability}!",value=f"Cornerstone Mask worn by {x.name} shone brilliantly, and {x.name}'s Defense rose!")
+            x.showability=True
+        elif x.ability=="Dauntless Shield":
+            entry.add_field(name=f"{x.icon} {x.name}'s {x.ability}!",value=f"{x.name}'s defense rose!")
             await defchange(entry,x,x,1)
-        else:
-            entry.add_field(name=f"{x.icon} {x.name}'s {x.ability}!",value=f"Teal Mask worn by {x.name} shone brilliantly, and {x.name}'s Speed rose!")
-            await speedchange(entry,x,x,1)
-            
-    elif x.ability=="Vessel of Ruin" and y.ability!="Neutralizing Gas":
-        x.showability=True
-        entry.add_field(name=f"<:vessel:1138386145194037258> {x.icon} {x.name}'s Vessel of Ruin!",value=f"{x.name} weakened the Special Attack of all surrounding Pokémon!")
-    elif x.ability=="Sword of Ruin" and y.ability!="Neutralizing Gas":
-        x.showability=True
-        entry.add_field(name=f"<:sword:1138386246348046336> {x.icon} {x.name}'s Sword of Ruin!",value=f"{x.name} weakened the Defense of all surrounding Pokémon!")
-    elif x.ability=="Tablets of Ruin" and y.ability!="Neutralizing Gas":
-        x.showability=True
-        entry.add_field(name=f"<:tablets:1138386311598837761> {x.icon} {x.name}'s Beads of Ruin!",value=f"{x.name} weakened the Attack of all surrounding Pokémon!")        
-    elif x.ability=="Beads of Ruin" and y.ability!="Neutralizing Gas":
-        x.showability=True
-        entry.add_field(name=f"<:beads:1138386205713633360> {x.icon} {x.name}'s Beads of Ruin!",value=f"{x.name} weakened the Special Defense of all surrounding Pokémon!")        
+            x.showability=True
+        elif x.ability=="Embody Aspect":
+            x.showability=True
+            if x.item=="Wellspring Mask":
+                entry.add_field(name=f"{x.icon} {x.name}'s {x.ability}!",value=f"Wellspring Mask worn by {x.name} shone brilliantly, and {x.name}'s Special Defense rose!")
+                await spdefchange(entry,x,x,1)
+            elif x.item=="Hearthflame Mask":
+                entry.add_field(name=f"{x.icon} {x.name}'s {x.ability}!",value=f"Hearthflame Mask worn by {x.name} shone brilliantly, and {x.name}'s Attack rose!")
+                await atkchange(entry,x,x,1)
+            elif x.item=="Cornerstone Mask":
+                entry.add_field(name=f"{x.icon} {x.name}'s {x.ability}!",value=f"Cornerstone Mask worn by {x.name} shone brilliantly, and {x.name}'s Defense rose!")
+                await defchange(entry,x,x,1)
+            else:
+                entry.add_field(name=f"{x.icon} {x.name}'s {x.ability}!",value=f"Teal Mask worn by {x.name} shone brilliantly, and {x.name}'s Speed rose!")
+                await speedchange(entry,x,x,1)
+                
+        elif x.ability=="Vessel of Ruin":
+            x.showability=True
+            entry.add_field(name=f"<:vessel:1138386145194037258> {x.icon} {x.name}'s Vessel of Ruin!",value=f"{x.name} weakened the Special Attack of all surrounding Pokémon!")
+        elif x.ability=="Sword of Ruin":
+            x.showability=True
+            entry.add_field(name=f"<:sword:1138386246348046336> {x.icon} {x.name}'s Sword of Ruin!",value=f"{x.name} weakened the Defense of all surrounding Pokémon!")
+        elif x.ability=="Tablets of Ruin":
+            x.showability=True
+            entry.add_field(name=f"<:tablets:1138386311598837761> {x.icon} {x.name}'s Beads of Ruin!",value=f"{x.name} weakened the Attack of all surrounding Pokémon!")        
+        elif x.ability=="Beads of Ruin":
+            x.showability=True
+            entry.add_field(name=f"<:beads:1138386205713633360> {x.icon} {x.name}'s Beads of Ruin!",value=f"{x.name} weakened the Special Defense of all surrounding Pokémon!")  
+        elif x.ability=="Intimidate" and y.ability not in ["Inner Focus","Oblivious","Clear Body","Good as Gold"] and x.item not in ["Clear Amulet"]:
+            x.showability=True
+            entry.add_field(name="Intimidate:", value=f"{x.icon} {x.name}'s Intimidate!")
+            entry.set_thumbnail(url=x.sprite)
+            if y.ability!="Guard Dog":
+                await atkchange(entry,y,x,-1)
+            if y.ability=="Guard Dog":
+                await atkchange(entry,y,x,1)            
+            if y.item=="Adrenaline Orb":       
+                await speedchange(entry,y,x,2)
+        elif x.ability=="Majestic Moth":
+            m=[a,b,c,d,e]=[y.atk,y.defense,y.spatk,y.spdef,y.speed]
+            if tr2.reflect==True:
+                m=[y.atk,y.defense/2,y.spatk,y.spdef,y.speed]
+            if tr2.lightscreen==True:
+                m=[y.atk,y.defense,y.spatk,y.spdef/2,y.speed]
+            pp=max(m)
+            if pp==a:
+                await atkchange(em,y,y,1)
+            elif pp==b:
+                await defchange(em,y,y,1)
+            elif pp==c:
+                await spatkchange(em,y,y,1)
+            elif pp==d:
+                await spdefchange(em,y,y,1)
+            elif pp==e:
+                await speedchange(em,y,y,1)                
+        elif x.ability == "Comatose":
+            x.showability=True
+            entry.add_field(name=f"{x.icon} {x.name}'s Comatose!", value=f"{x.name} is in a drowsy state.")
+            x.status = "Drowsy"    
+        elif x.ability == "Flower Gift" and field.weather in ["Sunny", "Extreme Sunlight"] and "Cherrim" in x.name and x.sprite != "https://play.pokemonshowdown.com/sprites/ani/cherrim-sunshine.gif" and y.ability!="Neutralizing Gas":
+            entry.add_field(name=f"{x.icon} {x.name}'s Flower Gift!", value=f"{x.name} is reacting and absorbing sunlight!")
+            x.sprite = "https://play.pokemonshowdown.com/sprites/ani/cherrim-sunshine.gif"
+        elif x.ability == "Illusion":
+            x.name = tr1.pokemons[-1].name
+            x.nickname = tr1.pokemons[-1].nickname
+            x.sprite = tr1.pokemons[-1].sprite
+        elif x.ability == "Pressure" and y.ability not in ["Mold Breaker", "Teravolt", "Turboblaze", "Propeller Tail"]:
+            x.showability=True
+            entry.add_field(name=f"{x.icon} {x.name}'s Pressure!", value=f"{x.name} is exerting its pressure!")
+        elif x.ability=="Supreme Overlord" and len(tr1.pokemons)!=0:
+            x.showability=True
+            entry.add_field(name=f"{x.icon} {x.name}'s Supreme Overlord!",value=f"{x.name} gained strength from the fallen!")  
+        elif x.ability=="Frisk" and ("None" not in y.item and "Used" not in y.item):
+            x.showability=True
+            entry.add_field(name=f"{x.icon} {x.name}'s Frisk!",value=f"{y.name} is holding a {y.item}!")      
+        elif x.ability in ["Air Lock","Cloud Nine"] and field.weather!="Clear":       
+            x.showability=True
+            entry.add_field(name=f"{x.icon} {x.name}'s Air Lock!",value=f"{x.name} nullified the effects of weather!")   
+        elif x.ability=="Delta Stream" and field.weather!="Strong Winds":        
+            x.showability=True
+            entry.add_field(name=f"{x.icon} {x.name}'s Delta Stream!",value=f"Mysterious strong winds are protecting Flying-type Pokémon!")  
+            field.weather="Strong Winds"
+        elif x.ability=="Stakeout":
+            x.atk*=2
+            x.spatk*=2
+        elif x.ability=="Trace" and y.ability not in ["As One","Battle Bond","Commander","Disguise","Forecast","Ice Face","Imposter","Illusion","Multitype","Power of Alchemy","Protosynthesis","Stance Change","Quark Drive","RKS System","Schooling","Trace","Zen Mode","Zero to Hero"] and y.item!="Ability Shield":
+            entry.add_field(name=f"{x.icon} {x.name}'s Trace!",value=f"{x.name} gained {y.ability}!")
+            x.ability=y.ability
+            x.showability=True
+            await entryeff(ctx,x,y,tr1,tr2,field,turn)   
+        elif "Quark Drive" in x.ability and field.terrain=="Electric" and ("Booster Energy" not in x.item or "Used" in x.item):    
+            x.showability=True    
+            entry.add_field(name=f"{x.icon} {x.name}'s Quark Drive!",value=f"Electric Terrain activated {x.icon} {x.name}'s Quark Drive!")       
+        elif "Protosynthesis" in x.ability and field.weather in ["Sunny","Extreme Sunlight"] and ("Booster Energy" not in x.item or "Used" in x.item) and y.ability!="Neutralizing Gas":    
+            x.showability=True
+            entry.add_field(name=f"{x.icon} {x.name}'s Protosynthesis!",value=f"Harsh sunlight activated {x.icon} {x.name}'s Protosynthesis!")  
+        elif x.ability=="Costar":
+            x.atkb=y.atkb
+            x.defb=y.defb
+            x.spatkb=y.spatkb
+            x.spdefb=y.spdefb
+            x.speedb=y.speedb   
+            entry.add_field(name=f"{x.icon} {x.name}'s Costar!",value=f"{x.name} copied {y.icon} {y.name}'s stat boosts!")         
+            x.showability=True
+        elif x.ability=="Imposter" and y.dmax is False and y.item not in megastones:    
+            entry.add_field(name=f"{x.icon} {x.name}'s Imposter!",value=f"{x.name} transformed into {y.name}!")
+            x.hp=round(y.maxhp*(x.hp/x.maxhp))     
+            x.sprite=y.sprite
+            x.maxhp=y.maxhp
+            x.maxatk=y.maxatk
+            x.maxdef=y.maxdef
+            x.maxspatk=y.maxspatk
+            x.maxspdef=y.maxspdef
+            x.maxspeed=y.maxspeed    
+            x.atk=y.atk
+            x.defense=y.defense
+            x.spatk=y.spatk
+            x.spdef=y.spdef
+            x.speed=y.speed    
+            x.atkb=y.atkb
+            x.defb=y.defb
+            x.spatkb=y.spatkb
+            x.spdefb=y.spdefb
+            x.speedb=y.speedb
+            x.moves=y.moves
+            x.primaryType=y.primaryType
+            x.secondaryType=y.secondaryType
+            x.ability=y.ability
+            x.name=x.name+f"({y.name})"
+        elif (x.ability == "Sand Stream" or (x.ability=="Forecast" and x.item=="Smooth Rock")) and field.weather not in ["Sandstorm","Heavy Rain","Extreme Sunlight"]:
+            x.showability=True
+            entry.add_field(name=f"{x.icon} {x.name}'s Sand Stream!",value=f"️{x.name} whipped up a sandstorm!")
+            field.weather="Sandstorm" 
+            field.sandturn=turn
+            await sandend(field,x,y)   
+        elif x.ability=="Primordial Sea" and field.weather!="Heavy Rain":
+            x.showability=True
+            entry.add_field(name=f"{x.icon} {x.name}'s Primordial Sea!",value=f"️A heavy rain began to fall!")
+            field.weather="Heavy Rain"
+        elif x.ability=="Desolate Land" and field.weather!="Extreme Sunlight":  
+            x.showability=True
+            entry.add_field(name=f"{x.icon} {x.name}'s Desolate Land!",value=f"️The sunlight turned extremely harsh!")
+            field.weather="Extreme Sunlight"   
+        elif x.ability=="Drought" and field.weather not in ["Sunny","Heavy Rain","Extreme Sunlight"]:
+            x.showability=True
+            entry.add_field(name=f"{x.icon} {x.name}'s Drought!",value=f"️{x.name} intensified the sun's rays!")
+            field.weather="Sunny"  
+            field.sunturn=turn
+            await sunend(field,x,y)
+        elif x.ability=="Orichalcum Pulse" and field.weather not in ["Sunny","Heavy Rain","Extreme Sunlight"]:
+            x.showability=True
+            entry.add_field(name=f"{x.icon} {x.name}'s Orichalcum Pulse!",value=f"️{x.name} turned the sunlight harsh, sending its ancient pulse into a frenzy!")
+            field.weather="Sunny"  
+            field.sunturn=turn
+            await sunend(field,x,y)
+        elif x.ability=="Drizzle" and field.weather not in ["Rainy","Heavy Rain","Extreme Sunlight"]:
+            x.showability=True
+            entry.add_field(name=f"{x.icon} {x.name}'s Drizzle!",value=f"️{x.name} made it rain!")
+            field.weather="Rainy"  
+            field.rainturn=turn
+            await rainend(field,x,y)   
+        elif x.ability=="Snow Warning" and field.weather not in ["Snowstorm","Heavy Rain","Extreme Sunlight"]:
+            x.showability=True
+            entry.add_field(name=f"{x.icon} {x.name}'s Snow Warning!",value=f"️{x.name} whipped up a snowstorm!")
+            field.weather="Snowstorm"  
+            field.snowturn=turn
+            await snowend(field,x,y)  
+        elif x.ability=="Electric Surge":
+            x.showability=True
+            entry.add_field(name=f"{x.icon} {x.name}'s Electric Surge!",value=f"️An electric current ran across the battlefield!")
+            field.terrain="Electric"
+            field.eleturn=turn
+            field.eleend(x,y)  
+        elif x.ability=="Hadron Engine":
+            x.showability=True
+            entry.add_field(name=f"{x.icon} {x.name}'s Hadron Engine!",value=f"️{x.name} summoned the Electric Terrain to energize its futuristic engine!")
+            field.terrain="Electric"
+            field.eleturn=turn
+            field.eleend(x,y)       
+        elif x.ability=="Misty Surge":
+            x.showability=True
+            entry.add_field(name=f"{x.icon} {x.name}'s Misty Surge!",value=f"️Mist swirled around the battlefield!")
+            field.terrain="Misty"
+            field.misturn=turn
+            field.misend(x,y)     
+        elif x.ability=="Grassy Surge":
+            x.showability=True
+            entry.add_field(name=f"{x.icon} {x.name}'s Grassy Surge!",value=f"️Grass grew to cover the battlefield!")
+            field.terrain="Grassy"
+            field.grassturn=turn
+            field.grassend(x,y)   
+        elif x.ability=="Psychic Surge":
+            x.showability=True
+            entry.add_field(name=f"{x.icon} {x.name}'s Psychic Surge!",value=f"️The battlefield got weird!")     
+            field.terrain="Psychic"        
+            field.psyturn=turn
+            field.psyend(x,y)      
+        elif x.ability=="North Wind":        
+            x.showability=True
+            tr1.auroraturn=turn
+            tr1.auroraend(x,y)
+            tr1.auroraveil=True  
+            entry.add_field(name=f"{x.icon} {x.name}'s North Wind!",value="Aurora Veil will reduced your team's damage taken!")
     if x.item == "Blue Orb" and "Primal" not in x.name and x.name == "Kyogre":
         em = discord.Embed(title="Primal Reversion:", description=f"{x.name}'s Primal Reversion! It reverted to its primal form!")
         x.sprite = x.sprite.replace(".gif", "-primal.gif")
@@ -449,227 +628,70 @@ async def entryeff(ctx, x, y, tr1, tr2, field, turn):
         calcst(x)
         x.hp = x.maxhp * per
         em.set_image(url=x.sprite)
-        em.set_thumbnail(url="https://cdn.discordapp.com/attachments/1102579499989745764/1109011460601954364/Red_Orb.png")
-    if x.ability=="Intimidate" and y.ability not in ["Inner Focus","Oblivious","Clear Body","Good as Gold"] and x.item not in ["Clear Amulet"]:
-        x.showability=True
-        entry.add_field(name="Intimidate:", value=f"{x.icon} {x.name}'s Intimidate!")
-        entry.set_thumbnail(url=x.sprite)
-        if y.ability!="Guard Dog":
-            await atkchange(entry,y,x,-1)
-        if y.ability=="Guard Dog":
-            await atkchange(entry,y,x,1)            
-        if y.item=="Adrenaline Orb":       
-            await speedchange(entry,y,x,2)
-    elif x.ability=="Majestic Moth" and y.ability!="Neutralizing Gas":
-        m=[a,b,c,d,e]=[y.atk,y.defense,y.spatk,y.spdef,y.speed]
-        if tr2.reflect==True:
-            m=[y.atk,y.defense/2,y.spatk,y.spdef,y.speed]
-        if tr2.lightscreen==True:
-            m=[y.atk,y.defense,y.spatk,y.spdef/2,y.speed]
-        pp=max(m)
-        if pp==a:
-            await atkchange(em,y,y,1)
-        elif pp==b:
-            await defchange(em,y,y,1)
-        elif pp==c:
-            await spatkchange(em,y,y,1)
-        elif pp==d:
-            await spdefchange(em,y,y,1)
-        elif pp==e:
-            await speedchange(em,y,y,1)                
-    elif x.ability == "Comatose" and y.ability!="Neutralizing Gas":
-        x.showability=True
-        entry.add_field(name=f"{x.icon} {x.name}'s Comatose!", value=f"{x.name} is in a drowsy state.")
-        x.status = "Drowsy"    
-    elif x.ability == "Flower Gift" and field.weather in ["Sunny", "Extreme Sunlight"] and "Cherrim" in x.name and x.sprite != "https://play.pokemonshowdown.com/sprites/ani/cherrim-sunshine.gif" and y.ability!="Neutralizing Gas":
-        entry.add_field(name=f"{x.icon} {x.name}'s Flower Gift!", value=f"{x.name} is reacting and absorbing sunlight!")
-        x.sprite = "https://play.pokemonshowdown.com/sprites/ani/cherrim-sunshine.gif"
-    elif x.ability == "Illusion" and y.ability!="Neutralizing Gas":
-        x.name = tr1.pokemons[-1].name
-        x.nickname = tr1.pokemons[-1].nickname
-        x.sprite = tr1.pokemons[-1].sprite
-    elif x.ability == "Pressure" and y.ability not in ["Mold Breaker", "Teravolt", "Turboblaze", "Propeller Tail"] and y.ability!="Neutralizing Gas":
-        x.showability=True
-        entry.add_field(name=f"{x.icon} {x.name}'s Pressure!", value=f"{x.name} is exerting its pressure!")
-    elif x.ability=="Supreme Overlord" and len(tr1.pokemons)!=0:
-        x.showability=True
-        entry.add_field(name=f"{x.icon} {x.name}'s Supreme Overlord!",value=f"{x.name} gained strength from the fallen!")  
-    elif x.ability=="Frisk" and ("None" not in y.item and "Used" not in y.item) and y.ability!="Neutralizing Gas":
-        x.showability=True
-        entry.add_field(name=f"{x.icon} {x.name}'s Frisk!",value=f"{y.name} is holding a {y.item}!")      
-    elif x.ability in ["Air Lock","Cloud Nine"] and field.weather!="Clear" and y.ability!="Neutralizing Gas":       
-        x.showability=True
-        entry.add_field(name=f"{x.icon} {x.name}'s Air Lock!",value=f"{x.name} nullified the effects of weather!")   
-    elif x.ability=="Delta Stream" and field.weather!="Strong Winds" and y.ability!="Neutralizing Gas":        
-        x.showability=True
-        entry.add_field(name=f"{x.icon} {x.name}'s Delta Stream!",value=f"Mysterious strong winds are protecting Flying-type Pokémon!")  
-        field.weather="Strong Winds"
-    elif x.ability=="Stakeout" and y.ability!="Neutralizing Gas":
-        x.atk*=2
-        x.spatk*=2
-    elif x.ability=="Trace" and y.ability not in ["As One","Battle Bond","Commander","Disguise","Forecast","Ice Face","Imposter","Illusion","Multitype","Power of Alchemy","Protosynthesis","Stance Change","Quark Drive","RKS System","Schooling","Trace","Zen Mode","Zero to Hero"] and y.item!="Ability Shield" and y.ability!="Neutralizing Gas":
-        entry.add_field(name=f"{x.icon} {x.name}'s Trace!",value=f"{x.name} gained {y.ability}!")
-        x.ability=y.ability
-        x.showability=True
-        await entryeff(ctx,x,y,tr1,tr2,field,turn)   
-    elif "Quark Drive" in x.ability and field.terrain=="Electric" and ("Booster Energy" not in x.item or "Used" in x.item) and y.ability!="Neutralizing Gas":    
-        x.showability=True    
-        entry.add_field(name=f"{x.icon} {x.name}'s Quark Drive!",value=f"Electric Terrain activated {x.icon} {x.name}'s Quark Drive!")   
-    elif "Protosynthesis" in x.ability and field.weather in ["Sunny","Extreme Sunlight"] and ("Booster Energy" not in x.item or "Used" in x.item) and y.ability!="Neutralizing Gas":    
-        x.showability=True
-        entry.add_field(name=f"{x.icon} {x.name}'s Protosynthesis!",value=f"Harsh sunlight activated {x.icon} {x.name}'s Protosynthesis!")  
-    elif x.ability=="Costar" and y.ability!="Neutralizing Gas":
-        x.atkb=y.atkb
-        x.defb=y.defb
-        x.spatkb=y.spatkb
-        x.spdefb=y.spdefb
-        x.speedb=y.speedb   
-        entry.add_field(name=f"{x.icon} {x.name}'s Costar!",value=f"{x.name} copied {y.icon} {y.name}'s stat boosts!")         
-        x.showability=True
-    elif x.ability=="Imposter" and y.dmax is False and y.item not in megastones and y.ability!="Neutralizing Gas":    
-        entry.add_field(name=f"{x.icon} {x.name}'s Imposter!",value=f"{x.name} transformed into {y.name}!")
-        x.hp=round(y.maxhp*(x.hp/x.maxhp))     
-        x.sprite=y.sprite
-        x.maxhp=y.maxhp
-        x.maxatk=y.maxatk
-        x.maxdef=y.maxdef
-        x.maxspatk=y.maxspatk
-        x.maxspdef=y.maxspdef
-        x.maxspeed=y.maxspeed    
-        x.atk=y.atk
-        x.defense=y.defense
-        x.spatk=y.spatk
-        x.spdef=y.spdef
-        x.speed=y.speed    
-        x.atkb=y.atkb
-        x.defb=y.defb
-        x.spatkb=y.spatkb
-        x.spdefb=y.spdefb
-        x.speedb=y.speedb
-        x.moves=y.moves
-        x.primaryType=y.primaryType
-        x.secondaryType=y.secondaryType
-        x.ability=y.ability
-        x.name=x.name+f"({y.name})"
-    elif (x.ability == "Sand Stream" or (x.ability=="Forecast" and x.item=="Smooth Rock")) and field.weather not in ["Sandstorm","Heavy Rain","Extreme Sunlight"] and y.ability!="Neutralizing Gas":
-        x.showability=True
-        entry.add_field(name=f"{x.icon} {x.name}'s Sand Stream!",value=f"️{x.name} whipped up a sandstorm!")
-        field.weather="Sandstorm" 
-        field.sandturn=turn
-        await sandend(field,x,y)   
-    elif x.ability=="Primordial Sea" and field.weather!="Heavy Rain" and y.ability!="Neutralizing Gas":
-        x.showability=True
-        entry.add_field(name=f"{x.icon} {x.name}'s Primordial Sea!",value=f"️A heavy rain began to fall!")
-        field.weather="Heavy Rain"
-    elif x.ability=="Desolate Land" and field.weather!="Extreme Sunlight" and y.ability!="Neutralizing Gas":  
-        x.showability=True
-        entry.add_field(name=f"{x.icon} {x.name}'s Desolate Land!",value=f"️The sunlight turned extremely harsh!")
-        field.weather="Extreme Sunlight"   
-    elif x.ability=="Drought" and field.weather not in ["Sunny","Heavy Rain","Extreme Sunlight"] and y.ability!="Neutralizing Gas":
-        x.showability=True
-        entry.add_field(name=f"{x.icon} {x.name}'s Drought!",value=f"️{x.name} intensified the sun's rays!")
-        field.weather="Sunny"  
-        field.sunturn=turn
-        await sunend(field,x,y)
-    elif x.ability=="Orichalcum Pulse" and field.weather not in ["Sunny","Heavy Rain","Extreme Sunlight"] and y.ability!="Neutralizing Gas":
-        x.showability=True
-        entry.add_field(name=f"{x.icon} {x.name}'s Orichalcum Pulse!",value=f"️{x.name} turned the sunlight harsh, sending its ancient pulse into a frenzy!")
-        field.weather="Sunny"  
-        field.sunturn=turn
-        await sunend(field,x,y)
-    elif x.ability=="Drizzle" and field.weather not in ["Rainy","Heavy Rain","Extreme Sunlight"] and y.ability!="Neutralizing Gas":
-        x.showability=True
-        entry.add_field(name=f"{x.icon} {x.name}'s Drizzle!",value=f"️{x.name} made it rain!")
-        field.weather="Rainy"  
-        field.rainturn=turn
-        await rainend(field,x,y)   
-    elif x.ability=="Snow Warning" and field.weather not in ["Snowstorm","Heavy Rain","Extreme Sunlight"] and y.ability!="Neutralizing Gas":
-        x.showability=True
-        entry.add_field(name=f"{x.icon} {x.name}'s Snow Warning!",value=f"️{x.name} whipped up a snowstorm!")
-        field.weather="Snowstorm"  
-        field.snowturn=turn
-        await snowend(field,x,y)  
-    elif x.ability=="Electric Surge" and y.ability!="Neutralizing Gas":
-        x.showability=True
-        entry.add_field(name=f"{x.icon} {x.name}'s Electric Surge!",value=f"️An electric current ran across the battlefield!")
-        field.terrain="Electric"
-        field.eleturn=turn
-        field.eleend(x,y)  
-    elif x.ability=="Hadron Engine" and y.ability!="Neutralizing Gas":
-        x.showability=True
-        entry.add_field(name=f"{x.icon} {x.name}'s Hadron Engine!",value=f"️{x.name} summoned the Electric Terrain to energize its futuristic engine!")
-        field.terrain="Electric"
-        field.eleturn=turn
-        field.eleend(x,y)       
-    elif x.ability=="Misty Surge" and y.ability!="Neutralizing Gas":
-        x.showability=True
-        entry.add_field(name=f"{x.icon} {x.name}'s Misty Surge!",value=f"️Mist swirled around the battlefield!")
-        field.terrain="Misty"
-        field.misturn=turn
-        field.misend(x,y)     
-    elif x.ability=="Grassy Surge" and y.ability!="Neutralizing Gas":
-        x.showability=True
-        entry.add_field(name=f"{x.icon} {x.name}'s Grassy Surge!",value=f"️Grass grew to cover the battlefield!")
-        field.terrain="Grassy"
-        field.grassturn=turn
-        field.grassend(x,y)   
-    elif x.ability=="Psychic Surge" and y.ability!="Neutralizing Gas":
-        x.showability=True
-        entry.add_field(name=f"{x.icon} {x.name}'s Psychic Surge!",value=f"️The battlefield got weird!")     
-        field.terrain="Psychic"        
-        field.psyturn=turn
-        field.psyend(x,y)      
-    elif x.ability=="North Wind" and y.ability!="Neutralizing Gas":        
-        x.showability=True
-        tr1.auroraturn=turn
-        tr1.auroraend(x,y)
-        tr1.auroraveil=True  
-        entry.add_field(name=f"{x.icon} {x.name}'s North Wind!",value="Aurora Veil will reduced your team's damage taken!")
+        em.set_thumbnail(url="https://cdn.discordapp.com/attachments/1102579499989745764/1109011460601954364/Red_Orb.png")  
+    
     if "Spikes" in tr1.hazard and x.ability not in ["Magic Guard","Levitate","Shield Dust"] and x.item not in ["Heavy-Duty Boots","Air Balloon"]:
-        entry.add_field(name=f"Spikes!",value=f"️{x.name} was hurt by the Spikes!") 
-        if tr1.hazard.count("Spikes")==3:
-            x.hp-=(x.maxhp/4)
-        if tr1.hazard.count("Spikes")==2:
-            x.hp-=(x.maxhp/6)
-        if tr1.hazard.count("Spikes")==1:
-            x.hp-=(x.maxhp/8)        
-    if "Toxic Spikes" in tr1.hazard and x.ability not in ["Magic Guard","Levitate","Shield Dust"] and x.item not in ["Heavy-Duty Boots","Air Balloon"] and "Steel" not in (x.primaryType,x.secondaryType,x.teraType) and x.status=="Alive":
-        if "Poison" in (x.primaryType,x.secondaryType,x.teraType):
+        entry.add_field(name=f"Spikes!",value=f"️{x.name} was hurt by the Spikes!")
+        
+        spikes_count = tr1.hazard.count("Spikes")
+        if spikes_count == 3:
+            damage_fraction = 4  # 1/4
+        elif spikes_count == 2:
+            damage_fraction = 6  # 1/6
+        elif spikes_count == 1:
+            damage_fraction = 8  # 1/8
+        if spikes_count >= 1:
+            x.hp -= (x.maxhp / damage_fraction)  
+                  
+    is_affected = x.ability not in ["Magic Guard","Levitate","Shield Dust"] and \
+              x.item not in ["Heavy-Duty Boots","Air Balloon"] and \
+              "Steel" not in (x.primaryType,x.secondaryType,x.teraType) and \
+              x.status == "Alive"
+
+    if "Toxic Spikes" in tr1.hazard and is_affected:
+        is_poison_type = "Poison" in (x.primaryType,x.secondaryType,x.teraType)
+
+        if is_poison_type:
+            # Poison-types absorb the hazard
             tr1.hazard.remove("Toxic Spikes")
-            entry.add_field(name=f"{x.name} is a part Poison-type!",value=f"️{x.name} absorbed the Toxic Spikes!") 
+            entry.add_field(name=f"{x.name} is a part Poison-type!",value=f"️{x.name} absorbed the Toxic Spikes!")
         else:
-            if tr1.hazard.count("Toxic Spikes")==1:
-                entry.add_field(name=f"Toxic Spikes!",value=f"️{x.name} was poisoned by toxic spikes!")
-                x.status="Poisoned"
-            if tr1.hazard.count("Toxic Spikes")>=2:
-                entry.add_field(name=f"Toxic Spikes!",value=f"️{x.name} was badly poisoned by toxic spikes!")
-                x.status="Badly Poisoned"                
+            # Non-Poison/Steel types get status
+            ts_count = tr1.hazard.count("Toxic Spikes")
+            
+            entry.add_field(name=f"Toxic Spikes!",value=f"️{x.name} was {'badly ' if ts_count >= 2 else ''}poisoned by toxic spikes!")
+
+            # Apply status: Badly Poisoned for 2+ layers, Poisoned for 1 layer
+            x.status = "Badly Poisoned" if ts_count >= 2 else "Poisoned" 
+                      
     if "Sticky Web" in tr1.hazard and x.ability not in ["Magic Guard","Levitate","Shield Dust"] and x.item not in ["Heavy-Duty Boots","Air Balloon"]:
         entry.add_field(name=f"Sticky Web!",value=f"️{x.name} fell into the sticky web!")
-        await speedchange(entry,x,y,-0.5)        
-    if "Stealth Rock" in tr1.hazard and x.ability not in ["Magic Guard","Levitate","Shield Dust","Mountaineer"] and x.item not in ["Heavy-Duty Boots","Air Balloon"]:
-        buff=2
-        if x.primaryType in ["Flying", "Bug", "Fire", "Ice"] and x.teraType=="???":
-            buff*=2
-        if x.secondaryType in ["Flying", "Bug", "Fire", "Ice"] and x.teraType=="???":
-            buff*=2
-        if x.teraType in ["Flying", "Bug", "Fire", "Ice"]:
-            buff*=2
-        x.hp-=(1+(x.maxhp*0.0625*buff))
+        await speedchange(entry,x,y,-0.5)   
+            
+    rock_steel_exclusion = x.ability not in ["Magic Guard","Levitate","Shield Dust","Mountaineer"] and x.item not in ["Heavy-Duty Boots","Air Balloon"]
+    ## Stealth Rock
+    if "Stealth Rock" in tr1.hazard and rock_steel_exclusion:
+        # Rock is super-effective against Flying, Bug, Fire, Ice
+        stealth_rock_weak_types = ["Flying", "Bug", "Fire", "Ice"]
+        buff = await calculate_hazard_buff(x, stealth_rock_weak_types)
+        
+        # Damage calculation: 1 + (Max HP * 0.0625 * buff) where 0.0625 is 1/16
+        x.hp -= (1 + (x.maxhp * 0.0625 * buff))
         entry.add_field(name=f"Stealth Rock!",value=f"️Pointed stones dug into {x.name}!")
-    if "Steel Spikes" in tr1.hazard and x.ability not in ["Magic Guard","Levitate","Shield Dust","Mountaineer"] and x.item not in ["Heavy-Duty Boots","Air Balloon"]:
-        buff=2
-        if x.primaryType in ["Fairy", "Rock", "Ice"] and x.teraType=="???":
-            buff*=2
-        if x.secondaryType in ["Fairy", "Rock", "Ice"] and x.teraType=="???":
-            buff*=2
-        if x.teraType in ["Fairy", "Rock", "Ice"]:
-            buff*=2
-        x.hp-=(1+(x.maxhp*0.0625*buff))
-        entry.add_field(name=f"Steel Spikes!",value=f"️Pointed steel spikes dug into {x.name}!")        
+
+    ## Steel Spikes
+    if "Steel Spikes" in tr1.hazard and rock_steel_exclusion:
+        # Steel is super-effective against Fairy, Rock, Ice
+        steel_spikes_weak_types = ["Fairy", "Rock", "Ice"]
+        buff = await calculate_hazard_buff(x, steel_spikes_weak_types)
+        
+        # Damage calculation: 1 + (Max HP * 0.0625 * buff) where 0.0625 is 1/16
+        x.hp -= (1 + (x.maxhp * 0.0625 * buff))
+        entry.add_field(name=f"Steel Spikes!",value=f"️Pointed steel spikes dug into {x.name}!")     
     await prebuff(ctx,x,y,tr1,tr2,turn,field)
     if len(entry.fields)!=0:
         await ctx.send(embed=entry)    
+        
 async def maxendturn(x,turn):
     if x.dmax is True:
        x.maxend=turn+2         
@@ -3611,59 +3633,225 @@ async def checkname(name):
             return f"{icon} {name}"
 
     return name
+
+async def calculate_hazard_buff(pokemon, weak_types):
+    """Calculates the damage buff based on type weaknesses (base 2, doubles for each weak type)."""
+    buff = 2
+    
+    # Check primary type, only if not Terastallized
+    if pokemon.primaryType in weak_types and pokemon.teraType == "???":
+        buff *= 2
+        
+    # Check secondary type, only if not Terastallized
+    if pokemon.secondaryType in weak_types and pokemon.teraType == "???":
+        buff *= 2
+        
+    # Check Tera type
+    if pokemon.teraType in weak_types:
+        buff *= 2
+        
+    return buff
+
 async def rankedteam(ctx):
-    response = requests.get('https://randomuser.me/api/')
-    if response.status_code == 200:
-        data = response.json()
-        results = data['results'][0]
-        name = f"{results['name']['first']} {results['name']['last']}"
-        sprite=f"{results['picture']['large']}"
-    db=sqlite3.connect("pokemondata.db")
-    c=db.cursor()
-    c.execute(f"select * from 'wild'")
-    mons=c.fetchall()
-    team=[]
-    names=[]
-    for i in mons:
-        if i[0] not in names and i[14] in ["Common","Uncommon","Rare","Very Rare","Common Legendary","Ultra Beasts","Fusion","Legendary","Mythical"]:
-            p=await rankedmonvert(name,i)
-            team.append(p)
-            names.append(i[0])
-    mons=await rankedbuild(team)
-    tr1=Trainer(name,mons,"Earth",sprite=sprite,ai=True)
-    return tr1    
-async def gameteam(ctx,num=0,p1team=None):
-    players=("SBC Lebanne","SBC Jacinthe","Detective Emma","Fist of Justice Gwynn","Fist of Justice Ivor","Quasartico Vinnie","DYN4MO Tarragon","DYN4MO Canari","Rust Syndicate Corbeau","Rust Syndicate Philippe","Pokemon Trainer Taunie","Pokemon Trainer Naveen","Pokemon Trainer Lida","World Champion Ash","Professor Oak","Researcher Gary Oak","Team Rocket James","Team Rocket Jessie","Pokemon Breeder Brock","Gym Leader Brock","Tomboyish Mermaid Misty","Gym Leader Misty","Gym Leader Lt.Surge","Gym Leader Erika","Gym Leader Janine","Gym Leader Sabrina","Gym Leader Blaine","Gym Leader Blue","Elite Four Lorelei","Champion Lorelei(Rain)","Champion Lorelei(Hail)","Elite Four Bruno","Elite Four Agatha","Kanto Champion Lance","Pokemon Trainer Green","Pokemon Trainer Trace","Kanto Champion Red","Rocket Boss Giovanni","Pokemon Trainer Silver","Gym Leader Falkner","Gym Leader Bugsy","Gym Leader Morty","Gym Leader Chuck","Gym Leader Jasmine","Gym Leader Pryce","Gym Leader Clair","Elite Four Will","Elite Four Koga","Elite Four Karen","Rocket Admin Archer","Rocket Admin Ariana","Pokemon Trainer Harrison","Pokemon Trainer May","Gym Leader Roxanne","Gym Leader Brawly","Gym Leader Wattson","Gym Leader Flannery","Gym Leader Norman","Gym Leader Winona","Gym Leader Tate","Gym Leader Liza","Gym Leader Juan","Elite Four Sidney","Elite Four Phoebe","Elite Four Glacia","Elite Four Drake","Hoenn Champion Steven","Hoenn Champion Wallace","Aqua Leader Archie","Magma Admin Courtney","Magma Leader Maxie","Factory Head Noland","Arena Tycoon Greta","Dome Ace Tucker","Palace Maven Spenser","Pike Queen Lucy","Salon Maiden Anabel","Pyramid King Brandon","Pokemon Trainer Paul","Pokemon Trainer Barry","Pokemon Trainer Conway","Gym Leader Roark","Gym Leader Gardenia","Gym Leader Maylene","Gym Leader Crasher Wake","Gym Leader Fantina","Gym Leader Byron","Gym Leader Candice","Gym Leader Volkner","Elite Four Aaron","Elite Four Bertha","Elite Four Flint","Elite Four Lucian","Sinnoh Champion Cynthia","Pokemon Trainer Tobias","Galactic Commander Mars","Galactic Commander Jupiter","Galactic Commander Saturn","Galactic Leader Cyrus","Pokemon Trainer Riley","Pokemon Trainer Cheryl","Pokemon Trainer Marley","Pokemon Trainer Mira","Pokemon Trainer Buck","Factory Head Thorton","Battle Arcade Dahlia","Castle Velvet Darach","Hall Matron Argenta","Tower Tycoon Palmer","Pokemon Trainer Trip","Pokemon Trainer Cameron","Pokemon Trainer Stephan","Gym Leader Cilan","Gym Leader Cress","Gym Leader Chili","Pokemon Trainer Cheren","Pokemon Trainer Bianca","Gym Leader Lenora","Gym Leader Roxie","Gym Leader Burgh","Gym Leader Elesa","Gym Leader Clay","Gym Leader Skyla","Gym Leader Brycen","Gym Leader Marlon","Gym Leader Drayden","Gym Leader Marlon","Elite Four Marshal","Elite Four Shauntal","Elite Four Grimsley","Elite Four Caitlin","Unova Champion Alder","Unova Champion Iris","Pokemon Trainer Hugh","Plasma Admin Colress","Natural Harmonia Gropius","Plasma Leader Ghetsis","Boss Trainer Benga","Subway Boss Ingo","Subway Boss Emmet","Pokemon Trainer Sawyer","Pokemon Trainer Trevor","Pokemon Trainer Tierno","Pokemon Trainer Shauna","Gym Leader Viola","Gym Leader Grant","Gym Leader Korrina","Gym Leader Ramos","Gym Leader Clemont","Gym Leader Valerie","Gym Leader Olympia","Gym Leader Wulfric","Elite Four Siebold","Elite Four Wikstrom","Elite Four Malva","Elite Four Drasna","Pokemon Trainer Alain","Kalos Champion Diantha","Flare Boss Lysandre","Pokemon Trainer Gladion","Trial Captain Kiawe","Trial Captain Lana","Trial Captain Lillie","Trial Captain Mallow","Island Kahuna Ilima","Trial Captain Nanu","Elite Four Hala","Elite Four Olivia","Elite Four Molayne","Professor Kukui","Skull Admin Plumeria","Skull Leader Guzma","Aether Foundation Faba","Aether President Lusamine","Gym Leader Milo","Gym Leader Nessa","Gym Leader Kabu","Gym Leader Bede","Gym Leader Bea","Gym Leader Allister","Gym Leader Opal","Gym Leader Gordie","Gym Leader Marnie","Gym Leader Piers","Gym Leader Raihan","Pokemon Trainer Hop","Galar Champion Peony","Galar Champion Leon","Chairman Rose","Galar Champion Mustard","Instructor Jacq","Instructor Miriam","Instructor Tyme","Instructor Dendra","Gym Leader Katy","Gym Leader Brassius","Gym Leader Iono","Gym Leader Kofu","Gym Leader Ryme","Gym Leader Tulip","Gym Leader Grusha","Team Star Giacomo","Team Star Mela","Team Star Atticus","Team Star Ortega","Team Star Eri","Star Leader Penny","Elite Four Rika","Elite Four Poppy","Elite Four Larry","Elite Four Hassel","Paldea Champion Geeta","Paldea Champion Nemona","Pokemon Trainer Carmine","Elite Four Crispin","Elite Four Amarys","Elite Four Lacey","Elite Four Drayton","Pokemon Trainer Keiran","Academy Director Cyrano","Director Clavell","Professor Sada","Professor Turo","Elite Four Acerola","Pokemon Trainer Drew","Battle Chatelaine Evelyn","Island Kahuna Hapu","Fusion Creator Darwin","Elite Four Kahili","Coordinator Kenny","Gym Leader Klara","Aqua Admin Matt","Battle Chatelaine Nita","Pokemon Wielder Volo","Nurse Joy","Evil Trainer Crescent","CrescentUwU","Cipher Head Evice",'Gym Leader Jessica','Gym Leader Esmeralda','Gym Leader Lucas','Gym Leader Thomas','Gym Leader Atlur','Gym Leader Rayner','Gym Leader Sophia','Gym Leader Wesley','Elite Four Aisey','Elite Four Triton','Elite Four Rukia','Elite Four Elizabeth','Zhery Champion Kaohri')
-    if num==0:
-        name=random.choice(players)  
+    # Initialize name and sprite with fallback values outside the 'try' block
+    name = "Default Trainer"
+    sprite = "https://play.pokemonshowdown.com/sprites/trainers/unknown.png"
+    
+    # --- 1. Asynchronous API Call using aiohttp ---
+    try:
+        async with aiohttp.ClientSession() as session:
+            # The 'await' makes this an non-blocking operation
+            async with session.get('https://randomuser.me/api/') as response:
+                if response.status == 200:
+                    data = await response.json()
+                    results = data['results'][0]
+                    name = f"{results['name']['first']} {results['name']['last']}"
+                    sprite = f"{results['picture']['large']}"
+                else:
+                    # Log error if API call fails
+                    print(f"Random User API failed with status: {response.status}")
+    except aiohttp.ClientConnectorError as e:
+        # Handle connection errors (e.g., DNS resolution failure)
+        print(f"Error connecting to Random User API: {e}")
+    except Exception as e:
+        # Catch any other unexpected errors during the API call
+        print(f"An unexpected error occurred during API call: {e}")
+
+
+    # --- 2. Database Operations (Assuming pokemondata.db exists on Render) ---
+    team = []
+    names = []
+    try:
+        # Use a 'with' statement for clean resource management
+        with sqlite3.connect("pokemondata.db") as db:
+            c = db.cursor()
+            c.execute("SELECT * FROM wild") # Changed f-string for safety, assuming 'wild' is literal
+            mons = c.fetchall()
+            
+            # --- 3. Team Generation ---
+            for i in mons:
+                # i[0] is the Pokémon name, i[14] is the rarity/type
+                # Ensure i[14] is cast to string or handle potential type errors
+                rarity = str(i[14]) 
+                valid_rarities = {"Common","Uncommon","Rare","Very Rare","Common Legendary","Ultra Beasts","Fusion","Legendary","Mythical"}
+                
+                if i[0] not in names and rarity in valid_rarities:
+                    # Assuming rankedmonvert is an async function
+                    p = await rankedmonvert(name, i) 
+                    team.append(p)
+                    names.append(i[0])
+                    
+    except sqlite3.Error as e:
+        print(f"Database error: {e}")
+        # If the database access fails, the function will return a trainer with an empty team
+        
+        
+    # --- 4. Final Trainer Object Creation ---
+    # Assuming rankedbuild is an async function
+    final_mons = await rankedbuild(team)
+    
+    # Pass the collected name and sprite (either real or fallback)
+    tr1 = Trainer(name, final_mons, "Earth", sprite=sprite, ai=True)
+    return tr1
+
+async def gameteam(ctx, num=0, p1team=None):
+    """
+    Creates a CPU Trainer with a team of Pokémon.
+    """
+
+    # --- 1. Trainer Selection ---
+    players = (
+        "SBC Lebanne","SBC Jacinthe","Detective Emma","Fist of Justice Gwynn","Fist of Justice Ivor",
+        "Quasartico Vinnie","DYN4MO Tarragon","DYN4MO Canari","Rust Syndicate Corbeau",
+        "Rust Syndicate Philippe","Pokemon Trainer Taunie","Pokemon Trainer Naveen","Pokemon Trainer Lida",
+        "World Champion Ash","Professor Oak","Researcher Gary Oak","Team Rocket James",
+        "Team Rocket Jessie","Pokemon Breeder Brock","Gym Leader Brock","Tomboyish Mermaid Misty",
+        "Gym Leader Misty","Gym Leader Lt.Surge","Gym Leader Erika","Gym Leader Janine",
+        "Gym Leader Sabrina","Gym Leader Blaine","Gym Leader Blue","Elite Four Lorelei",
+        "Champion Lorelei(Rain)","Champion Lorelei(Hail)","Elite Four Bruno","Elite Four Agatha",
+        "Kanto Champion Lance","Pokemon Trainer Green","Pokemon Trainer Trace","Kanto Champion Red",
+        "Rocket Boss Giovanni","Pokemon Trainer Silver","Gym Leader Falkner","Gym Leader Bugsy",
+        "Gym Leader Morty","Gym Leader Chuck","Gym Leader Jasmine","Gym Leader Pryce",
+        "Gym Leader Clair","Elite Four Will","Elite Four Koga","Elite Four Karen",
+        "Rocket Admin Archer","Rocket Admin Ariana","Pokemon Trainer Harrison","Pokemon Trainer May",
+        "Gym Leader Roxanne","Gym Leader Brawly","Gym Leader Wattson","Gym Leader Flannery",
+        "Gym Leader Norman","Gym Leader Winona","Gym Leader Tate","Gym Leader Liza",
+        "Gym Leader Juan","Elite Four Sidney","Elite Four Phoebe","Elite Four Glacia",
+        "Elite Four Drake","Hoenn Champion Steven","Hoenn Champion Wallace","Aqua Leader Archie",
+        "Magma Admin Courtney","Magma Leader Maxie","Factory Head Noland","Arena Tycoon Greta",
+        "Dome Ace Tucker","Palace Maven Spenser","Pike Queen Lucy","Salon Maiden Anabel",
+        "Pyramid King Brandon","Pokemon Trainer Paul","Pokemon Trainer Barry","Pokemon Trainer Conway",
+        "Gym Leader Roark","Gym Leader Gardenia","Gym Leader Maylene","Gym Leader Crasher Wake",
+        "Gym Leader Fantina","Gym Leader Byron","Gym Leader Candice","Gym Leader Volkner",
+        "Elite Four Aaron","Elite Four Bertha","Elite Four Flint","Elite Four Lucian",
+        "Sinnoh Champion Cynthia","Pokemon Trainer Tobias","Galactic Commander Mars",
+        "Galactic Commander Jupiter","Galactic Commander Saturn","Galactic Leader Cyrus",
+        "Pokemon Trainer Riley","Pokemon Trainer Cheryl","Pokemon Trainer Marley","Pokemon Trainer Mira",
+        "Pokemon Trainer Buck","Factory Head Thorton","Battle Arcade Dahlia","Castle Velvet Darach",
+        "Hall Matron Argenta","Tower Tycoon Palmer","Pokemon Trainer Trip","Pokemon Trainer Cameron",
+        "Pokemon Trainer Stephan","Gym Leader Cilan","Gym Leader Cress","Gym Leader Chili",
+        "Pokemon Trainer Cheren","Pokemon Trainer Bianca","Gym Leader Lenora","Gym Leader Roxie",
+        "Gym Leader Burgh","Gym Leader Elesa","Gym Leader Clay","Gym Leader Skyla",
+        "Gym Leader Brycen","Gym Leader Marlon","Gym Leader Drayden","Gym Leader Marlon",
+        "Elite Four Marshal","Elite Four Shauntal","Elite Four Grimsley","Elite Four Caitlin",
+        "Unova Champion Alder","Unova Champion Iris","Pokemon Trainer Hugh",
+        "Plasma Admin Colress","Natural Harmonia Gropius","Plasma Leader Ghetsis",
+        "Boss Trainer Benga","Subway Boss Ingo","Subway Boss Emmet","Pokemon Trainer Sawyer",
+        "Pokemon Trainer Trevor","Pokemon Trainer Tierno","Pokemon Trainer Shauna",
+        "Gym Leader Viola","Gym Leader Grant","Gym Leader Korrina","Gym Leader Ramos",
+        "Gym Leader Clemont","Gym Leader Valerie","Gym Leader Olympia","Gym Leader Wulfric",
+        "Elite Four Siebold","Elite Four Wikstrom","Elite Four Malva","Elite Four Drasna",
+        "Pokemon Trainer Alain","Kalos Champion Diantha","Flare Boss Lysandre",
+        "Pokemon Trainer Gladion","Trial Captain Kiawe","Trial Captain Lana","Trial Captain Lillie",
+        "Trial Captain Mallow","Island Kahuna Ilima","Trial Captain Nanu","Elite Four Hala",
+        "Elite Four Olivia","Elite Four Molayne","Professor Kukui","Skull Admin Plumeria",
+        "Skull Leader Guzma","Aether Foundation Faba","Aether President Lusamine",
+        "Gym Leader Milo","Gym Leader Nessa","Gym Leader Kabu","Gym Leader Bede",
+        "Gym Leader Bea","Gym Leader Allister","Gym Leader Opal","Gym Leader Gordie",
+        "Gym Leader Marnie","Gym Leader Piers","Gym Leader Raihan","Pokemon Trainer Hop",
+        "Galar Champion Peony","Galar Champion Leon","Chairman Rose","Galar Champion Mustard",
+        "Instructor Jacq","Instructor Miriam","Instructor Tyme","Instructor Dendra",
+        "Gym Leader Katy","Gym Leader Brassius","Gym Leader Iono","Gym Leader Kofu",
+        "Gym Leader Ryme","Gym Leader Tulip","Gym Leader Grusha","Team Star Giacomo",
+        "Team Star Mela","Team Star Atticus","Team Star Ortega","Team Star Eri",
+        "Star Leader Penny","Elite Four Rika","Elite Four Poppy","Elite Four Larry",
+        "Elite Four Hassel","Paldea Champion Geeta","Paldea Champion Nemona",
+        "Pokemon Trainer Carmine","Elite Four Crispin","Elite Four Amarys",
+        "Elite Four Lacey","Elite Four Drayton","Pokemon Trainer Keiran",
+        "Academy Director Cyrano","Director Clavell","Professor Sada","Professor Turo",
+        "Elite Four Acerola","Pokemon Trainer Drew","Battle Chatelaine Evelyn",
+        "Island Kahuna Hapu","Fusion Creator Darwin","Elite Four Kahili",
+        "Coordinator Kenny","Gym Leader Klara","Aqua Admin Matt","Battle Chatelaine Nita",
+        "Pokemon Wielder Volo","Nurse Joy","Evil Trainer Crescent","CrescentUwU",
+        "Cipher Head Evice",'Gym Leader Jessica','Gym Leader Esmeralda','Gym Leader Lucas',
+        'Gym Leader Thomas','Gym Leader Atlur','Gym Leader Rayner','Gym Leader Sophia',
+        'Gym Leader Wesley','Elite Four Aisey','Elite Four Triton','Elite Four Rukia',
+        'Elite Four Elizabeth','Zhery Champion Kaohri'
+    )
+
+    if num == 0:
+        trainer_name = random.choice(players)
+    elif 1 <= num <= len(players):
+        # Adjust for 0-based index
+        trainer_name = players[num - 1]
     else:
-        num=num-1
-        name=players[num]
-    sprite=await trsprite(name)
-    lev=[]
-    if p1team==None:
-        lev=[100]
-    else:    
-        for i in p1team:
-            lev.append(i.level)
-    maxLevel=max(lev)-2    
-    db=sqlite3.connect("pokemondata.db")
-    c=db.cursor()
-    c.execute(f"select * from '{name}'")
-    mons=c.fetchall()
-    team=[]
-    name=await checkname(name)
-    for i in mons:
-        p=await gamemonvert(name,i,maxLevel)
-        if p.name=="Pikachu":
-            if name=="Kanto Champion Red":
-                p.sprite="https://play.pokemonshowdown.com/sprites/ani/pikachu-starter.gif"
-            elif name=="World Champion Ash":
-                p.sprite=f"https://play.pokemonshowdown.com/sprites/ani/pikachu{random.choice(['-partner','','-alola','-hoenn','-kalos','-sinnoh','-unova','-original'])}.gif"
+        # Fallback if an invalid num is provided (outside the list range)
+        trainer_name = random.choice(players)
+
+    # Get the trainer's sprite
+    trainer_sprite = await trsprite(trainer_name)
+
+    # --- 2. Determine Max Pokémon Level ---
+    if p1team is None:
+        # Default to level 100 if no opponent team is provided
+        max_level = 100
+    else:
+        # Find the max level of the opponent's team and subtract 2
+        opponent_levels = [mon.level for mon in p1team]
+        max_level = max(opponent_levels) - 2
+
+    # --- 3. Retrieve Trainer's Base Team from Database ---
+    try:
+        # Use 'with' statement for safer resource management (connecting/closing db)
+        with sqlite3.connect("pokemondata.db") as db:
+            c = db.cursor()
+            # Note: Parameterized query is safer, but assuming trainer_name is clean
+            # as it comes from a fixed tuple.
+            c.execute(f"SELECT * FROM '{trainer_name}'")
+            base_pokemon_data = c.fetchall()
+    except sqlite3.Error as e:
+        print(f"Database error for trainer {trainer_name}: {e}")
+        return None # Return None or raise an error if team fetching fails
+
+    # --- 4. Build the Pokémon Team ---
+    team = []
+    # Clean/format the name before using it for Pokémon-specific logic
+    formatted_name = await checkname(trainer_name)
+
+    for pokemon_data in base_pokemon_data:
+        # Convert database row to a usable Pokemon object, setting the level
+        p = await gamemonvert(formatted_name, pokemon_data, max_level)
+
+        # Apply specific sprite logic for certain trainers/Pokémon (e.g., Ash's Pikachu)
+        if p.name == "Pikachu":
+            if formatted_name == "Kanto Champion Red":
+                p.sprite = "https://play.pokemonshowdown.com/sprites/ani/pikachu-starter.gif"
+            elif formatted_name == "World Champion Ash":
+                ash_pikachu_sprites = [
+                    '-partner', '', '-alola', '-hoenn', '-kalos', '-sinnoh', '-unova', '-original'
+                ]
+                p.sprite = f"https://play.pokemonshowdown.com/sprites/ani/pikachu{random.choice(ash_pikachu_sprites)}.gif"
+
         team.append(p)
-    mons=await teambuild(team)
-    tr1=Trainer(name,mons,"Unknown",sprite=sprite,ai=True)
-    return tr1    
+
+    # Finalize the team (e.g., set items, abilities, moves)
+    final_team = await teambuild(team)
+
+    # --- 5. Create and Return the Trainer Object ---
+    # The region is hardcoded as "Unknown" in the original code, retaining that
+    tr1=Trainer(trainer_name,final_team,"Unknown",sprite=trainer_sprite,ai=True)
+    return tr1
+
 async def trsprite(name):
     spritelist={
     "SBC Lebanne":"https://archives.bulbagarden.net/media/upload/thumb/b/b9/ZA_Lebanne.png/300px-ZA_Lebanne.png",
