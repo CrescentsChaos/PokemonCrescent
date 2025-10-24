@@ -1717,7 +1717,7 @@ async def common(l1,l2):
             return True
     return False            
 @bot.tree.command(name="trainerinfo",description="Shows a random team of a certified trainer.")
-async def pokemons(ctx:discord.Interaction,num:int=1):
+async def trainerinfo(ctx:discord.Interaction,num:int=1):
     tr1=await gameteam(ctx,num)
     db=sqlite3.connect("pokemondata.db")
     c=db.cursor()

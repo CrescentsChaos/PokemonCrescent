@@ -10,7 +10,7 @@ from pokemon import calcst
 from typematchup import *
 from AI import *
 from hiddenpower import *
-megastones=("Floettiite","Chandelurite","Scolipedite","Falinksite","Pyroarite","Scraftite","Drampite","Eelektrossite","Dragalgite","Barbaraclite","Clefablite","Starmite","Meganiumite","Excadrillite","Emboarite","Froslassite","Feraligatrite","Skarmorite","Raichutite X","Raichutite Y","Greninjite","Delphoxite","Chesnaughtite","Malamarite","Hawluchaite","Victreebelite","Dragonitite","Gyaradosite","Venusaurite","Charizardite X","Charizardite Y","Abomasite","Absolite","Aerodactylite","Aggronite","Alakazite","Altarianite","Ampharosite","Audinite","Banettite","Beedrillite","Blastoisinite","Blazikenite","Camerupite","Diancite","Galladite","Garchompite","Gardevoirite","Gengarite","Glalitite","Heracronite","Houndoominite","Kangaskhanite","Latiasite","Latiosite","Lopunnite","Lucarionite","Manectite","Mawilite","Medichamite","Metagrossite","Mewtwonite X","Mewtwonite Y","Pidgeotite","Pinsirite","Sablenite","Salamencite","Sceptilite","Scizorite","Sharpedonite","Slowbronite","Steelixite","Seampertite","Tyranitarite")
+megastones=("Floettite","Chandelurite","Scolipite","Falinksite","Pyroarite","Scraftinite","Drampanite","Eelektrossite","Dragalgite","Barbaracite","Clefablite","Starmite","Meganiumite","Excadrite","Emboarite","Froslassite","Feraligite","Skarmorite","Raichunite X","Raichunite Y","Greninjite","Delphoxite","Chesnaughtite","Malamarite","Hawluchanite","Victreebelite","Dragoninite","Gyaradosite","Venusaurite","Charizardite X","Charizardite Y","Abomasite","Absolite","Aerodactylite","Aggronite","Alakazite","Altarianite","Ampharosite","Audinite","Banettite","Beedrillite","Blastoisinite","Blazikenite","Camerupite","Diancite","Galladite","Garchompite","Gardevoirite","Gengarite","Glalitite","Heracronite","Houndoominite","Kangaskhanite","Latiasite","Latiosite","Lopunnite","Lucarionite","Manectite","Mawilite","Medichamite","Metagrossite","Mewtwonite X","Mewtwonite Y","Pidgeotite","Pinsirite","Sablenite","Salamencite","Sceptilite","Scizorite","Sharpedonite","Slowbronite","Steelixite","Seampertite","Tyranitarite")
 
 async def pokeicon(nm):
     async with sqlite3.connect("pokemondata.db") as db:
@@ -1463,17 +1463,30 @@ async def fchoice(ctx,bot,x,y,tr1,tr2,field):
                             await tr1.member.send("Wrong Input.") 
                       
 async def megatrans(ctx,x,y,tr1,tr2,field,turn):
-    des=f"{x.icon} {x.name}'s {x.item} is reacting to {tr1.name}'s Keystone!\n{x.name} has Mega Evolved into Mega {x.name}!"
-    x.nickname+=" <:megaevolve:1104646688951500850>"
-    if x.name not in ["Mewtwo","Charizard"]:
+    des=f"{x.icon} {x.name}'s c is reacting to {tr1.name}'s Keystone!\n{x.name} has Mega Evolved into Mega {x.name}!"
+    x.nickname=f"Mega {x.nickname} {x.item}"
+    if x.name not in ["Mewtwo","Charizard","Raichu"]:
         x.sprite=x.sprite.replace(".gif","-mega.gif")
+        x.nickname=f"Mega {x.name} {x.item[-1]} {x.item}"
     if "Rayquaza" in x.name:
         des=f"{tr1.name}'s fervent wish has reached {x.name}!\nRayquaza Mega evolved into Mega Rayquaza!"
     em=discord.Embed(title="Mega Evolution:",description=des) 
     em.set_thumbnail(url="https://cdn.discordapp.com/attachments/1102579499989745764/1108284098641940521/Mega.png")
     tr1.canmega=False
     if True:
-        if x.item=="Feraligatrite" and "Feraligatr" in x.name:
+        if x.item=="Zygardite" and "Zygarde" in x.name and x.hp<=x.maxhp:
+            per=x.hp/x.maxhp
+            x.weight=1344.82
+            x.hp=216
+            x.atk=70
+            x.defense=91
+            x.spatk=216
+            x.spdef=85
+            x.speed=100
+            calcst(x)
+            x.sprite="https://archives.bulbagarden.net/media/upload/thumb/2/2e/Mega_Zygarde_aiming_its_cannon.jpg/214px-Mega_Zygarde_aiming_its_cannon.jpg"
+            x.hp=x.maxhp*per
+        if x.item=="Feraligite" and "Feraligatr" in x.name:
             x.ability="Strong Jaw"
             x.secondaryType="Dragon"
             per=x.hp/x.maxhp
@@ -1512,7 +1525,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             x.sprite="https://i.postimg.cc/MTqpnk1L/mega-froslass.png"
             calcst(x)
             x.hp=x.maxhp*per
-        elif x.item=="Scolipedite" and "Scolipede" in x.name:
+        elif x.item=="Scolipite" and "Scolipede" in x.name:
             x.ability="Tinted Lens"
             per=x.hp/x.maxhp
             x.weight=153.41
@@ -1538,7 +1551,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             x.sprite="https://i.postimg.cc/1RV857vP/mega-emboar.png"
             calcst(x)
             x.hp=x.maxhp*per
-        elif x.item=="Excadrillite" and "Excadrill" in x.name:
+        elif x.item=="Excadrite" and "Excadrill" in x.name:
             x.ability="Tough Claws"
             per=x.hp/x.maxhp
             x.weight=153.41
@@ -1627,7 +1640,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             x.sprite="https://i.postimg.cc/fbxbWWSx/mega-scolipede.png"
             calcst(x)
             x.hp=x.maxhp*per
-        elif x.item=="Scraftite" and "Scrafty" in x.name:
+        elif x.item=="Scraftinite" and "Scrafty" in x.name:
             per=x.hp/x.maxhp
             x.weight=153.41
             x.hp=60
@@ -1664,7 +1677,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             x.sprite="https://i.postimg.cc/XvTDL3s2/mega-malamar.png"
             calcst(x)
             x.hp=x.maxhp*per
-        elif x.item=="Dragonitite" and "Dragonite" in x.name:
+        elif x.item=="Dragoninite" and "Dragonite" in x.name:
             x.ability="Aerilate"
             per=x.hp/x.maxhp
             x.weight=672.41
@@ -1677,7 +1690,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             x.sprite="https://i.postimg.cc/KYLZhCZs/mega-dragonite.png"
             calcst(x)
             x.hp=x.maxhp*per
-        elif x.item=="Drampite" and "Drampa" in x.name:
+        elif x.item=="Drampanite" and "Drampa" in x.name:
             per=x.hp/x.maxhp
             x.weight=672.41
             x.hp=78
@@ -1727,7 +1740,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             x.sprite="https://i.postimg.cc/63tp8sCr/mega-greninja.png"
             calcst(x)
             x.hp=x.maxhp*per
-        elif x.item=="Floettiite" and "Eternal Floette" in x.name:
+        elif x.item=="Floettite" and "Eternal Floette" in x.name:
             per=x.hp/x.maxhp
             x.weight=672.41
             x.hp=74
@@ -1777,7 +1790,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             x.sprite="https://i.postimg.cc/PxT5CG1b/mega-chesnaught.png"
             calcst(x)
             x.hp=x.maxhp*per
-        elif x.item=="Hawluchaite" and "Hawlucha" in x.name:
+        elif x.item=="Hawluchanite" and "Hawlucha" in x.name:
             x.ability="Defiant"
             per=x.hp/x.maxhp
             x.weight=72.41
@@ -1790,7 +1803,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             x.sprite="https://i.postimg.cc/5ymd2MTt/mega-hawlucha.png"
             calcst(x)
             x.hp=x.maxhp*per
-        elif x.item=="Barabaraclite" and "Barabaracle" in x.name:
+        elif x.item=="Barbaracite" and "Barabaracle" in x.name:
             x.secondaryType="Fighting"
             per=x.hp/x.maxhp
             x.weight=72.41
@@ -1845,7 +1858,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             x.speed=100
             calcst(x)
             x.hp=x.maxhp*per
-        elif x.item=="Raichutite X" and "Raichu" in x.name:
+        elif x.item=="Raichunite X" and "Raichu" in x.name:
             x.ability="Reckless"
             x.weight=243.61
             x.sprite="https://i.postimg.cc/FKjKFFkb/mega-raichu-x.png"
@@ -1858,7 +1871,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             x.speed=150
             calcst(x)
             x.hp=x.maxhp*per
-        elif x.item=="Raichutite Y" and "Raichu" in x.name:
+        elif x.item=="Raichunite Y" and "Raichu" in x.name:
             x.ability="Static"
             x.weight=243.61
             x.sprite="https://i.postimg.cc/hG9G44QV/mega-raichu-y.png"
@@ -3721,6 +3734,7 @@ async def gameteam(ctx, num=0, p1team=None):
 
     # --- 1. Trainer Selection ---
     players = (
+        "Flare Nouveau Grisham","Flare Nouveau Griselle",
         "SBC Lebanne","SBC Jacinthe","Detective Emma","Fist of Justice Gwynn","Fist of Justice Ivor",
         "Quasartico Vinnie","DYN4MO Tarragon","DYN4MO Canari","Rust Syndicate Corbeau",
         "Rust Syndicate Philippe","Pokemon Trainer Taunie","Pokemon Trainer Naveen","Pokemon Trainer Lida",
@@ -3854,6 +3868,8 @@ async def gameteam(ctx, num=0, p1team=None):
 
 async def trsprite(name):
     spritelist={
+    "Flare Nouveau Grisham":"https://archives.bulbagarden.net/media/upload/thumb/d/d3/ZA_Grisham.png/300px-ZA_Grisham.png",
+    "Flare Nouveau Griselle":"https://archives.bulbagarden.net/media/upload/thumb/2/22/ZA_Griselle.png/450px-ZA_Griselle.png",
     "SBC Lebanne":"https://archives.bulbagarden.net/media/upload/thumb/b/b9/ZA_Lebanne.png/300px-ZA_Lebanne.png",
     "SBC Jacinthe":"https://archives.bulbagarden.net/media/upload/thumb/9/93/ZA_Jacinthe.png/300px-ZA_Jacinthe.png",
     "Detective Emma":"https://archives.bulbagarden.net/media/upload/thumb/f/f5/ZA_Emma.png/120px-ZA_Emma.png",
