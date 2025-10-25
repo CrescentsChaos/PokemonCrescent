@@ -46,34 +46,52 @@ class Trainer:
 		self.hailturn=0
 		self.hailend=0
 		self.item=item
-		if self.item==[]:
-		    self.item=["Full Restore","Full Restore","Full Restore"]
+		if self.item == []:
+			self.item = ["Full Restore", "Full Restore", "Full Restore"]
 		if hazard is None:
-		    self.hazard=[]
+			self.hazard = []
 		else:
-		    self.hazard=hazard  
-	def lightscreenend(self,mon,mon2):
-	       if "Light Clay" not in (mon.item,mon2.item):
-	           self.screenend=self.lsturn+5
-	       elif "Light Clay" in (mon.item,mon2.item):
-	           self.screenend=self.lsturn+8
-	       return self.screenend
-	       
-	def reflectend(self,mon,mon2):
-	       if "Light Clay" not in (mon.item,mon2.item):
-	           self.rfendturn=self.reflecturn+5
-	       elif "Light Clay" in (mon.item,mon2.item):
-	           self.rfendturn=self.reflecturn+8
-	       return self.rfendturn
-	       
-	def auroraend(self,mon,mon2):
-	       if mon.ability=="North Wind" and mon.use not in ("Aurora Veil","G-Max Resonance"):
-	           self.avendturn=self.auroraturn+3
-	       elif "Light Clay" not in (mon.item,mon2.item):
-	           self.avendturn=self.auroraturn+5
-	       elif "Light Clay" in (mon.item,mon2.item):
-	           self.avendturn=self.auroraturn+8
-	       return self.avendturn
-	def twend(self,mon,mon2):
-	    self.twendturn=self.tailturn+4
-	    return self.twendturn         
+			self.hazard = hazard
+
+	# Assuming these are methods of the same class (e.g., Field or Battle):
+
+	def lightscreenend(self, mon, mon2):
+		# FIX: Correct the screen duration logic using an item check.
+		# The duration is normally 5 turns (self.lsturn + 5).
+		# If Light Clay is found on either active mon, it's 8 turns.
+		if "Light Clay" in (mon.item, mon2.item):
+			self.screenend = self.lsturn + 8
+		else:
+			self.screenend = self.lsturn + 5
+		return self.screenend
+		
+	def reflectend(self, mon, mon2):
+		# FIX: Correct the screen duration logic using an item check.
+		if "Light Clay" in (mon.item, mon2.item):
+			self.rfendturn = self.reflecturn + 8
+		else:
+			self.rfendturn = self.reflecturn + 5
+		return self.rfendturn
+		
+	def auroraend(self, mon, mon2):
+		# Fix 1: Simplify logic, check abilities/items first.
+		# Fix 2: Ensure the Aurora Veil check is accurate.
+		
+		# Check for custom "North Wind" ability/move interaction
+		if mon.ability == "North Wind" and mon.use not in ("Aurora Veil", "G-Max Resonance"):
+			self.avendturn = self.auroraturn + 3
+		
+		# Check for Light Clay extension (standard rule is 8 turns)
+		elif "Light Clay" in (mon.item, mon2.item):
+			self.avendturn = self.auroraturn + 8
+			
+		# Default duration
+		else:
+			self.avendturn = self.auroraturn + 5
+			
+		return self.avendturn
+		
+	def twend(self, mon, mon2):
+		# Standard Tailwind duration is 4 turns from the turn it was used (self.tailturn + 4).
+		self.twendturn = self.tailturn + 4
+		return self.twendturn       

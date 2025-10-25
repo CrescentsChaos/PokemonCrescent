@@ -995,41 +995,173 @@ async def marketinfo(ctx:discord.Interaction,code:str):
         infos.add_field(name="Moves:",value=known)
         infos.set_image(url=p.sprite)
         await ctx.response.send_message(embed=infos)  
-                 
-@bot.tree.command(name="pokeinfo",description="Shows infos about particular pokémon.")
-async def pokeinfo(ctx:discord.Interaction,num:int=None):
-    "Shows infos about your captured pokémons."
-    db=sqlite3.connect("owned.db")
-    c=db.cursor()
-    nu=num
-    if num!=None:
-        num=int(num)
-        nu=num
-        num=await row(ctx,num,c)
-    p,allmon=await pokonvert(ctx,ctx.user,num)
-    known=""
-    n=0
-    for i in p.moves:
-        n+=1
-        known+=f"{await movetypeicon(p,i)} {i} {await movect(i)}\n"
-    if len(allmon)!=0:
-        if num==None:
-            num=len(allmon)
-            nu=num
-        types=await typeicon(p.primaryType)
-        clr=await moncolor(p.tera)
-        if p.secondaryType!="???":
-            types=f"{await typeicon(p.primaryType)}{await typeicon(p.secondaryType)}"
-        p.totaliv=round(((p.hpiv+p.atkiv+p.defiv+p.spatkiv+p.spdefiv+p.speediv)/186)*100,2)
-        p.totalev=(p.hpev+p.atkev+p.defev+p.spatkev+p.spdefev+p.speedev)  
-        infos=discord.Embed(title=f"#{nu} {p.nickname} Lv.{p.level}", description=f"""**Types:** {types}\n**Tera-Type:** {await teraicon(p.tera)}\n**Nature:** {p.nature}\n**Gender:** {await statusicon(p.gender)}\n**Held Item:** {await itemicon(p.item)} {p.item}\n**<:hp:1140877395050647613>HP:** {p.maxhp} - IV: {p.hpiv}/31 - EV: {p.hpev}\n**<:attack:1140877438746890280>ATK:** {p.maxatk} - IV: {p.atkiv}/31 - EV: {p.atkev}\n**<:defense:1140877538072203344>DEF:** {p.maxdef} - IV: {p.defiv}/31 - EV: {p.defev}\n**<:spatk:1140877607185956954>SPA:** {p.maxspatk} - IV: {p.spatkiv}/31 - EV: {p.spatkev}\n**<:spdef:1140877582691209286>SPD:** {p.maxspdef} - IV: {p.spdefiv}/31 - EV: {p.spdefev}\n**<:speed:1140877488055128115>SPE:** {p.maxspeed} - IV: {p.speediv}/31 - EV: {p.speedev}\n**Total IV %:** {p.totaliv}%\n**Total EV :** {p.totalev}/508\n**Ability:** {p.ability}\n{await abilitydesc(p.ability)}""",color=clr)
-        infos.set_author(name=ctx.user.display_name,icon_url=ctx.user.avatar)
-        infos.add_field(name="Moves:",value=known)
+
+
+class PokeInfoView(discord.ui.View):
+    def __init__(self, ctx: discord.Interaction, current_index: int, total_pokemon: int):
+        super().__init__(timeout=180)
+        self.ctx = ctx
+        self.current_index = current_index
+        self.total_pokemon = total_pokemon
+        
+        # Disable buttons if at the edge
+        if self.current_index == 1:
+            self.children[0].disabled = True  # Previous button
+        if self.current_index == self.total_pokemon:
+            self.children[1].disabled = True  # Next button
+
+    # --- Button Callbacks ---
+
+    async def update_message(self, interaction: discord.Interaction):
+        # Ensure only the original user can interact
+        if interaction.user != self.ctx.user:
+            return await interaction.response.send_message("This isn't your information panel!", ephemeral=True)
+            
+        # 1. Defer the interaction
+        await interaction.response.defer()
+
+        # 2. Use aiosqlite for the connection
+        async with aiosqlite.connect("owned.db") as db:
+            
+            # 3. Create a cursor to pass to the asynchronous row function
+            async with db.cursor() as c:
+                row_id = await row(self.ctx, self.current_index, c) 
+            p, allmon = await pokonvert(self.ctx, self.ctx.user, row_id) # row_id is the actual ID needed
+        
+        await db.close()
+
+        # 3. Rebuild the embed content (identical to the original logic)
+        known = ""
+        for i in p.moves:
+            known += f"{await movetypeicon(p,i)} {i} {await movect(i)}\n"
+            
+        types = await typeicon(p.primaryType)
+        clr = await moncolor(p.tera)
+        if p.secondaryType != "???":
+            types = f"{await typeicon(p.primaryType)}{await typeicon(p.secondaryType)}"
+        
+        p.totaliv = round(((p.hpiv + p.atkiv + p.defiv + p.spatkiv + p.spdefiv + p.speediv) / 186) * 100, 2)
+        p.totalev = (p.hpev + p.atkev + p.defev + p.spatkev + p.spdefev + p.speedev) 
+        
+        infos = discord.Embed(
+            title=f"#{self.current_index} {p.nickname} Lv.{p.level}", 
+            description=f"""**Types:** {types}\n**Tera-Type:** {await teraicon(p.tera)}\n**Nature:** {p.nature}\n**Gender:** {await statusicon(p.gender)}\n**Held Item:** {await itemicon(p.item)} {p.item}\n**<:hp:1140877395050647613>HP:** {p.maxhp} - IV: {p.hpiv}/31 - EV: {p.hpev}\n**<:attack:1140877438746890280>ATK:** {p.maxatk} - IV: {p.atkiv}/31 - EV: {p.atkev}\n**<:defense:1140877538072203344>DEF:** {p.maxdef} - IV: {p.defiv}/31 - EV: {p.defev}\n**<:spatk:1140877607185956954>SPA:** {p.maxspatk} - IV: {p.spatkiv}/31 - EV: {p.spatkev}\n**<:spdef:1140877582691209286>SPD:** {p.maxspdef} - IV: {p.spdefiv}/31 - EV: {p.spdefev}\n**<:speed:1140877488055128115>SPE:** {p.maxspeed} - IV: {p.speediv}/31 - EV: {p.speedev}\n**Total IV %:** {p.totaliv}%\n**Total EV :** {p.totalev}/508\n**Ability:** {p.ability}\n{await abilitydesc(p.ability)}""",
+            color=clr
+        )
+        infos.set_author(name=self.ctx.user.display_name, icon_url=self.ctx.user.avatar)
+        infos.add_field(name="Moves:", value=known)
         infos.set_image(url=p.sprite)
-        infos.set_footer(text=f"Catching Date: {p.catchdate}\nDisplaying Pokémon: {nu}/{len(allmon)}")
-        await ctx.response.send_message(embed=infos)
-    else:
-        await ctx.response.send_message("Unfortunately you don't have any Pokémon. Please catch some Pokémon using `/spawn` command.")    
+        infos.set_footer(text=f"Catching Date: {p.catchdate}\nDisplaying Pokémon: {self.current_index}/{self.total_pokemon}")
+
+        # 6. Create a new view instance to update button state
+        new_view = PokeInfoView(self.ctx, self.current_index, self.total_pokemon)
+
+        # 7. Edit the original message
+        await interaction.edit_original_response(embed=infos, view=new_view)
+
+
+    # The 'Previous' button
+    @discord.ui.button(label="Previous", style=discord.ButtonStyle.blurple, emoji="⬅️")
+    async def previous_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user != self.ctx.user:
+            return await interaction.response.send_message("This isn't your information panel!", ephemeral=True)
+            
+        if self.current_index > 1:
+            self.current_index -= 1
+        
+        await self.update_message(interaction)
+
+
+    # The 'Next' button
+    @discord.ui.button(label="Next", style=discord.ButtonStyle.blurple, emoji="➡️")
+    async def next_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user != self.ctx.user:
+            return await interaction.response.send_message("This isn't your information panel!", ephemeral=True)
+            
+        if self.current_index < self.total_pokemon:
+            self.current_index += 1
+            
+        await self.update_message(interaction)
+
+    # Handle the view timeout
+    async def on_timeout(self):
+        # Disable all components when the view times out
+        for item in self.children:
+            item.disabled = True   
+            
+@bot.tree.command(name="pokeinfo", description="Shows infos about particular pokémon.")
+async def pokeinfo(ctx: discord.Interaction, num: int = None):
+    "Shows infos about your captured pokémons."
+    
+    # Use aiosqlite to open the connection asynchronously
+    async with aiosqlite.connect("owned.db") as db:
+        
+        # 1. Get all Pokémon to determine the total count
+        # pokonvert is called with None to get the full list (p=None, allmon=list)
+        # Assuming pokonvert returns a list of allmon even if p is None
+        _, allmon = await pokonvert(ctx, ctx.user, None)
+        total_pokemon = len(allmon)
+
+        if total_pokemon == 0:
+            # Note: Since the command uses aiosqlite, we don't need to manually close db here
+            await ctx.response.send_message(
+                "Unfortunately you don't have any Pokémon. Please catch some Pokémon using `/spawn` command.", 
+                ephemeral=True
+            )
+            return
+
+        # 2. Determine the Pokémon Index to Display (1-based)
+        if num is not None:
+            if not (1 <= num <= total_pokemon):
+                await ctx.response.send_message(
+                    f"Invalid Pokémon number. You only have {total_pokemon} Pokémon (1 to {total_pokemon}).", 
+                    ephemeral=True
+                )
+                return
+            current_index = num
+        else:
+            # Default to the latest (highest index) Pokémon.
+            current_index = total_pokemon 
+
+        # 3. Fetch Data for the Selected Index
+        # We pass the index (current_index) to get the specific Pokémon data
+        p, _ = await pokonvert(ctx, ctx.user, current_index)
+        
+        # This check should ideally not fail if total_pokemon > 0, but is a safety
+        if p is None:
+            await ctx.response.send_message("Could not retrieve Pokémon data.", ephemeral=True)
+            return
+
+        # --- 4. Build the Embed (UNCHANGED LOGIC) ---
+        
+        known = ""
+        # The list 'p.moves' needs to be checked for validity
+        if p.moves and isinstance(p.moves, (list, tuple)):
+            for i in p.moves:
+                known += f"{await movetypeicon(p, i)} {i} {await movect(i)}\n"
+        
+        types = await typeicon(p.primaryType)
+        clr = await moncolor(p.tera)
+        if p.secondaryType != "???":
+            types = f"{await typeicon(p.primaryType)}{await typeicon(p.secondaryType)}"
+            
+        p.totaliv = round(((p.hpiv + p.atkiv + p.defiv + p.spatkiv + p.spdefiv + p.speediv) / 186) * 100, 2)
+        p.totalev = (p.hpev + p.atkev + p.defev + p.spatkev + p.spdefev + p.speedev) 
+        
+        infos = discord.Embed(
+            title=f"#{current_index} {p.nickname} Lv.{p.level}", 
+            description=f"""**Types:** {types}\n**Tera-Type:** {await teraicon(p.tera)}\n**Nature:** {p.nature}\n**Gender:** {await statusicon(p.gender)}\n**Held Item:** {await itemicon(p.item)} {p.item}\n**<:hp:1140877395050647613>HP:** {p.maxhp} - IV: {p.hpiv}/31 - EV: {p.hpev}\n**<:attack:1140877438746890280>ATK:** {p.maxatk} - IV: {p.atkiv}/31 - EV: {p.atkev}\n**<:defense:1140877538072203344>DEF:** {p.maxdef} - IV: {p.defiv}/31 - EV: {p.defev}\n**<:spatk:1140877607185956954>SPA:** {p.maxspatk} - IV: {p.spatkiv}/31 - EV: {p.spatkev}\n**<:spdef:1140877582691209286>SPD:** {p.maxspdef} - IV: {p.spdefiv}/31 - EV: {p.spdefev}\n**<:speed:1140877488055128115>SPE:** {p.maxspeed} - IV: {p.speediv}/31 - EV: {p.speedev}\n**Total IV %:** {p.totaliv}%\n**Total EV :** {p.totalev}/508\n**Ability:** {p.ability}\n{await abilitydesc(p.ability)}""",
+            color=clr
+        )
+        infos.set_author(name=ctx.user.display_name, icon_url=ctx.user.avatar)
+        infos.add_field(name="Moves:", value=known if known else "No moves learned.")
+        infos.set_image(url=p.sprite)
+        infos.set_footer(text=f"Catching Date: {p.catchdate}\nDisplaying Pokémon: {current_index}/{total_pokemon}")
+
+        # 5. Send Message with View
+        view = PokeInfoView(ctx, current_index, total_pokemon)
+        
+        await ctx.response.send_message(embed=infos, view=view)
 
 @bot.tree.command(name="marketlists",description="Shows pokémons in market.")
 async def marketlists(ctx:discord.Interaction,num:int=1):   

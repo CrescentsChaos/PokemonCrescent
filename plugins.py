@@ -145,16 +145,31 @@ async def pricetag(r):
     final_price = int(base_price * (1 + iv))
     return final_price         
     
-async def row(ctx,num,c):
-    user=None
+async def row(ctx, index_num, c):
+    """
+    Translates a 1-based index (index_num) into the SQLite rowid 
+    for the user's Pokémon at that position using the 'original' logic.
+    'c' must be an aiosqlite.Cursor object.
+    """
     try:
-        user=ctx.author
+        user = ctx.author
     except:
-        user=ctx.user
-    c.execute(f"select *,rowid from '{user.id}'")    
-    hh=c.fetchall()
-    num=hh[num-1][27]            
-    return num   
+        user = ctx.user
+        
+    # MUST USE AWAIT FOR AIOSQLITE CURSOR EXECUTION
+    await c.execute(f"select *,rowid from '{user.id}'") 
+    
+    # MUST USE AWAIT FOR AIOSQLITE CURSOR FETCHALL
+    hh = await c.fetchall()
+    
+    # Check if the list is long enough and access the rowid (index 27 in your original snippet)
+    if 0 < index_num <= len(hh):
+        # num is already being used as a 1-based index in the original code
+        # The rowid is column 27 (index 27) in the result set
+        rowid = hh[index_num - 1][27] 
+        return rowid
+        
+    return None  
 
 async def pokonvert(ctx, member, num: int = None):
     # Use asynchronous context managers for connection safety
@@ -166,9 +181,21 @@ async def pokonvert(ctx, member, num: int = None):
         allmon = await owned_db.execute_fetchall(allmon_query)
         
         if num is None:
-            num = len(allmon)
-            # Assuming row() handles the selection logic and returns the row number
-            num = await row(ctx, num, owned_db.cursor())
+            # Check if there are any Pokémon
+            if not allmon:
+                 return None, []
+                 
+            # If num is None, we want the index of the latest Pokémon (len(allmon)).
+            target_index = len(allmon)
+            
+            # We need an active cursor to call the row function
+            async with owned_db.cursor() as cursor:
+                # num will store the actual SQLite rowid after this call
+                num = await row(ctx, target_index, cursor) # Pass the active cursor
+                
+            # If row returns None (shouldn't if allmon is > 0), use the last rowid in allmon
+            if num is None:
+                 num = allmon[-1][-1]
             
         num = int(num)
         owned_query = f"SELECT * FROM '{member_id_str}' WHERE rowid = ?"
@@ -1174,18 +1201,18 @@ class PlayerActionView(discord.ui.View):
         
         # Define base button styles and emojis using only standard colors
         styles = {
-            1: (discord.ButtonStyle.green, "💥", "Fight"),        # Success
-            2: (discord.ButtonStyle.blurple, "🔁", "Switch"),      # Primary
-            3: (discord.ButtonStyle.green, "🚫", "Forfeit"),         # Danger
+            1: (discord.ButtonStyle.secondary, "💥", "Fight"),        # Success
+            2: (discord.ButtonStyle.secondary, "🔁", "Switch"),      # Primary
+            3: (discord.ButtonStyle.secondary, "🚫", "Forfeit"),         # Danger
             
             # Use 'blurple' or 'gray' to replace 'gold' and 'dark_teal'
-            5: (discord.ButtonStyle.blurple, "<:zmove:1140788256577949717>", "Z-Move"), 
-            6: (discord.ButtonStyle.blurple, "<:megaevolve:1104646688951500850>", "Mega Evolve"), 
-            7: (discord.ButtonStyle.blurple, "🌟", "Ultra Burst"),
-            8: (discord.ButtonStyle.green, "<:dynamax:1104646304904257647>", "Dynamax"), 
+            5: (discord.ButtonStyle.secondary, "<:zmove:1140788256577949717>", "Z-Move"), 
+            6: (discord.ButtonStyle.secondary, "<:megaevolve:1104646688951500850>", "Mega Evolve"), 
+            7: (discord.ButtonStyle.secondary, "🌟", "Ultra Burst"),
+            8: (discord.ButtonStyle.secondary, "<:dynamax:1104646304904257647>", "Dynamax"), 
             
             # Use 'blurple' or 'gray' to replace 'fuchsia'
-            9: (discord.ButtonStyle.blurple, f"✨", "Terastallize"),
+            9: (discord.ButtonStyle.secondary, f"✨", "Terastallize"),
         }
 
         # Add buttons based on available_actions set
@@ -1367,20 +1394,35 @@ async def action(bot, ctx, tr1, tr2, x, y):
         
 async def spartyup(tr1,x):
     di={
+
     "Male":"<:male:1140875825693085757>",
+
     "Female":"<:female:1140875954193956944>",
+
     "Genderless":"<:genderless:1140875679383175250>",
+
     "Sleep":"<:asleep:1140745217193021511>",
+
     "Burned":"<:burned:1140744974514782369>",
+
     "Poisoned":"<:poisoned:1140745045805379604>",
+
     "Badly Poisoned":"<:poisoned:1140745045805379604>",
+
     "Frozen":"<:frozen:1140745102889857045>",
+
     "Paralyzed":"<:paralyzed:1140745164231544954>",
+
     "Alive":"<:healthy:1140746496657080420>",
+
     "Drowsy":"<:asleep:1140745217193021511>",
+
     "Frostbite":"<:frozen:1140745102889857045>",
+
     "Fainted":"<:fainted:1142928844421070849>"
+
     }
+
     tr1.sparty[tr1.party.index(x.icon)]=di[x.status]
     return tr1.sparty
 
@@ -1675,10 +1717,10 @@ class MoveChoiceView(discord.ui.View):
             is_disabled = (pp_left <= 0)
             
             # Use 'red' if PP is 0, 'green' otherwise
-            button_style = discord.ButtonStyle.red if is_disabled else discord.ButtonStyle.green
+            button_style = discord.ButtonStyle.secondary if is_disabled else discord.ButtonStyle.secondary
             
             button = discord.ui.Button(
-                label=f"{m_name} {pp_text}",
+                label=f"{m_name}",
                 style=button_style,
                 custom_id=f"move_{move_index}",
                 disabled=is_disabled
@@ -1794,7 +1836,7 @@ async def movelist(ctx, x, tr1, tr2, field):
             except (IndexError, ValueError):
                 pp_left = 0 # Safety catch
 
-            pp_text = f""
+            pp_text = f"PP:{pp_left}"
             
             # Store data as a tuple: (Move Name, Type Icon, Ct Icon, PP Text, PP Left)
             move_data.append((m, type_icon, move_ct, pp_text, pp_left))
@@ -3766,7 +3808,8 @@ async def weather(ctx, field, bg):
 async def partyup(tr1,new):
     if new.icon not in tr1.party:
         tr1.party[tr1.party.index("<:ball:1127196564948009052>")]=new.icon
-    return tr1.party 
+    return tr1.party
+
 async def send_switch_message(ctx, tr1, new):
     """Handles the creation and sending of the 'sent out' embed."""
     em = discord.Embed(title=f"{tr1.name} sent out {new.name}!")
@@ -3801,7 +3844,7 @@ class PokemonSwitchSelect(discord.ui.Select):
                 discord.SelectOption(
                     label=f"#{i+1} {p.name} ({hp_status})",
                     # Append a warning to the description instead of disabling
-                    description=f"Ability: {p.ability}" if not is_fainted_or_active else "Cannot switch (Fainted or Active)",
+                    description=f"Ability: {p.ability}" if not is_fainted_or_active else "Cannot switch (Active)",
                     value=str(i),
                     emoji=p.icon,
                     # NO 'disabled' ARGUMENT HERE
@@ -4531,7 +4574,7 @@ async def gameteam(ctx, num=0, p1team=None):
         max_level = 100
     else:
         # Find the max level of the opponent's team and subtract 2
-        opponent_levels = [mon.level for mon in p1team]
+        opponent_levels = [mon.level for mon in p1team if mon is not None]
         max_level = max(opponent_levels) - 2
 
     # --- 3. Retrieve Trainer's Base Team from Database ---
