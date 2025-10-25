@@ -1464,10 +1464,11 @@ async def fchoice(ctx,bot,x,y,tr1,tr2,field):
                       
 async def megatrans(ctx,x,y,tr1,tr2,field,turn):
     des=f"{x.icon} {x.name}'s c is reacting to {tr1.name}'s Keystone!\n{x.name} has Mega Evolved into Mega {x.name}!"
-    x.nickname=f"Mega {x.nickname} {x.item}"
+    x.nickname=f"Mega {x.name}"
     if x.name not in ["Mewtwo","Charizard","Raichu"]:
         x.sprite=x.sprite.replace(".gif","-mega.gif")
-        x.nickname=f"Mega {x.name} {x.item[-1]} {x.item}"
+    elif x.name not in ["Mewtwo","Charizard","Raichu"]:
+        x.nickname=f"Mega {x.name} {x.item[-1]}"
     if "Rayquaza" in x.name:
         des=f"{tr1.name}'s fervent wish has reached {x.name}!\nRayquaza Mega evolved into Mega Rayquaza!"
     em=discord.Embed(title="Mega Evolution:",description=des) 
