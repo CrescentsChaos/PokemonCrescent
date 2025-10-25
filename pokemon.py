@@ -87,124 +87,116 @@ def zmove(x):
         x.zuse=False
         return "None"
                     
-def maxmovemaker(self,typem=typemoves):
-    maxmove=[]
-    gm="None"
-    for i in self.moves:
-        if i in typem.dragonmoves:
-            gm="Max Wyrmwind"
-            if "Duraludon" in self.name:
-                gm="G-Max Depletion"
-        elif i in typem.normalmoves:
-            gm="Max Strike"
-            if self.ability=="Galvanize":
-                gm="Max Lightning"
-            if self.ability=="Aerilate":
-                gm="Max Airstream"
-            if self.ability=="Refrigerate":
-                gm="Max Hailstorm"
-            if self.ability=="Pixilate":
-                gm="Max Starfall"
-            if "Snorlax" in self.name:
-                gm="G-Max Replenish"
-            if "Meowth" in self.name:
-                gm="G-Max Gold Rush"
-            if "Eevee" in self.name:
-                gm="G-Max Cuddle"
-        elif i in typem.steelmoves:
-            gm="Max Steelspike"
-            if "Copperajah" in self.name:
-                gm="G-Max Steelsurge"
-            if "Melmetal" in self.name:
-                gm="G-Max Meltdown"
-        elif i in typem.fairymoves:
-            gm="Max Starfall"
-            if "Hatterene" in self.name:
-                gm="G-Max Smite"
-            if "Alcremie" in self.name:
-                gm="G-Max Finale"
-        elif i in typem.rockmoves:
-            gm="Max Rockfall"
-            if "Coalossal" in self.name:
-                gm="G-Max Volcalith"
-        elif i in typem.groundmoves:
-            gm="Max Quake"
-            if "Sandaconda" in self.name:
-                gm="G-Max Sandblast"
-        elif i in typem.ghostmoves:
-            gm="Max Phantasm"
-            if "Gengar" in self.name:
-                gm="G-Max Terror"
-        elif i in typem.grassmoves:
-            gm="Max Overgrowth"
-            if "Venusaur" in self.name:
-                gm="G-Max Vine Lash"
-            if "Flapple" in self.name:
-                gm="G-Max Tartness"
-            if "Appletun" in self.name:
-                gm="G-Max Sweetness"
-            if "Rillaboom" in self.name:
-                gm="G-Max Drum Solo"
-        elif i in typem.poisonmoves:
-            gm="Max Ooze"
-            if "Garbodor" in self.name:
-                gm="G-Max Malodor"
-        elif i in typem.psychicmoves:
-            gm="Max Mindstorm"
-            if "Orbeetle" in self.name:
-                gm="G-Max Gravitas"
-        elif i in typem.electricmoves:
-            gm="Max Lightning"
-            if "Pikachu" in self.name:
-                gm="G-Max Volt Crash"
-            if "Toxtricity" in self.name:
-                gm="G-Max Stun Shock"
-        elif i in typem.fightingmoves:
-            gm="Max Knuckle"
-            if "Machamp" in self.name:
-                gm="G-Max Chi Strike"
-        elif i in typem.icemoves:
-            gm="Max Hailstorm"
-            if "Lapras" in self.name:
-                gm="G-Max Resonance"
-        elif i in typem.watermoves:
-            gm="Max Geyser"
-            if "Drednaw" in self.name:
-                gm="G-Max Stonesurge"
-            if "Rapid" in self.name:
-                gm="G-Max Rapid Flow"
-            if "Inteleon" in self.name:
-                gm="G-Max Hydrosnipe"
-            if "Kingler" in self.name:
-                gm="G-Max Foam Burst"
-            if "Blastoise" in self.name:
-                gm="G-Max Cannonade"
-        elif i in typem.bugmoves:
-            gm="Max Flutterby"
-            if "Butterfree" in self.name:
-                gm="G-Max Befuddle"
-        elif i in typem.darkmoves:
-            gm="Max Darkness"
-            if "Grimmsnarl" in self.name:
-                gm="G-Max Snooze"
-            if "Single" in self.name:
-                gm="G-Max One Blow"
-        elif i in typem.flyingmoves:
-            gm="Max Airstream"
-            if "Corviknight" in self.name:
-                gm="G-Max Wind Rage"
-        elif i in typem.firemoves:
-            gm="Max Flare"
-            if "Charizard" in self.name:
-                gm="G-Max Wildfire"
-            if "Cinderace" in self.name:
-                gm="G-Max Fireball"
-            if "Centiskorch" in self.name:
-                gm="G-Max Centiferno"
-        if i in typem.statusmove:
-            gm="Max Guard"                
-        maxmove.append(gm)
-    return maxmove	
+def maxmovemaker(self, typem):
+    
+    # 1. Define the Standard Max Move Map by Move Type
+    STANDARD_MAX_MOVES = [
+    (typem.dragonmoves, "Max Wyrmwind"),
+    (typem.normalmoves, "Max Strike"),
+    (typem.steelmoves, "Max Steelspike"),
+    (typem.fairymoves, "Max Starfall"),
+    (typem.rockmoves, "Max Rockfall"),
+    (typem.groundmoves, "Max Quake"),
+    (typem.ghostmoves, "Max Phantasm"),
+    (typem.grassmoves, "Max Overgrowth"),
+    (typem.poisonmoves, "Max Ooze"),
+    (typem.psychicmoves, "Max Mindstorm"),
+    (typem.electricmoves, "Max Lightning"),
+    (typem.fightingmoves, "Max Knuckle"),
+    (typem.icemoves, "Max Hailstorm"),
+    (typem.watermoves, "Max Geyser"),
+    (typem.bugmoves, "Max Flutterby"),
+    (typem.darkmoves, "Max Darkness"),
+    (typem.flyingmoves, "Max Airstream"),
+    (typem.firemoves, "Max Flare"),
+]
+
+    # 2. Define Special Ability/G-Max Overrides
+    # G-Max moves take priority over Ability Max Moves
+    GMAX_MAP = {
+        "Duraludon": "G-Max Depletion",
+        "Snorlax": "G-Max Replenish",
+        "Meowth": "G-Max Gold Rush",
+        "Eevee": "G-Max Cuddle",
+        "Copperajah": "G-Max Steelsurge",
+        "Melmetal": "G-Max Meltdown",
+        "Hatterene": "G-Max Smite",
+        "Alcremie": "G-Max Finale",
+        "Coalossal": "G-Max Volcalith",
+        "Sandaconda": "G-Max Sandblast",
+        "Gengar": "G-Max Terror",
+        "Venusaur": "G-Max Vine Lash",
+        "Flapple": "G-Max Tartness",
+        "Appletun": "G-Max Sweetness",
+        "Rillaboom": "G-Max Drum Solo",
+        "Garbodor": "G-Max Malodor",
+        "Orbeetle": "G-Max Gravitas",
+        "Pikachu": "G-Max Volt Crash",
+        "Toxtricity": "G-Max Stun Shock",
+        "Machamp": "G-Max Chi Strike",
+        "Lapras": "G-Max Resonance",
+        "Drednaw": "G-Max Stonesurge",
+        # NOTE: "Rapid" is too vague. It should be the full name like 'Urshifu-Rapid-Strike' or 'Rapidash'
+        # Assuming you mean Urshifu (Rapid-Strike Style) here
+        "Rapid Strike Urshifu": "G-Max Rapid Flow", 
+        "Inteleon": "G-Max Hydrosnipe",
+        "Kingler": "G-Max Foam Burst",
+        "Blastoise": "G-Max Cannonade",
+        "Butterfree": "G-Max Befuddle",
+        "Grimmsnarl": "G-Max Snooze",
+        # NOTE: "Single" is too vague. Assuming Urshifu (Single-Strike Style)
+        "Single Strike Urshifu": "G-Max One Blow", 
+        "Corviknight": "G-Max Wind Rage",
+        "Charizard": "G-Max Wildfire",
+        "Cinderace": "G-Max Fireball",
+        "Centiskorch": "G-Max Centiferno",
+    }
+    
+    # 3. Define Ability Max Move Overrides
+    ABILITY_MAX_MOVE_MAP = {
+        "Galvanize": "Max Lightning",
+        "Aerilate": "Max Airstream",
+        "Refrigerate": "Max Hailstorm",
+        "Pixilate": "Max Starfall",
+    }
+
+    maxmove = []
+    
+    # 4. Iterate and Determine Max Move for each base move
+    for base_move in self.moves:
+        
+        # Check if the move is a Status move first (always Max Guard)
+        if base_move in typem.statusmove:
+            maxmove.append("Max Guard")
+            continue
+            
+        # 5. Determine the move's type and corresponding standard Max Move
+        determined_max_move = "Max Guard" # Fallback, though status moves are handled above
+        
+        for move_list, max_name in STANDARD_MAX_MOVES:
+            if base_move in move_list:
+                determined_max_move = max_name
+                break # Found the type, stop checking other types
+        
+        # 6. Apply Ability Overrides (only for Normal-type moves)
+        if determined_max_move == "Max Strike":
+            if self.ability in ABILITY_MAX_MOVE_MAP:
+                determined_max_move = ABILITY_MAX_MOVE_MAP[self.ability]
+        
+        # 7. Apply G-Max Overrides (Highest Priority)
+        # G-Max moves are based on the Pokemon name and override everything else.
+        gmax_found = False
+        for gmax_name_part, gmax_move in GMAX_MAP.items():
+            if gmax_name_part in self.name:
+                determined_max_move = gmax_move
+                gmax_found = True
+                break
+        
+        # 8. Append the final Max Move to the list
+        maxmove.append(determined_max_move)
+        
+    return maxmove
+
 def moveset(moves):
     moves=eval(moves)
     result=[]

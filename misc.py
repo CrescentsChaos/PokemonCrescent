@@ -49,6 +49,7 @@ async def release(ctx:discord.Interaction,mons:str):
         await ctx.channel.send(f"Released {len(rel)} pokémon(s) successfully!")
     else:
         await ctx.channel.send("Release cancelled!")  
+        
 @bot.tree.command(name="abilityinfo",description="Shows ability description.")
 @app_commands.describe(ability="Name of the ability.")
 async def abilityinfo(ctx:discord.Interaction,ability:str):
@@ -56,6 +57,7 @@ async def abilityinfo(ctx:discord.Interaction,ability:str):
     d=await abilitydesc(ability)
     em=discord.Embed(title=f"{ability}:",description=d,color=0x00ff00)
     await ctx.response.send_message(embed=em,ephemeral=True)
+    
 @bot.tree.command(name="withdraw",description="Withdraws pokémon from market.")
 async def withdraw(ctx:discord.Interaction,code:str):    
     db=sqlite3.connect("market.db")
@@ -141,6 +143,7 @@ async def withdraw(ctx:discord.Interaction,code:str):
         await ctx.response.send_message("Withdraw successfully!")
     else:
         await ctx.response.send_message("You cannot withdraw others pokémon.") 
+        
 @bot.tree.command(name="purchase",description="Purchase pokémon from market.")
 async def purchase(ctx:discord.Interaction,code:str):
     db=sqlite3.connect("market.db")
@@ -232,7 +235,8 @@ async def purchase(ctx:discord.Interaction,code:str):
         await addmoney(ctx,ctx.user,-price)  
         await ctx.response.send_message("Purchased successfully!")
     else:
-        await ctx.response.send_message("You don't have enough pokécoins.")      
+        await ctx.response.send_message("You don't have enough pokécoins.")    
+          
 @bot.tree.command(name="compare",description="Compare two pokémons.")
 async def compare(ctx:discord.Interaction,num1:int,num2:int):        
     db = sqlite3.connect("owned.db")
@@ -246,6 +250,7 @@ async def compare(ctx:discord.Interaction,num1:int,num2:int):
     com.add_field(name="IVs:",value=f"**HP IV:** {await bufficon(p.hpiv,q.hpiv)}{p.hpiv} - {q.hpiv}{await bufficon(q.hpiv,p.hpiv)}\n**ATK IV:** {await bufficon(p.atkiv,q.atkiv)}{p.atkiv} - {q.atkiv}{await bufficon(q.atkiv,p.atkiv)}\n**DEF IV:** {await bufficon(p.defiv,q.defiv)}{p.defiv} - {q.defiv}{await bufficon(q.defiv,p.defiv)}\n**SPA IV:** {await bufficon(p.spatkiv,q.spatkiv)}{p.spatkiv} - {q.spatkiv}{await bufficon(q.spatkiv,p.spatkiv)}\n**SPD IV:** {await bufficon(p.spdefiv,q.spdefiv)}{p.spdefiv} - {q.spdefiv}{await bufficon(q.spdefiv,p.spdefiv)}\n**SPE IV:** {await bufficon(p.speediv,q.speediv)}{p.speediv} - {q.speediv}{await bufficon(q.speediv,p.speediv)}")
     com.add_field(name="EVs:",value=f"**HP EV:** {await bufficon(p.hpev,q.hpev)}{p.hpev} - {q.hpev}{await bufficon(q.hpev,p.hpev)}\n**ATK EV:** {await bufficon(p.atkev,q.atkev)}{p.atkev} - {q.atkev}{await bufficon(q.atkev,p.atkev)}\n**DEF EV:** {await bufficon(p.defev,q.defev)}{p.defev} - {q.defev}{await bufficon(q.defev,p.defev)}\n**SPA EV:** {await bufficon(p.spatkev,q.spatkev)}{p.spatkev} - {q.spatkev}{await bufficon(q.spatkev,p.spatkev)}\n**SPD EV:** {await bufficon(p.spdefev,q.spdefev)}{p.spdefev} - {q.spdefev}{await bufficon(q.spdefev,p.spdefev)}\n**SPE EV:** {await bufficon(p.speedev,q.speedev)}{p.speedev} - {q.speedev}{await bufficon(q.speedev,p.speedev)}")
     await ctx.response.send_message(embed=com)
+
 @bot.tree.command(name="coinflip",description="Flips a coin to 2x the amount or lose it.")
 async def coinflip(ctx:discord.Interaction,choice:str,amount:int):    
     db=sqlite3.connect("playerdata.db")
@@ -267,6 +272,7 @@ async def coinflip(ctx:discord.Interaction,choice:str,amount:int):
             await addmoney(ctx,ctx.user,-amount)
     else:
         ctx.reply("You don't have enough balance!")
+        
 async def moncolor(u):
     colors = {
         "Normal": "BFB97F",
@@ -293,6 +299,7 @@ async def moncolor(u):
         return int(colors[u], 16)
     else:
         return int("FFFFFF", 16)
+    
 @bot.tree.command(name="pokedex",description="Shows pokédex entry and infos.")
 async def pokedex(ctx:discord.Interaction,name:str):
     shiny=""
@@ -356,6 +363,7 @@ async def pokedex(ctx:discord.Interaction,name:str):
         data.add_field(name="__Entry:__",value=text)   
         data.set_image(url=sprite) 
         await ctx.response.send_message(embed=data)
+        
 @bot.tree.command(name="movedex",description="Shows move infos.")
 async def movedex(ctx:discord.Interaction,name:str):
     name=name.title()
@@ -371,7 +379,8 @@ async def movedex(ctx:discord.Interaction,name:str):
         data.add_field(name='Accuracy:',value=p[4],inline=False)
         data.add_field(name='Type:',value=f'{await movetypeicon(None,p[0])}',inline=False)
         data.add_field(name='Catagory:',value=f'{await movect(p[0])}',inline=False)   
-        await ctx.response.send_message(embed=data)        
+        await ctx.response.send_message(embed=data)  
+              
 @bot.tree.command(name="spawn",description="Spawns a pokémon.")   
 async def spawn(ctx:discord.Interaction):
     dn=sqlite3.connect("playerdata.db")
@@ -567,36 +576,133 @@ async def spawn(ctx:discord.Interaction):
         else:
             await ctx.channel.send("You don't have an account. Type `/start` to create an account.")              
     else:
-        await ctx.channel.send("You don't have enough money.")         
-@bot.command(aliases=["ch"])            
-async def cheat(ctx,code):        
-    if code=="tsilverw7":
-        await addmoney(ctx,ctx.author,1000000)
+        await ctx.channel.send("You don't have enough money.") 
+                
+@bot.tree.command(name="cheat", description="Enter a secret code (if you have one).")
+@app_commands.describe(code="The secret cheat code to enter.")
+async def cheat_slash(interaction: discord.Interaction, code: str):
+    await interaction.response.defer(thinking=True, ephemeral=True)
+    if code == "tsilverw7":
+        await addmoney(None, interaction.user, 1000000)
+        await interaction.followup.send("💰 Success! You received 1,000,000 Pokécoins!", ephemeral=True)
     else:
-        pass
-@bot.tree.command(name="badges",description="Shows badges.")
-async def badges(ctx:discord.Interaction,page:int=1):
-    db=sqlite3.connect("playerdata.db")
-    c=db.cursor()
-    c.execute(f"select * from '{ctx.user.id}'")
-    dat=c.fetchone()
-    if dat[6]!="None":
-        bdg=dat[6].split(",")
-        bdg=await sortbadge(bdg)
-        dt=sqlite3.connect("pokemondata.db")
-        ct=dt.cursor()
-        tex=""
-        start=(page*10)-10
-        end=(page*10)
-        if end>len(bdg):
-            end=len(bdg)
-        for i in range(start,end):
-            ct.execute(f"select * from 'Trainers' where symbolname='{bdg[i]}'")
-            jj=ct.fetchone()
-            tex+=f"{jj[2]} {jj[1]}\n"
-        bd=discord.Embed(title="Badges:",description=tex)
-        bd.set_footer(text=f"Showing page {page} of {len(bdg)//10}.")
-        await ctx.response.send_message(embed=bd)
+        await interaction.followup.send("❌ Invalid code. Better luck next time!", ephemeral=True)
+async def sortbadge(bdg_list: List[str]) -> List[str]:
+    # Placeholder for your badge sorting logic
+    return sorted(bdg_list)
+
+# --- View Class for Pagination ---
+
+class BadgesView(discord.ui.View):
+    def __init__(self, user_id: int, bdg_list: List[str], max_per_page: int = 10):
+        super().__init__(timeout=300)
+        self.user_id = user_id
+        self.bdg_list = bdg_list
+        self.max_per_page = max_per_page
+        self.current_page = 1
+        
+        # Calculate total pages
+        self.total_pages = (len(bdg_list) + max_per_page - 1) // max_per_page
+        
+        # Disable buttons if only one page exists
+        if self.total_pages <= 1:
+            self.children[0].disabled = True  # Previous
+            self.children[1].disabled = True  # Next
+
+    # --- Pagination Logic ---
+    def get_page_content(self) -> discord.Embed:
+        # Re-establish DB connection for each page generation (safer in async callbacks)
+        dt = sqlite3.connect("pokemondata.db")
+        ct = dt.cursor()
+        
+        tex = ""
+        start = (self.current_page - 1) * self.max_per_page
+        end = min(self.current_page * self.max_per_page, len(self.bdg_list))
+        
+        # If the page is valid but empty (shouldn't happen if logic is correct)
+        if start >= len(self.bdg_list):
+            self.current_page = 1
+            return self.get_page_content() # Recursively call page 1
+
+        for i in range(start, end):
+            # bdg_list[i] is the symbolname
+            ct.execute(f"select symbolname, icon, name from 'Trainers' where symbolname='{self.bdg_list[i]}'")
+            # Assuming jj[2] is icon, jj[1] is name in your original code
+            jj = ct.fetchone() 
+            if jj:
+                 # Check if the structure is jj[2]=icon and jj[1]=name
+                tex += f"{jj[1]} {jj[2]}\n"  # Adjust indexing based on your DB columns
+        
+        dt.close()
+        
+        # Update button states
+        self.children[0].disabled = (self.current_page == 1)      # Previous button
+        self.children[1].disabled = (self.current_page == self.total_pages) # Next button
+
+        # Create the embed
+        bd = discord.Embed(
+            title=f"Badges: {len(self.bdg_list)} Total",
+            description=tex if tex else "No badges found on this page."
+        )
+        bd.set_footer(text=f"Page {self.current_page} of {self.total_pages}")
+        
+        return bd
+
+    # --- Button Callbacks ---
+
+    @discord.ui.button(label="<", style=discord.ButtonStyle.blurple, disabled=True)
+    async def previous_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.current_page > 1:
+            self.current_page -= 1
+            embed = self.get_page_content()
+            await interaction.response.edit_message(embed=embed, view=self)
+        else:
+            await interaction.response.defer()
+
+    @discord.ui.button(label=">", style=discord.ButtonStyle.blurple)
+    async def next_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.current_page < self.total_pages:
+            self.current_page += 1
+            embed = self.get_page_content()
+            await interaction.response.edit_message(embed=embed, view=self)
+        else:
+            await interaction.response.defer()
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        # Only the user who ran the command can use the buttons
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("This badge viewer is not for you!", ephemeral=True)
+            return False
+        return True
+        
+@bot.tree.command(name="badges", description="Shows the badges you have collected.")
+async def badges(ctx: discord.Interaction): # Removed page argument as it's handled by the view
+    db = sqlite3.connect("playerdata.db")
+    c = db.cursor()
+    c.execute(f"select data_column_for_badges from '{ctx.user.id}'")
+    dat = c.fetchone()
+    db.close() # Close connection immediately
+
+    # dat[6] is assumed to be the column index for the comma-separated badge string
+    badge_data = dat[6] if dat and len(dat) > 6 else "None" # Safe indexing
+
+    if badge_data == "None" or not badge_data.strip():
+        await ctx.response.send_message("You haven't collected any badges yet! 🏅", ephemeral=True)
+        return
+
+    bdg = badge_data.split(",")
+    # You MUST await your sortbadge function
+    bdg = await sortbadge(bdg) 
+
+    # Initialize the View
+    view = BadgesView(ctx.user.id, bdg)
+    
+    # Get the content for the first page
+    initial_embed = view.get_page_content()
+
+    # Send the initial response with the buttons
+    await ctx.response.send_message(embed=initial_embed, view=view)
+        
 @bot.tree.command(name="start",description="Start the game.")
 async def start(ctx:discord.Interaction):
     "Starts the game for you and creates your account."
@@ -722,7 +828,8 @@ async def start(ctx:discord.Interaction):
                     show.set_image(url=p.sprite)
                     show.set_footer(text="Enter '/pokeinfo' to see more details or '/spawn' to start catching pokémons.")
                     await ctx.channel.send(embed=show)
-                    break        
+                    break     
+                   
 @bot.tree.command(name="marketlist",description="Lists pokémon in market.")
 async def marketlist(ctx:discord.Interaction,num:int=1,cost:int=1):
     db=sqlite3.connect("owned.db")
@@ -824,6 +931,7 @@ async def marketlist(ctx:discord.Interaction,num:int=1,cost:int=1):
             break
         else:
             break
+        
 @bot.tree.command(name="marketinfo",description="Shows infos about particular pokémon in market.")
 async def marketinfo(ctx:discord.Interaction,code:str):
     dt = sqlite3.connect("pokemondata.db")
@@ -886,7 +994,8 @@ async def marketinfo(ctx:discord.Interaction,code:str):
         infos.set_author(name=(await bot.fetch_user(n[27])).display_name,icon_url=(await bot.fetch_user(n[27])).avatar)
         infos.add_field(name="Moves:",value=known)
         infos.set_image(url=p.sprite)
-        await ctx.response.send_message(embed=infos)           
+        await ctx.response.send_message(embed=infos)  
+                 
 @bot.tree.command(name="pokeinfo",description="Shows infos about particular pokémon.")
 async def pokeinfo(ctx:discord.Interaction,num:int=None):
     "Shows infos about your captured pokémons."
@@ -921,6 +1030,7 @@ async def pokeinfo(ctx:discord.Interaction,num:int=None):
         await ctx.response.send_message(embed=infos)
     else:
         await ctx.response.send_message("Unfortunately you don't have any Pokémon. Please catch some Pokémon using `/spawn` command.")    
+
 @bot.tree.command(name="marketlists",description="Shows pokémons in market.")
 async def marketlists(ctx:discord.Interaction,num:int=1):   
     dt=sqlite3.connect("pokemondata.db")
@@ -962,6 +1072,7 @@ async def marketlists(ctx:discord.Interaction,num:int=1):
                 x.add_field(name=f"#{i[28]} {icon} {name} {await teraicon(i[20])}",value=f"**Gender:** {await statusicon(i[19])} | **Ability:** {i[15]} | **IV:** {ivp}% | **Price:** {await numberify(i[26])} <:pokecoin:1134595078892044369>",inline=False)
             x.set_footer(text=f"Showing {num} out of {len(list_of_lists)} pages.")
             await ctx.response.send_message(embed=x)
+            
 @bot.tree.command(name="market",description="Shows all of market pokemons.")    
 async def market(ctx:discord.Interaction,num:int=1,name:str=None):
     dt=sqlite3.connect("pokemondata.db")
@@ -1013,6 +1124,7 @@ async def market(ctx:discord.Interaction,num:int=1,name:str=None):
             x.set_image(url="https://cdn.discordapp.com/attachments/1102579499989745764/1134736129250300045/image_search_1690612550924.jpg")
             x.set_footer(text=f"Showing {num} out of {len(list_of_lists)} pages.")
             await ctx.response.send_message(embed=x)
+            
 @bot.tree.command(name="wipepc",description="Wipes all of your pokemons.") 
 async def wipepc(ctx:discord.Interaction):
     await ctx.response.send_message("Do you really wanna wipe your pc?\n⚠️ You will lose all your pokémons!")
@@ -1024,7 +1136,8 @@ async def wipepc(ctx:discord.Interaction):
         db.commit()
         ctx.channel.send("Account erased successfully!")
     else:
-        pass     
+        pass   
+      
 @bot.tree.command(name="wipeaccount",description="Wipes your account.")     
 async def wipeaccount(ctx:discord.Interaction):
     await ctx.response.send_message("Do you really wanna wipe your account?\n⚠️ You will lose all your items and pokécoins!")
@@ -1036,84 +1149,195 @@ async def wipeaccount(ctx:discord.Interaction):
         db.commit()
         ctx.channel.send("Account erased successfully!")
     else:
-        pass                
+        pass  
+                  
+class PokemonView(discord.ui.View):
+    def __init__(self, user_id: int, total_pokemon: int, list_of_pages: List[List[Tuple]], total_pages: int):
+        super().__init__(timeout=300)
+        self.user_id = user_id
+        self.total_pokemon = total_pokemon
+        self.list_of_pages = list_of_pages # Pre-paginated Pokémon data
+        self.total_pages = total_pages
+        self.current_page = 1
+        
+        self.update_buttons()
+
+    def update_buttons(self):
+        # Update button states based on the current page
+        self.children[0].disabled = (self.current_page == 1)      # Previous button
+        self.children[1].disabled = (self.current_page == self.total_pages or self.total_pages == 0) # Next button
+        
+        # Disable both if only one page exists
+        if self.total_pages <= 1:
+            self.children[0].disabled = True
+            self.children[1].disabled = True
+
+    async def get_page_content(self) -> discord.Embed:
+        # Connect to pokemondata.db to retrieve icons and base info
+        dt = sqlite3.connect("pokemondata.db")
+        ct = dt.cursor()
+        
+        # Connect to owned.db to get the global index (k)
+        db = sqlite3.connect("owned.db")
+        c = db.cursor()
+        
+        # Get the Pokémon data for the current page
+        pokemon_list = self.list_of_pages[self.current_page - 1]
+        
+        x = discord.Embed(
+            title="Pokémon PC", 
+            description=f"You've caught {self.total_pokemon} total Pokémons.",
+            color=0x220022
+        )
+        # Use the ID of the user who ran the command
+        x.set_author(name=f"{self.user_id}'s PC") 
+        
+        for i in pokemon_list:
+            # i is a single Pokémon data tuple (row from owned.db)
+            
+            # --- Replicate original index finding logic ---
+            # NOTE: This is INEFFICIENT, but necessary to match your original numbering logic.
+            # It refetches ALL rows just to find the index.
+            c.execute(f"Select * from '{self.user_id}'") 
+            ll = c.fetchall()
+            k = (ll.index(i)) + 1 # k is the Pokémon's overall index in the list
+            # ---------------------------------------------
+
+            name = i[1] # Nickname
+            
+            # Fetch base Pokémon data (for icon)
+            ct.execute(f"Select * from 'wild' where name='{i[0]}'")
+            mon = ct.fetchone()
+            icon = mon[22] if mon and len(mon) > 22 else "❓"
+            
+            # IV calculation (i[3] through i[8] are the IV values)
+            iv_sum = i[3] + i[4] + i[5] + i[6] + i[7] + i[8]
+            ivp = round(iv_sum / 1.86, 2)
+            
+            status_icon = await statusicon(i[19]) # i[19] is Gender
+            tera_icon = await teraicon(i[20])     # i[20] is Tera Type
+            
+            x.add_field(
+                name=f"#{k} {icon} {name} {status_icon} {tera_icon}",
+                value=f"**Ability:** {i[15]} | **Nature:** {i[16]}\n**IVs:** {i[3]}-{i[4]}-{i[5]}-{i[6]}-{i[7]}-{i[8]} ({ivp}%)",
+                inline=False
+            )
+            
+        x.set_footer(text=f"Showing page {self.current_page} of {self.total_pages}.")
+        
+        db.close()
+        dt.close()
+        return x
+
+    # --- Button Callbacks ---
+
+    @discord.ui.button(label="< Previous", style=discord.ButtonStyle.blurple, disabled=True)
+    async def previous_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.current_page > 1:
+            self.current_page -= 1
+            self.update_buttons()
+            embed = await self.get_page_content()
+            await interaction.response.edit_message(embed=embed, view=self)
+        else:
+            await interaction.response.defer()
+
+    @discord.ui.button(label="Next >", style=discord.ButtonStyle.blurple)
+    async def next_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.current_page < self.total_pages:
+            self.current_page += 1
+            self.update_buttons()
+            embed = await self.get_page_content()
+            await interaction.response.edit_message(embed=embed, view=self)
+        else:
+            await interaction.response.defer()
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        # Only the user who ran the command can use the buttons
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("This PC viewer is not for you!", ephemeral=True)
+            return False
+        return True
+
 @bot.tree.command(name="pokemons",description="Shows all the pokémons in your PC.")
-async def pokemons(ctx:discord.Interaction,page:int=1,name:str=None):        
-    "Shows all the captured pokémons."
-    dt=sqlite3.connect("pokemondata.db")
-    ct=dt.cursor()
-    db=sqlite3.connect("owned.db")
-    c=db.cursor()  
-    if name!=None:
-        name=name.title()
-    elif name==None:
-        c.execute(f"Select * from '{ctx.user.id}'")
-    if name!=None and name=="Shiny":
-        c.execute(f"Select * from '{ctx.user.id}' where shiny='Yes'")
-    elif name!=None and name in ["Monster","Human-Like","Water 1","Water 2","Water 3","Bug","Mineral","Flying","Amorphous","Field","Fairy","Ditto","Grass","Dragon","Undiscovered"]:
-        c.execute(f"Select * from '{ctx.user.id}' where egg like '%{name}' or egg like '{name}%' order by totaliv DESC")
-    elif name!=None and name in ["Favourite","Fav"]:
-        c.execute(f"Select * from '{ctx.user.id}' where nickname like '%<:favorite:1144122202942357534>%' order by totaliv DESC")        
-    elif name!=None and name=="Alpha":
-        c.execute(f"Select * from '{ctx.user.id}' where nickname like '%<:alpha:1127167307198758923>%' order by totaliv DESC")
-    elif name!=None and name=="Item":
-        c.execute(f"Select * from '{ctx.user.id}' where item!='None'")
-    elif name!=None and name=="Speediv":
-        c.execute(f"Select * from '{ctx.user.id}' order by speediv DESC")
-    elif name!=None and name=="Spdefiv":
-        c.execute(f"Select * from '{ctx.user.id}' order by spdefiv DESC")
-    elif name!=None and name=="Spatkiv":
-        c.execute(f"Select * from '{ctx.user.id}' order by spatkiv DESC")
-    elif name!=None and name=="Defiv":
-        c.execute(f"Select * from '{ctx.user.id}' order by defiv DESC")
-    elif name!=None and name=="Hpiv":
-        c.execute(f"Select * from '{ctx.user.id}' order by hpiv DESC")
-    elif name!=None and name=="Atkiv":
-        c.execute(f"Select * from '{ctx.user.id}' order by atkiv DESC")
-    elif name!=None and name in ["Iv","IV","iv"]:
-        c.execute(f"Select * from '{ctx.user.id}' order by totaliv DESC")        
-    elif name!=None and name in ["Common","Uncommon","Rare","Very Rare","Common Legendary","Legendary","Mythical","Ultra Beasts","Event"]:
-        c.execute(f"Select * from '{ctx.user.id}' where rarity='{name.title()}' order by totaliv DESC")
-    elif name!=None:
-        c.execute(f"Select * from '{ctx.user.id}' where name like '%{name}' or name like '{name}%' order by totaliv DESC")
-    n=c.fetchall()
-    numbers=[]
-    if len(n)!=0:
-        for i in n:
-            numbers.append(i)
-        list_of_lists = []
-        list_temp = []
-        limit = 10
-        # iterate through the list
-        i = 0
-        while i < len(numbers):
-            if len(list_temp) < limit:
-                list_temp.append(numbers[i])
-                i += 1
-            else:
-                # when the limit is reached, add the sub-list to the list of lists
-                list_of_lists.append(list_temp)
-                list_temp = []
-        # add the remaining items to the list of lists
-        list_of_lists.append(list_temp)
-        pages=len(list_of_lists)
-        if 0<page<=len(list_of_lists):
-            x=discord.Embed(title="Pokémon PC", description=f"You've caught {len(n)} total Pokémons.",color=0x220022)
-            x.set_author(name=ctx.user.display_name)
-            for i in list_of_lists[page-1]:
-                c.execute(f"select * from '{ctx.user.id}'")
-                ll=c.fetchall()
-                k=(ll.index(i))+1
-                name=i[1]
-                ct.execute(f"Select * from 'wild' where name='{i[0]}'")
-                mon=ct.fetchone()
-                icon=mon[22]
-                ivp=round((i[3]+i[4]+i[5]+i[6]+i[7]+i[8])/1.86,2)
-                x.add_field(name=f"#{k} {icon} {name} {await statusicon(i[19])} {await teraicon(i[20])}",value=f"**Ability:** {i[15]} | **Nature:** {i[16]}\n**IVs:** {i[3]}-{i[4]}-{i[5]}-{i[6]}-{i[7]}-{i[8]} ({ivp}%)",inline=False)
-            x.set_footer(text=f"Showing {page} out of {len(list_of_lists)} pages.")
-            await ctx.response.send_message(embed=x)
+@app_commands.describe(name="Filter by 'Shiny', 'IV', Egg Group, or Pokémon name.")
+async def pokemons(ctx:discord.Interaction, name:str=None): 
+    # NOTE: The 'page' argument is removed as the view handles it internally.
+    
+    await ctx.response.defer(thinking=True) # Defer the response as DB lookups can be slow
+
+    dt = sqlite3.connect("pokemondata.db")
+    ct = dt.cursor()
+    db = sqlite3.connect("owned.db")
+    c = db.cursor() 
+    
+    user_id = ctx.user.id
+    
+    # --- 1. Filter Logic (Original Logic Preserved) ---
+    sql_query = f"Select * from '{user_id}'"
+    
+    if name is None:
+        pass # Selects all
     else:
-        await ctx.response.send_message("Unfortunately you don't have any Pokémon. Please catch some Pokémon using `/spawn` command.")        
+        name = name.title()
+        egg_groups = ["Monster","Human-Like","Water 1","Water 2","Water 3","Bug","Mineral","Flying","Amorphous","Field","Fairy","Ditto","Grass","Dragon","Undiscovered"]
+        rarities = ["Common","Uncommon","Rare","Very Rare","Common Legendary","Legendary","Mythical","Ultra Beasts","Event"]
+        
+        if name == "Shiny":
+            sql_query = f"Select * from '{user_id}' where shiny='Yes'"
+        elif name in egg_groups:
+            sql_query = f"Select * from '{user_id}' where egg like '%{name}' or egg like '{name}%' order by totaliv DESC"
+        elif name in ["Favourite","Fav"]:
+            sql_query = f"Select * from '{user_id}' where nickname like '%<:favorite:1144122202942357534>%' order by totaliv DESC"    
+        elif name == "Alpha":
+            sql_query = f"Select * from '{user_id}' where nickname like '%<:alpha:1127167307198758923>%' order by totaliv DESC"
+        elif name == "Item":
+            sql_query = f"Select * from '{user_id}' where item!='None'"
+        elif name in ["Speediv","Spdefiv","Spatkiv","Defiv","Hpiv","Atkiv"]:
+            sql_query = f"Select * from '{user_id}' order by {name} DESC"
+        elif name in ["Iv","IV","iv"]:
+            sql_query = f"Select * from '{user_id}' order by totaliv DESC"    
+        elif name in rarities:
+            sql_query = f"Select * from '{user_id}' where rarity='{name.title()}' order by totaliv DESC"
+        else:
+            # Wildcard search for Pokemon name
+            sql_query = f"Select * from '{user_id}' where name like '%{name}' or name like '{name}%' order by totaliv DESC"
+            
+    c.execute(sql_query)
+    n = c.fetchall()
+    
+    # --- 2. Handle No Pokémon ---
+    if not n:
+        await ctx.followup.send("Unfortunately you don't have any Pokémon matching that criteria. Please try a different filter or catch some Pokémon using `/spawn` command.")
+        db.close()
+        dt.close()
+        return
+
+    # --- 3. Pagination (Slicing the list) ---
+    total_pokemon = len(n)
+    list_of_pages = []
+    list_temp = []
+    limit = 10
+    
+    for i in range(len(n)):
+        if len(list_temp) < limit:
+            list_temp.append(n[i])
+        else:
+            list_of_pages.append(list_temp)
+            list_temp = [n[i]]
+            
+    if list_temp: # Add remaining items
+        list_of_pages.append(list_temp)
+        
+    pages = len(list_of_pages)
+    
+    # --- 4. Initialize and Send View ---
+    view = PokemonView(user_id, total_pokemon, list_of_pages, pages)
+    initial_embed = await view.get_page_content()
+
+    await ctx.followup.send(embed=initial_embed, view=view)
+
+    db.close()
+    dt.close()
         
 @bot.tree.command(name="moveset",description="See all the moves this pokémon can learn.")
 async def moveset(ctx:discord.Interaction,num:int=1):

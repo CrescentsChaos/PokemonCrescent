@@ -6,6 +6,7 @@ import datetime
 import requests
 import time
 import aiohttp
+from typing import Optional,List, Tuple
 from keep_alive import keep_alive
 from discord.ext import commands
 from discord import File

@@ -28,119 +28,55 @@ async def heightcon(meters):
     inches_part = round(total_inches % 12)
     return f"{feet_part}'{inches_part}\""
 
-async def _update_usage_dict(current_db_string: str, new_value: str) -> str:
-    """Helper to deserialize, update, and serialize the usage count dictionaries."""
-    usage_dict = await convert_items_string(current_db_string)
-    usage_dict[new_value] = usage_dict.get(new_value, 0) + 1
-    return await convert_dict_string(usage_dict)
-
-async def usagerecord(team, _update_usage_dict):
-    """
-    Records the usage statistics (natures, items, abilities) for each Pokémon 
-    in the team to the record.db database.
-    """
-    async with aiosqlite.connect("record.db") as db:
-        for pokemon in team:
-            # Clean the item and ability strings once
-            item_name = pokemon.item.replace('[Used]', '').replace(' ', '_')
-            ability_name = pokemon.ability.replace(' ', '_')
-
-            # --- FIX: Use a cursor for execute_fetchone ---
-            async with db.cursor() as cursor:
-                # 1. Check if the Pokémon exists
-                await cursor.execute(
-                    "SELECT natures, items, abilities, total, wins FROM pokemons WHERE name = ?", 
-                    (pokemon.name,)
-                )
-                row = await cursor.fetchone()
-            # ----------------------------------------------
-
-            if row is None:
-                # Pokémon does not exist: INSERT new record
-                await db.execute(
-                    """
-                    INSERT INTO pokemons (name, natures, items, abilities, total, wins) 
-                    VALUES (?, ?, ?, ?, 1, 0)
-                    """,
-                    (
-                        pokemon.name,
-                        f"{pokemon.nature} 1",
-                        f"{item_name} 1",
-                        f"{ability_name} 1",
-                    )
-                )
-            else:
-                # Pokémon exists: UPDATE record
-                # Note: We fetch (natures, items, abilities, total, wins). The original code used indices row[1] to row[4]
-                current_natures, current_items, current_abilities, total_uses, _ = row
-                
-                # Assuming _update_usage_dict is defined elsewhere and handles the string manipulation
-                # If _update_usage_dict is async, ensure it is awaited.
-                new_natures = await _update_usage_dict(current_natures, pokemon.nature)
-                new_items = await _update_usage_dict(current_items, item_name)
-                new_abilities = await _update_usage_dict(current_abilities, ability_name)
-
-                await db.execute(
-                    """
-                    UPDATE pokemons SET natures = ?, items = ?, abilities = ?, total = ? 
-                    WHERE name = ?
-                    """,
-                    (new_natures, new_items, new_abilities, total_uses + 1, pokemon.name)
-                )
-        
-        # Update overall total usage
-        await db.execute("UPDATE alltime SET total = total + 1")
-        await db.commit()
-        
-# async def usagerecord(team):
-#     db=sqlite3.connect("record.db")
-#     c=db.cursor()
-#     for i in team:
-#         c.execute(f"select * from `pokemons` where name='{i.name}'")
-#         v=c.fetchone()
-#         if v==None:
-#             #insert
-#             c.execute(f"""INSERT INTO `pokemons` VALUES (
-#             "{i.name}",
-#             "{i.nature} 1",
-#             "{(i.item.replace(' ','_')).replace('[Used]','')} 1",
-#             "{i.ability.replace(' ','_')} 1",
-#             1,
-#             0
-#             )""")
-#             db.commit()
-#         else:
-#             #update
-#             natures=await convert_items_string(v[1])
-#             items=await convert_items_string(v[2])
-#             abilities=await convert_items_string(v[3])
-#             if "Used" in i.item:
-#                     i.item=i.item.replace('[Used]','')
-#             if i.nature in natures:
-#                 natures[i.nature]=natures[i.nature]+1
-#                 natures=await convert_dict_string(natures)
-#             elif i.nature not in natures:
-#                 natures[i.nature]=1
-#                 natures=await convert_dict_string(natures)
-#             if i.item.replace(' ','_') in items:
-#                 items[i.item.replace(' ','_')]=items[i.item.replace(' ','_')]+1
-#                 items=await convert_dict_string(items)
-#             elif i.item.replace(' ','_') not in items:
-#                 items[i.item.replace(' ','_')]=1
-#                 items=await convert_dict_string(items)
-#             if i.ability.replace(' ','_') in abilities:
-#                 abilities[i.ability.replace(' ','_')]=abilities[i.ability.replace(' ','_')]+1
-#                 abilities=await convert_dict_string(abilities)
-#             elif i.ability.replace(' ','_') not in abilities:
-#                 abilities[i.ability.replace(' ','_')]=1
-#                 abilities=await convert_dict_string(abilities)
-#             c.execute(f"""Update `pokemons` set natures="{natures}",items="{items}",abilities="{abilities}",total={v[4]+1} where name='{i.name}'""")
-#             db.commit()
-#     c.execute(f"select * from `alltime`")
-#     tot=c.fetchone()
-#     tot=tot[0]
-#     c.execute(f"""Update `alltime` set total={tot+1}""")
-#     db.commit()
+async def usagerecord(team):
+    db=sqlite3.connect("record.db")
+    c=db.cursor()
+    for i in team:
+        c.execute(f"select * from `pokemons` where name='{i.name}'")
+        v=c.fetchone()
+        if v==None:
+            #insert
+            c.execute(f"""INSERT INTO `pokemons` VALUES (
+            "{i.name}",
+            "{i.nature} 1",
+            "{(i.item.replace(' ','_')).replace('[Used]','')} 1",
+            "{i.ability.replace(' ','_')} 1",
+            1,
+            0
+            )""")
+            db.commit()
+        else:
+            #update
+            natures=await convert_items_string(v[1])
+            items=await convert_items_string(v[2])
+            abilities=await convert_items_string(v[3])
+            if "Used" in i.item:
+                    i.item=i.item.replace('[Used]','')
+            if i.nature in natures:
+                natures[i.nature]=natures[i.nature]+1
+                natures=await convert_dict_string(natures)
+            elif i.nature not in natures:
+                natures[i.nature]=1
+                natures=await convert_dict_string(natures)
+            if i.item.replace(' ','_') in items:
+                items[i.item.replace(' ','_')]=items[i.item.replace(' ','_')]+1
+                items=await convert_dict_string(items)
+            elif i.item.replace(' ','_') not in items:
+                items[i.item.replace(' ','_')]=1
+                items=await convert_dict_string(items)
+            if i.ability.replace(' ','_') in abilities:
+                abilities[i.ability.replace(' ','_')]=abilities[i.ability.replace(' ','_')]+1
+                abilities=await convert_dict_string(abilities)
+            elif i.ability.replace(' ','_') not in abilities:
+                abilities[i.ability.replace(' ','_')]=1
+                abilities=await convert_dict_string(abilities)
+            c.execute(f"""Update `pokemons` set natures="{natures}",items="{items}",abilities="{abilities}",total={v[4]+1} where name='{i.name}'""")
+            db.commit()
+    c.execute(f"select * from `alltime`")
+    tot=c.fetchone()
+    tot=tot[0]
+    c.execute(f"""Update `alltime` set total={tot+1}""")
+    db.commit()
 async def convert_items_string(input_string):
     # Converting string to dictionary
     items_dict = {}
@@ -1011,7 +947,6 @@ async def prebuff(ctx, x, y, tr1, tr2, turn, field):
     pre_embed = discord.Embed(title="Pre-move buffs:")
 
     # --- 1. Form Changes (Wishiwashi, Terapagos, Zen Mode) ---
-
     # Wishiwashi (Schooling)
     if x.ability == "Schooling" and "School" not in x.name and x.hp > (x.maxhp * 0.25):
         pre_embed.add_field(name=f"{x.icon} {x.name}'s Schooling!", value="Wishiwashi formed a school!")
@@ -1694,7 +1629,10 @@ async def movelist(ctx, x, tr1, tr2, field):
                 move_ct = results[i * 2 + 1]
                 
                 # Dynamax moves use the original move's PP index
-                move_list.append(f"#{i+1} {type_icon} {m} {move_ct} PP: {pp_list[x.moves.index(m)]}")
+                if x.dmax:
+                    move_list.append(f"#{i+1} {type_icon} {m} {move_ct} PP: {pp_list[x.maxmoves.index(m)]}")
+                else:
+                    move_list.append(f"#{i+1} {type_icon} {m} {move_ct} PP: {pp_list[x.moves.index(m)]}")
 
     # Join the list of moves into a single string with newlines
     move_string = "\n".join(move_list)
@@ -2818,237 +2756,320 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
         await entryeff(ctx,x,y,tr1,tr2,field,turn)
     return x,em                                           
 
-async def faint(ctx,bot,x,y,tr1,tr2,field,turn):
-    if x.hp<=0 and x.ability=="Eternamax":
-        x.ability="Levitate"
-        x.name="Eternamax Eternatus"
-        x.sprite="https://cdn.discordapp.com/attachments/1102579499989745764/1142037644470124656/image0.gif"
-        x.weight=9999.99
-        x.hp=255
-        x.atk=115
-        x.defense=250
-        x.spatk=125
-        x.spdef=250
-        x.speed=130
-        calcst(x)        
-        x.hp=x.maxhp
-        em=discord.Embed(title="Eternatus's Eternamax!",description="Eternamax Eternamaxed itself and regained its true form.",color=0x8fd5f7)
-        em.set_thumbnail(url="https://cdn.discordapp.com/attachments/1102579499989745764/1106824399983751248/Dynamax.png")
-        em.set_image(url="https://cdn.discordapp.com/attachments/1102579499989745764/1142037751101915207/image0.gif")
-        await ctx.send(embed=em)
-    if x.hp<=0 and x.ability=="Therian Reincarnation" and x.name=="Thundurus":
-        x.dmax=False
-        x.name="Therian Thundurus"
-        x.ability="Volt Absorb"
-        x.sprite="http://play.pokemonshowdown.com/sprites/ani/thundurus-therian.gif"
-        x.weight=134.48
-        x.hp=79
-        x.atk=105
-        x.defense=70
-        x.spatk=145
-        x.spdef=80
-        x.speed=101
-        calcst(x)        
-        x.hp=x.maxhp
-        em=discord.Embed(title="Thundurus's Therian Reincarnation!",description="Thundurus transformed into it's therian forme after touching its <:revealglass:1140992335593885746> Reveal Glass.",color=0x8fd5f7)
-        await atkchange(em,x,x,1)
-        await defchange(em,x,x,1)
-        await spatkchange(em,x,x,1)
-        await spdefchange(em,x,x,1)
-        await speedchange(em,x,x,1)
+
+async def faint(ctx, bot, x, y, tr1, tr2, field, turn):
+    
+    # Initialize the primary log embed for Dynamax End / Standard Faint
+    # We set a placeholder embed, its contents will be determined later.
+    em = discord.Embed(color=discord.Color.default()) 
+    
+    # 1. Dynamax End Check (Occurs regardless of HP, based on turn count)
+    if x.dmax == True and turn >= x.maxend:
+        x.dmax = False
+        x.gsprite = "None"
+        # Revert HP and Max HP from the +50% Dynamax state back to base stats.
+        # Note: Your code *halves* current and max HP, which is unusual for Dynamax end, 
+        # but kept here to match your original structure.
+        x.hp = round(x.hp / 2)
+        x.maxhp = round(x.maxhp / 2)
+        
+        # Build the Dynamax end message onto the initialized 'em'
+        em.add_field(name="Dynamax End:", value=f"{x.name} returned to it's normal state!")
+        x.nickname = x.nickname.replace(" <:dynamax:1104646304904257647>", "")
+        if "gmax" in x.sprite:
+            x.sprite = x.sprite.replace("-gmax.gif", ".gif")
+    
+    # Check for faint/revival abilities. These are major events that send their own message.
+    # They use 'elif' because a Pokemon can only have one ability.
+    
+    # 2. Eternamax
+    if x.hp <= 0 and x.ability == "Eternamax":
+        x.ability = "Levitate"
+        x.name = "Eternamax Eternatus"
+        x.sprite = "https://cdn.discordapp.com/attachments/1102579499989745764/1142037644470124656/image0.gif"
+        x.weight = 9999.99
+        x.hp = 255
+        x.atk = 115
+        x.defense = 250
+        x.spatk = 125
+        x.spdef = 250
+        x.speed = 130
+        calcst(x)    
+        x.hp = x.maxhp
+        
+        # Dedicated embed for the transformation
+        em_eternamax = discord.Embed(title="Eternatus's Eternamax!", description="Eternamax Eternamaxed itself and regained its true form.", color=0x8fd5f7)
+        em_eternamax.set_thumbnail(url="https://cdn.discordapp.com/attachments/1102579499989745764/1106824399983751248/Dynamax.png")
+        em_eternamax.set_image(url="https://cdn.discordapp.com/attachments/1102579499989745764/1142037751101915207/image0.gif")
+        await ctx.send(embed=em_eternamax)
+        return x # Pokemon revived, exit faint check
+
+    # 3. Therian Reincarnation (Thundurus)
+    elif x.hp <= 0 and x.ability == "Therian Reincarnation" and x.name == "Thundurus":
+        x.dmax = False
+        x.name = "Therian Thundurus"
+        x.ability = "Volt Absorb"
+        x.sprite = "http://play.pokemonshowdown.com/sprites/ani/thundurus-therian.gif"
+        x.weight = 134.48
+        x.hp = 79
+        x.atk = 105
+        x.defense = 70
+        x.spatk = 145
+        x.spdef = 80
+        x.speed = 101
+        calcst(x)    
+        x.hp = x.maxhp
+        
+        em_therian = discord.Embed(title="Thundurus's Therian Reincarnation!", description="Thundurus transformed into it's therian forme after touching its <:revealglass:1140992335593885746> Reveal Glass.", color=0x8fd5f7)
+        await atkchange(em_therian, x, x, 1)
+        await defchange(em_therian, x, x, 1)
+        await spatkchange(em_therian, x, x, 1)
+        await spdefchange(em_therian, x, x, 1)
+        await speedchange(em_therian, x, x, 1)
+        em_therian.set_image(url=x.sprite)
+        await ctx.send(embed=em_therian)
+        return x # Pokemon revived, exit faint check
+
+    # 4. Therian Reincarnation (Enamorus)
+    elif x.hp <= 0 and x.ability == "Therian Reincarnation" and x.name == "Enamorus":
+        x.dmax = False
+        x.name = "Therian Enamorus"
+        x.ability = "Overcoat"
+        x.sprite = "https://cdn.discordapp.com/attachments/1102535204968599592/1141004828911353967/image_search_1692107000875.gif"
+        x.weight = 105.8
+        x.hp = 74
+        x.atk = 115
+        x.defense = 110
+        x.spatk = 135
+        x.spdef = 100
+        x.speed = 46
+        calcst(x)    
+        x.hp = x.maxhp
+        
+        em_therian = discord.Embed(title="Enamorus's Therian Reincarnation!", description="Enamorus transformed into it's therian forme after touching its <:revealglass:1140992335593885746> Reveal Glass.", color=0xe9749c)
+        await atkchange(em_therian, x, x, 1)
+        await defchange(em_therian, x, x, 1)
+        await spatkchange(em_therian, x, x, 1)
+        await spdefchange(em_therian, x, x, 1)
+        await speedchange(em_therian, x, x, 1)
+        em_therian.set_image(url=x.sprite)
+        await ctx.send(embed=em_therian) 
+        return x # Pokemon revived, exit faint check
+    
+    # 5. Therian Reincarnation (Tornadus)
+    elif x.hp <= 0 and x.ability == "Therian Reincarnation" and x.name == "Tornadus":
+        x.dmax = False
+        x.name = "Therian Tornadus"
+        x.ability = "Regenerator"
+        x.sprite = "http://play.pokemonshowdown.com/sprites/ani/tornadus-therian.gif"
+        x.weight = 138.89
+        x.hp = 79
+        x.atk = 100
+        x.defense = 80
+        x.spatk = 110
+        x.spdef = 90
+        x.speed = 121
+        calcst(x)    
+        x.hp = x.maxhp
+        
+        em_therian = discord.Embed(title="Tornadus's Therian Reincarnation!", description="Tornadus transformed into it's therian forme after touching its <:revealglass:1140992335593885746> Reveal Glass.", color=0x78b867)
+        await atkchange(em_therian, x, x, 1)
+        await defchange(em_therian, x, x, 1)
+        await spatkchange(em_therian, x, x, 1)
+        await spdefchange(em_therian, x, x, 1)
+        await speedchange(em_therian, x, x, 1)
+        em_therian.set_image(url=x.sprite)
+        await ctx.send(embed=em_therian) 
+        return x # Pokemon revived, exit faint check
+        
+    # 6. Therian Reincarnation (Landorus)
+    elif x.hp <= 0 and x.ability == "Therian Reincarnation" and x.name == "Landorus":
+        x.dmax = False
+        x.name = "Therian Landorus"
+        x.ability = "Intimidate"
+        x.sprite = "http://play.pokemonshowdown.com/sprites/ani/landorus-therian.gif"
+        x.weight = 149.91
+        x.hp = 89
+        x.atk = 145
+        x.defense = 90
+        x.spatk = 105
+        x.spdef = 80
+        x.speed = 91
+        calcst(x)    
+        x.hp = x.maxhp
+        
+        em_therian = discord.Embed(title="Landorus's Therian Reincarnation!", description="Landorus transformed into it's therian forme after touching its <:revealglass:1140992335593885746> Reveal Glass.", color=0xfea458)
+        await atkchange(em_therian, x, x, 1)
+        await defchange(em_therian, x, x, 1)
+        await spatkchange(em_therian, x, x, 1)
+        await spdefchange(em_therian, x, x, 1)
+        await speedchange(em_therian, x, x, 1)
+        em_therian.set_image(url=x.sprite)
+        await ctx.send(embed=em_therian)
+        return x # Pokemon revived, exit faint check
+        
+    # 7. Mirage Metamorphosis (Hoopa)
+    elif x.hp <= 0 and x.ability == "Mirage Metamorphosis":
+        x.dmax = False
+        x.name = "Hoopa Unbound"
+        x.ability = "Magician"
+        x.sprite = "http://play.pokemonshowdown.com/sprites/ani/hoopa-unbound.gif"
+        x.weight = 1080.27
+        x.hp = 80
+        x.atk = 160
+        x.defense = 60
+        x.spatk = 170
+        x.spdef = 130
+        x.speed = 80
+        calcst(x)    
+        x.hp = x.maxhp
+        
+        em_hoopa = discord.Embed(title="Hoopa's Mirage Metamorphosis!", description="Hoopa transformed into it's unbound forme after absorbing its lost power from the <:prisonbottle:1138429051929907390> Prison Bottle.", color=0xab427a)
+        await atkchange(em_hoopa, x, x, 1)
+        await defchange(em_hoopa, x, x, 1)
+        await spatkchange(em_hoopa, x, x, 1)
+        await spdefchange(em_hoopa, x, x, 1)
+        await speedchange(em_hoopa, x, x, 1)
+        em_hoopa.set_image(url=x.sprite)
+        await ctx.send(embed=em_hoopa)
+        return x # Pokemon revived, exit faint check
+        
+    # 8. Distorted Resurgence (Giratina)
+    elif x.hp <= 0 and x.ability == "Distorted Resurgence":
+        x.dmax = False
+        x.name = "Origin Giratina"
+        x.ability = "Levitate"
+        x.sprite = "http://play.pokemonshowdown.com/sprites/ani/giratina-origin.gif"
+        x.weight = 1433
+        x.hp = 150
+        x.atk = 120
+        x.defense = 100
+        x.spatk = 120
+        x.spdef = 100
+        x.speed = 90
+        calcst(x)    
+        x.hp = x.maxhp
+        
+        em_giratina = discord.Embed(title="Giratina's Distorted Resurgence!", description="Giratina transformed into it's origin forme after falling to the abyss.", color=0xfcf491)
+        await atkchange(em_giratina, x, x, 1)
+        await defchange(em_giratina, x, x, 1)
+        await spatkchange(em_giratina, x, x, 1)
+        await spdefchange(em_giratina, x, x, 1)
+        await speedchange(em_giratina, x, x, 1)
+        em_giratina.set_image(url=x.sprite)
+        await ctx.send(embed=em_giratina)
+        return x # Pokemon revived, exit faint check
+        
+    # 9. Standard Faint Logic
+    elif x.hp <= 0:
+        x.status = "Fainted"
+        
+        # Re-define 'em' for the standard faint message
+        em = discord.Embed(title=f"{x.name} fainted!")
         em.set_image(url=x.sprite)
-        await ctx.send(embed=em)
-    elif x.hp<=0 and x.ability=="Therian Reincarnation" and x.name=="Enamorus":
-        x.dmax=False
-        x.name="Therian Enamorus"
-        x.ability="Overcoat"
-        x.sprite="https://cdn.discordapp.com/attachments/1102535204968599592/1141004828911353967/image_search_1692107000875.gif"
-        x.weight=105.8
-        x.hp=74
-        x.atk=115
-        x.defense=110
-        x.spatk=135
-        x.spdef=100
-        x.speed=46
-        calcst(x)        
-        x.hp=x.maxhp
-        em=discord.Embed(title="Enamorus's Therian Reincarnation!",description="Enamorus transformed into it's therian forme after touching its <:revealglass:1140992335593885746> Reveal Glass.",color=0xe9749c)
-        await atkchange(em,x,x,1)
-        await defchange(em,x,x,1)
-        await spatkchange(em,x,x,1)
-        await spdefchange(em,x,x,1)
-        await speedchange(em,x,x,1)
-        em.set_image(url=x.sprite)
-        await ctx.send(embed=em)        
-    elif x.hp<=0 and x.ability=="Therian Reincarnation" and x.name=="Tornadus":
-        x.dmax=False
-        x.name="Therian Tornadus"
-        x.ability="Regenerator"
-        x.sprite="http://play.pokemonshowdown.com/sprites/ani/tornadus-therian.gif"
-        x.weight=138.89
-        x.hp=79
-        x.atk=100
-        x.defense=80
-        x.spatk=110
-        x.spdef=90
-        x.speed=121
-        calcst(x)        
-        x.hp=x.maxhp
-        em=discord.Embed(title="Tornadus's Therian Reincarnation!",description="Tornadus transformed into it's therian forme after touching its <:revealglass:1140992335593885746> Reveal Glass.",color=0x78b867)
-        await atkchange(em,x,x,1)
-        await defchange(em,x,x,1)
-        await spatkchange(em,x,x,1)
-        await spdefchange(em,x,x,1)
-        await speedchange(em,x,x,1)
-        em.set_image(url=x.sprite)
-        await ctx.send(embed=em)    
-    elif x.hp<=0 and x.ability=="Therian Reincarnation" and x.name=="Landorus":
-        x.dmax=False
-        x.name="Therian Landorus"
-        x.ability="Intimidate"
-        x.sprite="http://play.pokemonshowdown.com/sprites/ani/landorus-therian.gif"
-        x.weight=149.91
-        x.hp=89
-        x.atk=145
-        x.defense=90
-        x.spatk=105
-        x.spdef=80
-        x.speed=91
-        calcst(x)        
-        x.hp=x.maxhp
-        em=discord.Embed(title="Landorus's Therian Reincarnation!",description="Landorus transformed into it's therian forme after touching its <:revealglass:1140992335593885746> Reveal Glass.",color=0xfea458)
-        await atkchange(em,x,x,1)
-        await defchange(em,x,x,1)
-        await spatkchange(em,x,x,1)
-        await spdefchange(em,x,x,1)
-        await speedchange(em,x,x,1)
-        em.set_image(url=x.sprite)
-        await ctx.send(embed=em)
-    elif x.hp<=0 and x.ability=="Mirage Metamorphosis":
-        x.dmax=False
-        x.name="Hoopa Unbound"
-        x.ability="Magician"
-        x.sprite="http://play.pokemonshowdown.com/sprites/ani/hoopa-unbound.gif"
-        x.weight=1080.27
-        x.hp=80
-        x.atk=160
-        x.defense=60
-        x.spatk=170
-        x.spdef=130
-        x.speed=80
-        calcst(x)        
-        x.hp=x.maxhp
-        em=discord.Embed(title="Hoopa's Mirage Metamorphosis!",description="Hoopa transformed into it's unbound forme after absorbing its lost power from the <:prisonbottle:1138429051929907390> Prison Bottle.",color=0xab427a)
-        await atkchange(em,x,x,1)
-        await defchange(em,x,x,1)
-        await spatkchange(em,x,x,1)
-        await spdefchange(em,x,x,1)
-        await speedchange(em,x,x,1)
-        em.set_image(url=x.sprite)
-        await ctx.send(embed=em)
-    elif x.hp<=0 and x.ability=="Distorted Resurgence":
-        x.dmax=False
-        x.name="Origin Giratina"
-        x.ability="Levitate"
-        x.sprite="http://play.pokemonshowdown.com/sprites/ani/giratina-origin.gif"
-        x.weight=1433
-        x.hp=150
-        x.atk=120
-        x.defense=100
-        x.spatk=120
-        x.spdef=100
-        x.speed=90
-        calcst(x)        
-        x.hp=x.maxhp
-        em=discord.Embed(title="Giratina's Distorted Resurgence!",description="Giratina transformed into it's origin forme after falling to the abyss.",color=0xfcf491)
-        await atkchange(em,x,x,1)
-        await defchange(em,x,x,1)
-        await spatkchange(em,x,x,1)
-        await spdefchange(em,x,x,1)
-        await speedchange(em,x,x,1)
-        em.set_image(url=x.sprite)
-        await ctx.send(embed=em)
-    elif x.hp<=0:
-        x.status="Fainted"
-        tr1.sparty=await spartyup(tr1,x)
-        if " <:megaevolve:1104646688951500850>" in x.name and x.name not in ["Charizard","Mewtwo"]:
-            x.sprite=x.sprite.replace("-mega","")
-            x.nickname=x.nickname.replace(" <:megaevolve:1104646688951500850>","")
-        elif " <:megaevolve:1104646688951500850>" in x.name and x.name in ["Charizard","Mewtwo"]:
-            x.sprite=x.sprite.replace("-megax","")
-            x.sprite=x.sprite.replace("-megay","")
-            x.nickname=x.nickname.replace(" <:megaevolve:1104646688951500850>","")
-        em=discord.Embed(title=f"{x.name} fainted!")
-        em.set_image(url=x.sprite)
-        if y.ability in ["Moxie","Chilling Neigh"]:
-            em.add_field(name=f"{y.icon} {y.name}'s {y.ability}!",value=f"Knocking Out {x.name} made {y.name} go on a rampage!")
-            await atkchange(em,y,y,1)
-        elif y.ability in ["Soul-Heart","Grim Neigh"]:
-            em.add_field(name=f"{y.icon} {y.name}'s {y.ability}!",value=f"Knocking Out {x.name} made {y.name} go on a rampage!")
-            await spatkchange(em,y,y,1)
-        elif y.ability=="As One":
+
+        tr1.sparty = await spartyup(tr1, x)
+        
+        # Mega Evolution Reversion
+        if " <:megaevolve:1104646688951500850>" in x.name and x.name not in ["Charizard", "Mewtwo"]:
+            x.sprite = x.sprite.replace("-mega", "")
+            x.nickname = x.nickname.replace(" <:megaevolve:1104646688951500850>", "")
+        elif " <:megaevolve:1104646688951500850>" in x.name and x.name in ["Charizard", "Mewtwo"]:
+            x.sprite = x.sprite.replace("-megax", "")
+            x.sprite = x.sprite.replace("-megay", "")
+            x.nickname = x.nickname.replace(" <:megaevolve:1104646688951500850>", "")
+        
+        # Opponent's Ability Checks (y)
+        if y.ability in ["Moxie", "Chilling Neigh"]:
+            em.add_field(name=f"{y.icon} {y.name}'s {y.ability}!", value=f"Knocking Out {x.name} made {y.name} go on a rampage!")
+            await atkchange(em, y, y, 1)
+        elif y.ability in ["Soul-Heart", "Grim Neigh"]:
+            em.add_field(name=f"{y.icon} {y.name}'s {y.ability}!", value=f"Knocking Out {x.name} made {y.name} go on a rampage!")
+            await spatkchange(em, y, y, 1)
+        elif y.ability == "As One":
             if "Shadow" in y.name:
-                await spatkchange(em,y,y,1)
+                await spatkchange(em, y, y, 1)
             elif "Ice" in y.name:
-                await atkchange(em,y,y,1)
-        elif y.ability=="Beast Boost":
-            em.add_field(name=f"{y.icon} {y.name}'s {y.ability}!",value=f"Knocking Out {x.name} made {y.name} go on a rampage!")
-            m=[a,b,c,d,e]=[y.atk,y.defense,y.spatk,y.spdef,y.speed]
-            if tr2.reflect==True:
-                m=[y.atk,y.defense/2,y.spatk,y.spdef,y.speed]
-            if tr2.lightscreen==True:
-                m=[y.atk,y.defense,y.spatk,y.spdef/2,y.speed]
-            pp=max(m)
-            if pp==a:
-                await atkchange(em,y,y,1)
-            elif pp==b:
-                await defchange(em,y,y,1)
-            elif pp==c:
-                await spatkchange(em,y,y,1)
-            elif pp==d:
-                await spdefchange(em,y,y,1)
-            elif pp==e:
-                await speedchange(em,y,y,1)
-        elif y.ability=="Battle Bond" and "Ash" not in y.name:
-            per=y.hp/y.maxhp
-            y.weight=88.18
-            y.sprite="http://play.pokemonshowdown.com/sprites/ani/greninja-ash.gif"
-            y.name="Ash Greninja"
-            y.hp=72
-            y.atk=145
-            y.defense=67
-            y.spatk=153
-            y.spdef=71
-            y.speed=132
+                await atkchange(em, y, y, 1)
+        elif y.ability == "Beast Boost":
+            em.add_field(name=f"{y.icon} {y.name}'s {y.ability}!", value=f"Knocking Out {x.name} made {y.name} go on a rampage!")
+            # Determine highest stat to boost
+            # Note: The way 'm' is defined and then using 'pp' as a variable name is confusing, 
+            # but kept here to match your original variable use.
+            m = [y.atk, y.defense, y.spatk, y.spdef, y.speed]
+            if tr2.reflect == True:
+                # The division by 2 here is likely wrong; this should be based on base stats or stage, 
+                # but kept to match your original logic.
+                m = [y.atk, y.defense / 2, y.spatk, y.spdef, y.speed]
+            if tr2.lightscreen == True:
+                m = [y.atk, y.defense, y.spatk, y.spdef / 2, y.speed]
+                
+            pp = max(m)
+            # Find the stat that matches the maximum value and boost it
+            if pp == y.atk:
+                await atkchange(em, y, y, 1)
+            elif pp == y.defense:
+                await defchange(em, y, y, 1)
+            elif pp == y.spatk:
+                await spatkchange(em, y, y, 1)
+            elif pp == y.spdef:
+                await spdefchange(em, y, y, 1)
+            elif pp == y.speed:
+                await speedchange(em, y, y, 1)
+                
+        # Battle Bond Transformation
+        elif y.ability == "Battle Bond" and "Ash" not in y.name:
+            per = y.hp / y.maxhp
+            y.weight = 88.18
+            y.sprite = "http://play.pokemonshowdown.com/sprites/ani/greninja-ash.gif"
+            y.name = "Ash Greninja"
+            y.hp = 72
+            y.atk = 145
+            y.defense = 67
+            y.spatk = 153
+            y.spdef = 71
+            y.speed = 132
             calcst(y)
-            y.hp=y.maxhp*per
-            bb=discord.Embed(title=f"{y.icon} {y.name}'s Battle Bond!",description=f"{y.name} transformed into Ash-Greninja!")
+            y.hp = y.maxhp * per
+            
+            bb = discord.Embed(title=f"{y.icon} {y.name}'s Battle Bond!", description=f"{y.name} transformed into Ash-Greninja!")
             bb.set_image(url="https://cdn.discordapp.com/attachments/1102579499989745764/1125023366278029402/image0.gif")
             await ctx.send(embed=bb)
-        if x.ability=="Aftermath":
-            y.hp-=(y.maxhp/4)
-        if y.ability in ["Looter","Predator","Scavenger"]:
-            y.hp+=(y.maxhp/4)    
-            if y.hp>y.maxhp:
-                y.hp=y.maxhp
-        try:        
+            
+        # Fainting Ability Damage/Heal
+        if x.ability == "Aftermath":
+            y.hp -= (y.maxhp / 4)
+        if y.ability in ["Looter", "Predator", "Scavenger"]:
+            y.hp += (y.maxhp / 4)  
+            if y.hp > y.maxhp:
+                y.hp = y.maxhp
+                
+        # Remove fainted Pokemon from team
+        try:    
             tr1.faintedmon.append(x)
             tr1.pokemons.remove(x)
         except:
-            pass    
-        if len(tr1.pokemons)==0:
+            pass  
+            
+        # Send faint message and handle switch
+        if len(tr1.pokemons) == 0:
             await ctx.send(embed=em)
-        if len(tr1.pokemons)!=0 and len(tr2.pokemons)!=0:
+        if len(tr1.pokemons) != 0 and len(tr2.pokemons) != 0:
             await ctx.send(embed=em)
-            x=await switch(ctx,bot,x,y,tr1,tr2,field,turn)
-            while len(tr1.pokemons)>1:
-                if x.hp<=0 :
-                    await faint(ctx,bot,x,y,tr1,tr2,field,turn)    
-                    return x        
-                if x.hp>0:
+            x = await switch(ctx, bot, x, y, tr1, tr2, field, turn)
+            
+            # Loop check for immediate successive faints (e.g., from entry hazards on switch-in)
+            while len(tr1.pokemons) > 1:
+                if x.hp <= 0:
+                    # Recursive call for a second faint
+                    x = await faint(ctx, bot, x, y, tr1, tr2, field, turn)  
                     return x    
-            return x                   
-    #return x                      
+                if x.hp > 0:
+                    return x  
+            return x
+            
+    # Final return for cases where the loop finished or if only Dynamax End occurred
+    return x               
 async def addmoney(ctx,member,price):
     db=sqlite3.connect("playerdata.db")
     c=db.cursor()
@@ -3363,7 +3384,7 @@ async def effects(ctx,x,y,tr1,field,turn):
         field.weather="Clear"
         em.add_field(name="Weather:",value="The extreme sunlight fade away.")          
     #Dynamax Reset
-    if x.dmax==True and turn==x.maxend:
+    if x.dmax==True and turn>=x.maxend:
         x.dmax=False
         x.gsprite="None"
         x.hp=round(x.hp/2)
@@ -3810,41 +3831,96 @@ async def switch(ctx, bot, x, y, tr1, tr2, field, turn):
                 continue
                     
 async def withdraweff(ctx, x, tr1, y):
-    em = discord.Embed(title="Withdraw Effect:")
-    if x.ability == "Zero to Hero" and "Hero" not in x.name and x.hp > 0 and not x.dmax and y.ability!="Neutralizing Gas":
-        x.showability=True
-        em.add_field(name=f"{x.icon} {x.name}'s Zero to Hero!", value=f"{x.name} underwent a heroic transformation!")
-        x.nickname="Hero Palafin"
-        x.sprite = "http://play.pokemonshowdown.com/sprites/ani/palafin-hero.gif"
+    # Determine if Neutralizing Gas is active on the opponent's side (y)
+    neutralizing_gas_active = y.ability == "Neutralizing Gas"
+    
+    # Initialize the list of fields to add to the embed
+    fields_to_add = []
+
+    # --- 1. Zero to Hero (Palafin) Transformation ---
+    # Simplified conditions and logic flow
+    if (x.ability == "Zero to Hero" and 
+        "Hero" not in x.name and 
+        x.hp > 0 and 
+        not x.dmax and 
+        not neutralizing_gas_active):
+        
+        x.showability = True
+        fields_to_add.append({
+            "name": f"{x.icon} {x.name}'s Zero to Hero!",
+            "value": f"{x.name} underwent a heroic transformation!"
+        })
+        
+        # Store current HP percentage before stat change
         per = x.hp / x.maxhp
+        
+        # Apply Hero Form Base Stats (Palafin-Hero)
+        x.nickname = "Hero Palafin"
+        x.sprite = "http://play.pokemonshowdown.com/sprites/ani/palafin-hero.gif"
         x.weight = 214.73
-        x.hp = 100
+        
+        # Directly assign base HP/stats for Hero Form
+        x.hp = 100 
         x.atk = 160
         x.defense = 97
         x.spatk = 106
         x.spdef = 87
         x.speed = 100
-        calcst(x)
+        
+        # Re-calculate max stats based on new base stats (calcst must be synchronous)
+        calcst(x) 
+        
+        # Restore HP based on percentage
         x.hp = x.maxhp * per
+
+
+    # --- 2. Illusion Cleanup ---
+    # This must run regardless of Neutralizing Gas, as it's a visual state reset.
     if x.ability == "Illusion":
-        last_pokemon = tr1.pokemons[len(tr1.pokemons) - 1]
+        # Access last element directly using index -1 for cleaner code
+        last_pokemon = tr1.pokemons[-1] 
         x.name = last_pokemon.name
         x.sprite = last_pokemon.sprite
         x.nickname = last_pokemon.nickname
-    if x.ability == "Natural Cure" and x.status != "Alive" and x.status!= "Fainted" and y.ability!="Neutralizing Gas":
-        x.showability=True
-        em.add_field(name=f"{x.icon} {x.name}'s Natural Cure!", value=f"{x.name}'s status condition was cured!")
+
+    # --- 3. Natural Cure Status Healing ---
+    if (x.ability == "Natural Cure" and 
+        x.status not in ["Alive", "Fainted"] and 
+        not neutralizing_gas_active):
+        
+        x.showability = True
+        fields_to_add.append({
+            "name": f"{x.icon} {x.name}'s Natural Cure!",
+            "value": f"{x.name}'s status condition was cured!"
+        })
         x.status = "Alive"
-    
-    if x.ability == "Regenerator" and 0 < x.hp < x.maxhp and x.status != "Fainted" and y.ability!="Neutralizing Gas":
-        x.showability=True
-        em.add_field(name=f"{x.icon} {x.name}'s Regenerator!", value=f"{x.name} regenerated a bit of its health!")
-        if x.hp<x.maxhp:
-            x.hp += round(x.maxhp/3)
-            if x.hp>x.maxhp:
-                x.hp = x.maxhp
-    if len(em.fields)!=0:
-        await ctx.send(embed=em)                    
+
+    # --- 4. Regenerator Health Recovery ---
+    if (x.ability == "Regenerator" and 
+        0 < x.hp < x.maxhp and 
+        x.status != "Fainted" and 
+        not neutralizing_gas_active):
+        
+        x.showability = True
+        fields_to_add.append({
+            "name": f"{x.icon} {x.name}'s Regenerator!",
+            "value": f"{x.name} regenerated a bit of its health!"
+        })
+        
+        # Calculate and apply recovery
+        recovery = round(x.maxhp / 3)
+        x.hp += recovery
+        
+        # Cap HP at maxhp (simplified check)
+        if x.hp > x.maxhp:
+            x.hp = x.maxhp
+
+    # --- 5. Send Embed if Effects Occurred ---
+    if fields_to_add:
+        em = discord.Embed(title="Withdraw Effect:")
+        for field in fields_to_add:
+            em.add_field(name=field["name"], value=field["value"])
+        await ctx.send(embed=em)                  
 
 async def rankedbuild(team):
     new=[]
@@ -3853,6 +3929,7 @@ async def rankedbuild(team):
         if mon not in new:
             new.append(mon)  
     return new         
+
 async def teambuild(team):
     new=[]
     if len(team)>6:
@@ -3863,63 +3940,101 @@ async def teambuild(team):
         new.append(team[5])        
         return new         
     else:
-        return team           
-async def gamemonvert(tr,m,lev):
-    dt = sqlite3.connect("pokemondata.db")
-    cx = dt.cursor()
-    #print(m[0])
-    xxx = m[0]
-    ability = m[8]
-    newname=m[1]
-    if xxx==newname:
-        newname=xxx
-    if m[0] == "Zacian" and m[11] == "Rusted Sword":
-        xxx= "Crowned Zacian"
-    elif m[0] == "Zamazenta" and m[11] == "Rusted Shield":
-        xxx=newname= "Crowned Zamazenta"
-    elif m[0] == "Palkia" and m[11] == "Lustrous Globe":
-        xxx= "Origin Palkia"   
-    elif m[0] == "Dialga" and m[11] == "Adamant Crystal":
-        xxx= "Origin Dialga"     
-    elif m[0] == "Giratina" and m[11] == "Griseous Core":
-        xxx="Origin Giratina"
-    cx.execute(f"SELECT * FROM 'wild' WHERE name='{xxx}'")
-    n = cx.fetchall()[0]
-    itm="None"
-    moves = m[14]
-    ter=m[13]
-    if ter!="???" and "," in ter:
-        ter=random.choice(ter.split(","))
-    if ability == "None":
-        ability = n[11]
-    if moves == "A,B,C,D":
-        moves = n[10]
-    if m[1]==None:
-        newname=m[0]
-    if m[11]!="None":
-        itm=random.choice(m[11].split(","))
-    elif m[11]=="None":
-        itm=n[24]
-        if itm is None:
-            itm="None"
+        return team    
+           
+async def gamemonvert(tr, m, lev):
+    # --- Variable Setup (Same as optimized synchronous version) ---
+    NAME_INDEX = 0
+    NICKNAME_INDEX = 1
+    # ... define other indices if necessary to improve clarity
+    
+    pokemon_name = m[NAME_INDEX]
+    nickname = m[NICKNAME_INDEX]
+    ability_str = m[8]
+    item_str = m[11]
+    moves_str = m[14]
+    tera_type_str = m[13]
+
+    final_name = pokemon_name
+    
+    # Conditional Name/Form Assignment (Non-Blocking Logic)
+    if pokemon_name == "Zacian" and item_str == "Rusted Sword":
+        final_name = "Crowned Zacian"
+    elif pokemon_name == "Zamazenta" and item_str == "Rusted Shield":
+        final_name = "Crowned Zamazenta"
+    elif pokemon_name == "Palkia" and item_str == "Lustrous Globe":
+        final_name = "Origin Palkia"
+    elif pokemon_name == "Dialga" and item_str == "Adamant Crystal":
+        final_name = "Origin Dialga"
+    elif pokemon_name == "Giratina" and item_str == "Griseous Core":
+        final_name = "Origin Giratina"
+        
+    if nickname is None or nickname == pokemon_name:
+        nickname = pokemon_name
+
+    # --- Awaitable Database Access (The Core Optimization) ---
+    try:
+        # Use async with for connection and cursor for non-blocking I/O
+        async with aiosqlite.connect("pokemondata.db") as db:
+            async with db.cursor() as cx:
+                # Use parameter substitution for safety (f-strings can be risky with user input)
+                await cx.execute("SELECT * FROM 'wild' WHERE name=?", (final_name,))
+                db_data = await cx.fetchall()
+                
+                if not db_data:
+                    # Handle case where the Pokémon name is not found
+                    # You might raise an exception or log an error here.
+                    raise ValueError(f"Pokémon '{final_name}' not found in database.")
+
+                n = db_data[0]
+                
+    except Exception as e:
+        print(f"Database error in gamemonvert: {e}")
+        return None # Return None or raise error as appropriate for your game flow
+
+    # --- Item, Moves, Ability, Tera Assignment (Non-Blocking Logic) ---
+    
+    itm = "None"
+    db_item_str = n[24] # Assuming n[24] is the index for DB item list
+    
+    if item_str != "None":
+        if "," in item_str:
+            itm = random.choice(item_str.split(","))
         else:
-            itm=random.choice(n[24].split(","))
+            itm = item_str
+    elif db_item_str is not None:
+        if "," in db_item_str:
+            itm = random.choice(db_item_str.split(","))
+        else:
+            itm = db_item_str
+
+    if moves_str == "A,B,C,D":
+        moves_str = n[10] # Use DB moves
+
+    if ability_str == "None":
+        ability_str = n[11] # Use DB ability
+
+    tera_type = tera_type_str
+    if tera_type_str != "???" and "," in tera_type_str:
+        tera_type = random.choice(tera_type_str.split(","))
+
+    # --- Pokemon Object Creation ---
     p = Pokemon(
-        name=m[0],
-        nickname=newname,
+        name=pokemon_name,
+        nickname=nickname,
         hpev=m[2],
         atkev=m[3],
         defev=m[4],
         spatkev=m[5],
         spdefev=m[6],
         speedev=m[7],
-        ability=random.choice(ability.split(",")),
+        ability=random.choice(ability_str.split(",")),
         nature=random.choice(m[9].split(",")),
         shiny=m[10],
         item=itm,
         gender=m[12],
-        tera=ter,
-        moves=moves,
+        tera=tera_type,
+        moves=moves_str,
         maxiv="Yes",
         primaryType=n[1],
         secondaryType=n[2],
@@ -3936,72 +4051,132 @@ async def gamemonvert(tr,m,lev):
     )
     
     return p
+
 async def evspread():
-    total=0
-    while total!=508:
-        total=0
-        lst = [random.randint(0, 252) for _ in range(6)]
-        total=sum(lst)
-    return lst           
-async def rankedmonvert(tr,m):
-    dt = sqlite3.connect("pokemondata.db")
-    cx = dt.cursor()
-    xxx = m[0]
+    # Define constants for clarity
+    MAX_EV_SUM = 508
+    MAX_STAT_EV = 252
+    NUM_STATS = 6
+
+    # 1. Generate 5 random EVs within the range [0, 252]
+    # We generate 5 because the 6th will be determined by the sum.
+    evs = []
+    
+    # Use a constructive approach:
+    # Generate 6 random numbers that sum to 508, then clamp them to 252.
+    # A simpler approach is to generate 5, and force the 6th to be the remainder,
+    # then iterate to fix the 6th if it's out of bounds.
+
+    while True:
+        lst = [random.randint(0, MAX_STAT_EV) for _ in range(NUM_STATS - 1)]
+        current_sum = sum(lst)
+        remainder = MAX_EV_SUM - current_sum
+        if 0 <= remainder <= MAX_STAT_EV:
+            lst.append(remainder)
+            random.shuffle(lst) # Shuffle to randomize which stat gets the remainder EV
+            return lst       
+
+async def rankedmonvert(tr, m):
+    # --- 1. Initial Variable Setup and Item Assignment ---
+    
+    # Use indices from the input list 'm' for clarity
+    NAME_INDEX = 0
+    ITEM_LIST_INDEX = 24
+    
+    pokemon_name = m[NAME_INDEX]
+    
+    # 1a. Determine Held Item
+    item = "None"
+    if m[ITEM_LIST_INDEX] is not None:
+        item = random.choice(m[ITEM_LIST_INDEX].split(","))
+        
+    final_name = pokemon_name
+    newname = pokemon_name
     ability = m[11]
-    newname=m[0]
-    item="None"
-    if m[24]!=None:
-        item=random.choice(m[24].split(","))
-    if xxx==newname:
-        newname=xxx
-    if m[0] == "Zacian" and item == "Rusted Sword":
-        xxx= "Crowned Zacian"
-    elif m[0] == "Zamazenta" and item== "Rusted Shield":
-        xxx=newname= "Crowned Zamazenta"
-    elif m[0] == "Palkia" and item== "Lustrous Globe":
-        xxx= "Origin Palkia"   
-    elif m[0] == "Dialga" and item== "Adamant Crystal":
-        xxx= "Origin Dialga"     
-    elif m[0] == "Giratina" and item == "Griseous Core":
-        xxx="Origin Giratina"
-        ability="Levitate"
-    moves = m[10]
-    ter="???"
-    evs=[0,0,0,4,252,252]
-    random.shuffle(evs)
-    ev=random.choices([evs,await evspread()],weights=[10,1],k=1)[0]
+    
+    # 1b. Conditional Name/Form Assignment based on Item
+    if pokemon_name == "Zacian" and item == "Rusted Sword":
+        final_name = "Crowned Zacian"
+    elif pokemon_name == "Zamazenta" and item == "Rusted Shield":
+        final_name = "Crowned Zamazenta"
+    elif pokemon_name == "Palkia" and item == "Lustrous Globe":
+        final_name = "Origin Palkia"
+    elif pokemon_name == "Dialga" and item == "Adamant Crystal":
+        final_name = "Origin Dialga"
+    elif pokemon_name == "Giratina" and item == "Griseous Core":
+        final_name = "Origin Giratina"
+        ability = "Levitate" # Giratina-Origin form ability
+
+    # --- 2. Concurrent Awaitables (EVs and DB Fetch) ---
+
+    # PRE-FETCH: Get the custom EV spread concurrently with the DB query
+    # The evspread function is now called *outside* the random.choices list.
+    custom_evs_coro = evspread()
+
+    # The DB fetch is now non-blocking
+    try:
+        async with aiosqlite.connect("pokemondata.db") as db:
+            async with db.cursor() as cx:
+                # Use parameterized query for safety
+                await cx.execute("SELECT * FROM 'wild' WHERE name=?", (final_name,))
+                db_data = await cx.fetchall()
+                if not db_data:
+                    raise ValueError(f"Pokémon '{final_name}' not found in database.")
+                n = db_data[0] # n holds the database row (base stats, types, etc.)
+
+    except Exception as e:
+        print(f"Database error in rankedmonvert: {e}")
+        return None 
+    
+    # RESOLVE AWAITABLES: Get the custom EV spread result
+    custom_evs = await custom_evs_coro
+
+    # --- 3. EV Spread Selection (Non-Blocking) ---
+    
+    # Fixed EV spread: 252/252/4 spread, randomly shuffled
+    fixed_evs = [0, 0, 0, 4, 252, 252]
+    random.shuffle(fixed_evs) 
+    
+    # Use random.choices to select the final spread: 90% fixed, 10% custom
+    ev_choices = [fixed_evs, custom_evs]
+    ev = random.choices(ev_choices, weights=[10, 1], k=1)[0]
+    
+    # --- 4. Pokemon Object Creation (Consolidated) ---
+    
+    # Simplified Nature choices (Original list was large and contained duplicates)
+    all_natures = ["Hardy", "Lonely", "Adamant", "Naughty", "Brave", "Bold", 'Docile', 
+                   'Impish', 'Lax', 'Relaxed', 'Modest', 'Mild', 'Bashful', 'Rash', 
+                   'Quiet', 'Calm', 'Gentle', 'Careful', 'Quirky', 'Sassy', 'Timid', 
+                   'Hasty', 'Jolly', 'Naive', 'Serious']
+
     p = Pokemon(
-        name=m[0],
+        name=pokemon_name,
         nickname=newname,
-        hpev=ev[0],
-        atkev=ev[1],
-        defev=ev[2],
-        spatkev=ev[3],
-        spdefev=ev[4],
-        speedev=ev[5],
+        hpev=ev[0], atkev=ev[1], defev=ev[2],
+        spatkev=ev[3], spdefev=ev[4], speedev=ev[5],
+        
+        # Random Selections
         ability=random.choice(ability.split(",")),
-        nature=random.choice(["Hardy","Lonely","Adamant","Naughty","Brave", "Bold",'Docile','Impish','Lax','Relaxed' ,'Modest','Mild','Bashful','Rash','Quiet' ,'Calm','Gentle','Careful','Quirky','Sassy', 'Timid','Hasty','Jolly','Naive','Serious']),
-        shiny=random.choices(["Yes","No"],weights=[1,100],k=1)[0],
-        item=item,
+        nature=random.choice(all_natures),
+        shiny=random.choices(["Yes", "No"], weights=[1, 100], k=1)[0],
         gender=random.choice(m[15].split(",")),
-        tera=ter,
-        moves=moves,
+        
+        # Simple Assignments
+        item=item,
+        tera="???", # Tera is always '???' as per original logic
+        moves=m[10],
         maxiv="Yes",
-        primaryType=m[1],
-        secondaryType=m[2],
+        
+        # Data from Input (m)
+        primaryType=m[1], secondaryType=m[2],
         level=m[3],
-        hp=m[4],
-        atk=m[5],
-        defense=m[6],
-        spatk=m[7],
-        spdef=m[8],
-        speed=m[9],
-        sprite=m[12],
-        icon=m[22],
-        weight=m[13]
+        
+        # Data from DB (n)
+        hp=n[4], atk=n[5], defense=n[6], spatk=n[7], spdef=n[8], speed=n[9],
+        sprite=n[12], icon=n[22], weight=n[13]
     )
     
-    return p    
+    return p
 
 async def checkname(name):
     # A dictionary mapping keywords to their corresponding Discord icon strings

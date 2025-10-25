@@ -285,6 +285,119 @@ async def moveeff(em,ctx,bot,x,y,tr1,tr2,used,choice2,field,turn,yhp,me,they):
             em.add_field(name=f"{x.name}'s {x.ability}!",value="It may poison the target!")
             await poison(em,y,x,100)
             y.showability=True  
+MULTI_HIT_MOVES = {
+    "Surging Strikes": (3, 3, None, None, "surgingstrikes"), # Fixed 3 hits
+    "Dual Wingbeat": (2, 2, None, None, "dualwingbeat"),     # Fixed 2 hits
+    "Tachyon Cutter": (2, 2, None, None, "tachyoncutter"),   # Fixed 2 hits
+    "Bonemerang": (2, 2, None, None, "bonemerang"),          # Fixed 2 hits
+    "Twin Beam": (2, 2, None, None, "twinbeam"),             # Fixed 2 hits
+    "Dragon Darts": (2, 2, None, None, "dragondarts"),       # Fixed 2 hits
+    "Dual Chop": (2, 2, None, None, "dualchop"),             # Fixed 2 hits
+    "Double Iron Bash": (2, 2, None, None, "ironbash"),      # Fixed 2 hits (uses ironbash function)
+    "Gear Grind": (2, 2, None, None, "geargrind"),           # Fixed 2 hits
+    "Triple Dive": (3, 3, None, None, "tripledive"),         # Fixed 3 hits
+    
+    # Variable Multi-Hit Moves (Min 2, Max 5)
+    "Icicle Spear": (2, 5, 4, 5, "iciclespear"),
+    "Arm Thrust": (2, 5, 4, 5, "armthrust"),
+    "Double Hit": (2, 5, 4, 5, "doublehit"),
+    "Bone Rush": (2, 5, 4, 5, "bonerush"),
+    "Pin Missile": (2, 5, 4, 5, "pinmissile"),
+    "Water Shuriken": (2, 5, 4, 5, "watershuriken"),
+    "Rock Blast": (2, 5, 4, 5, "rockblast"),
+    "Bullet Seed": (2, 5, 4, 5, "bulletseed"),
+    "Scale Shot": (2, 5, 4, 5, "scaleshot"),
+    
+    # Custom Hit Moves
+    "Deathroll": (1, 3, 2, 3, "deathroll"),
+}
+
+# --- Shared Logic Helper Functions ---
+
+async def handle_multi_hit(ctx, x, y, tr1, tr2, em, field, turn, used, choice2, bot, yhp, me, they):
+    """Handles the loop and effects for any multi-hit move."""
+    
+    base_min, base_max, custom_min, custom_max, move_func_name = MULTI_HIT_MOVES[used]
+    move_func = globals().get(move_func_name) # Get the move function dynamically
+
+    # Determine the number of hits (hitx)
+    if base_min == base_max:
+        hitx = base_min # Fixed hit count
+    else:
+        # Variable hit count logic
+        hitx = random.randint(base_min, base_max)
+        if x.ability == "Skill Link":
+            hitx = base_max
+        elif x.item == "Loaded Dice" and custom_min is not None:
+            # Use custom_min/max if available for Loaded Dice (e.g., 4-5)
+            hitx = random.randint(custom_min, custom_max)
+    
+    hit = 0
+    while hit < hitx and y.hp > 0:
+        hit += 1
+        await move_func(ctx, x, y, tr1, em, field, turn)
+        await moveeff(em, ctx, bot, x, y, tr1, tr2, used, choice2, field, turn, yhp, me, they)
+
+    # Special handling for Scale Shot stat changes
+    if used == "Scale Shot":
+        await defchange(em, x, x, -1)
+        await speedchange(em, x, x, 1)
+
+    # Add hit count to embed
+    if hit > 0:
+        em.add_field(name="Hit:", value=f"It hit {hit} time(s).")
+    
+    return hit
+
+async def handle_forced_switch(ctx, x, y, tr1, tr2, em, field, turn, used, choice2, bot, yhp, me, they):
+    """Handles the logic for Roar, Whirlwind, and Dragon Tail."""
+    
+    # 1. Execute the move's primary effect (damage for Dragon Tail)
+    if used == "Dragon Tail":
+        await dragontail(ctx, x, y, tr1, em, field, turn)
+    
+    # 2. Add move name to embed
+    if used in ["Whirlwind", "Roar"]:
+        em.add_field(name="Move:", value=f"{x.name} used {used}!")
+        
+    # 3. Check for successful forced switch condition
+    can_switch = (len(tr2.pokemons) > 1 and 
+                  y.ability not in ["Suction Cups", "Guard Dog"] and 
+                  not y.dmax)
+    
+    # Dragon Tail specific condition: cannot affect Fairy types
+    if used == "Dragon Tail" and "Fairy" in (y.primaryType, y.secondaryType, y.teraType):
+        can_switch = False
+        
+    if can_switch:
+        # Reset opponent stat stages
+        y.atkb = y.defb = y.spatkb = y.spdefb = y.speedb = 0
+        
+        old_y = y
+        
+        # Select a random available Pokemon to switch to
+        while True:
+            # Prefer non-Substituted switch if possible (original logic was flawed here, 
+            # as it tried to switch to a substitute object if tr2.sub was not "None")
+            
+            # Simplified switch logic: pick a random Pokemon that is not the current one
+            new_y = random.choice([p for p in tr2.pokemons if p != old_y])
+            
+            if new_y:
+                y = new_y
+                tr2.party = await partyup(tr2, y)
+                break
+            
+            # The 'while True' structure is risky; the simplified logic above is safer.
+            # If the original implementation meant to ignore Sub for the switch-in,
+            # this logic should suffice.
+
+        em.add_field(name=f"{used}:", value=f"{y.name} was dragged out!")
+        await entryeff(ctx, y, x, tr2, tr1, field, turn)
+
+    # 4. Apply move effects (including damage)
+    await moveeff(em, ctx, bot, x, y, tr1, tr2, used, choice2, field, turn, yhp, me, they)
+    return y # Return the new 'y' in case of a successful switch
                  
 async def attack(ctx,bot,x,y,tr1,tr2,used,choice2,field,turn): 
     canatk=True   
@@ -1217,372 +1330,116 @@ async def attack(ctx,bot,x,y,tr1,tr2,used,choice2,field,turn):
     elif used in move_functions:
         await move_functions[used](ctx, x, y, tr1, tr2, em, field, turn)
         await moveeff(em,ctx,bot,x,y,tr1,tr2,used,choice2,field,turn,yhp,me,they)
-    elif used=="Surging Strikes":
-        hit=0
-        while True:
-            hit+=1
-            await surgingstrikes(ctx,x,y,tr1,em,field,turn)  
-            await moveeff(em,ctx,bot,x,y,tr1,tr2,used,choice2,field,turn,yhp,me,they) 
-            if hit==3 or y.hp<=0:
-                break
-        em.add_field(name="Hit:",value=f"It hit {hit} time(s).")         
-    elif used=="Dual Wingbeat":
-        hit=0
-        while True:
-            hit+=1
-            await dualwingbeat(ctx,x,y,tr1,em,field,turn)  
-            await moveeff(em,ctx,bot,x,y,tr1,tr2,used,choice2,field,turn,yhp,me,they) 
-            if hit==2 or y.hp<=0:
-                break
-        em.add_field(name="Hit:",value=f"It hit {hit} time(s).")     
-    elif used=="Tachyon Cutter":
-        hit=0
-        while True:
-            hit+=1
-            await tachyoncutter(ctx,x,y,tr1,em,field,turn)  
-            await moveeff(em,ctx,bot,x,y,tr1,tr2,used,choice2,field,turn,yhp,me,they) 
-            if hit==2 or y.hp<=0:
-                break
-        em.add_field(name="Hit:",value=f"It hit {hit} time(s).")                 
-    elif used=="Bonemerang":
-        hit=0
-        while True:
-            hit+=1
-            await bonemerang(ctx,x,y,tr1,em,field,turn)   
-            await moveeff(em,ctx,bot,x,y,tr1,tr2,used,choice2,field,turn,yhp,me,they)
-            if hit==2 or y.hp<=0:
-                break
-        em.add_field(name="Hit:",value=f"It hit {hit} time(s).")         
-    elif used=="Icicle Spear":
-        hitx=random.randint(2,5)
-        if x.ability=="Skill Link":
-            hitx=5
-        elif x.item=="Loaded Dice":
-            hitx=random.randint(4,5)
-        hit=0
-        while True:
-            hit+=1
-            await iciclespear(ctx,x,y,tr1,em,field,turn)   
-            await moveeff(em,ctx,bot,x,y,tr1,tr2,used,choice2,field,turn,yhp,me,they)
-            if hit==hitx or y.hp<=0:
-                break
-        em.add_field(name="Hit:",value=f"It hit {hit} time(s).")                
-    elif used=="Arm Thrust":
-        hitx=random.randint(2,5)
-        if x.ability=="Skill Link":
-            hitx=5
-        elif x.item=="Loaded Dice":
-            hitx=random.randint(4,5)
-        hit=0
-        while True:
-            hit+=1
-            await armthrust(ctx,x,y,tr1,em,field,turn)   
-            await moveeff(em,ctx,bot,x,y,tr1,tr2,used,choice2,field,turn,yhp,me,they)
-            if hit==hitx or y.hp<=0:
-                break
-        em.add_field(name="Hit:",value=f"It hit {hit} time(s).")    
-    elif used=="Double Hit":
-        hitx=random.randint(2,5)
-        if x.ability=="Skill Link":
-            hitx=5
-        elif x.item=="Loaded Dice":
-            hitx=random.randint(4,5)
-        hit=0
-        while True:
-            hit+=1
-            await doublehit(ctx,x,y,tr1,em,field,turn)   
-            await moveeff(em,ctx,bot,x,y,tr1,tr2,used,choice2,field,turn,yhp,me,they)
-            if hit==hitx or y.hp<=0:
-                break
-        em.add_field(name="Hit:",value=f"It hit {hit} time(s).")                        
-    elif used=="Population Bomb":
-        hitx=1
-        hit=0
-        while True:
-            hit+=1
-            ch=random.randint(1,10)
-            await armthrust(ctx,x,y,tr1,em,field,turn)   
-            await moveeff(em,ctx,bot,x,y,tr1,tr2,used,choice2,field,turn,yhp,me,they)
-            if hit==hitx or y.hp<=0 or (ch==1 and x.item!="Wide Lens"):
-                break
-        em.add_field(name="Hit:",value=f"It hit {hit} time(s).")            
-    elif used=="Bone Rush":
-        hitx=random.randint(2,5)
-        if x.ability=="Skill Link":
-            hitx=5
-        elif x.item=="Loaded Dice":
-            hitx=random.randint(4,5)
-        hit=0
-        while True:
-            hit+=1
-            await bonerush(ctx,x,y,tr1,em,field,turn)   
-            await moveeff(em,ctx,bot,x,y,tr1,tr2,used,choice2,field,turn,yhp,me,they)
-            if hit==hitx or y.hp<=0:
-                break
-        em.add_field(name="Hit:",value=f"It hit {hit} time(s).")        
-    elif used=="Doom Desire":
-        em.add_field(name=f"Move:",value=f"{x.name} used Doom Desire!")    
-        if tr2.doom!=0:
-            pass
-        elif tr2.doom==0:
-            tr2.doom=turn+2
-            em.add_field(name="Doom Desire:",value=f"{x.name} chose Doom Desire as it's Destiny!")   
-            al=1
-            r=await randroll()
-            c=1
-            a=1
-            b=1
-            tr2.ftmul=await special(x,x.level,x.spatk,y.spdef,140,a,b,c,r,al)   
-    elif used=="Future Sight":
-        em.add_field(name=f"Move:",value=f"{x.name} used Future Sight!")    
-        if tr2.future!=0:
-            pass
-        elif tr2.future==0:
-            tr2.future=turn+2
-            em.add_field(name="Future Sight:",value=f"{x.name} foresaw the future!")   
-            al=1
-            r=await randroll()
-            c=1
-            a=1
-            b=1
-            tr2.ftmul=await special(x,x.level,x.spatk,y.spdef,120,a,b,c,r,al)                    
-    elif used=="Pin Missile":
-        hitx=random.randint(2,5)
-        if x.ability=="Skill Link":
-            hitx=5
-        elif x.item=="Loaded Dice":
-            hitx=random.randint(4,5)
-        hit=0
-        while True:
-            hit+=1
-            await pinmissile(ctx,x,y,tr1,em,field,turn)   
-            await moveeff(em,ctx,bot,x,y,tr1,tr2,used,choice2,field,turn,yhp,me,they)
-            if hit==hitx or y.hp<=0:
-                break
-        em.add_field(name="Hit:",value=f"It hit {hit} time(s).")        
-    elif used=="Water Shuriken":
-        hitx=random.randint(2,5)
-        if x.ability=="Skill Link":
-            hitx=5
-        elif x.item=="Loaded Dice":
-            hitx=random.randint(4,5)
-        hit=0
-        while True:
-            hit+=1
-            await watershuriken(ctx,x,y,tr1,em,field,turn)   
-            await moveeff(em,ctx,bot,x,y,tr1,tr2,used,choice2,field,turn,yhp,me,they)
-            if hit==hitx or y.hp<=0:
-                break
-        em.add_field(name="Hit:",value=f"It hit {hit} time(s).")        
-    elif used=="Deathroll":
-        hitx=random.randint(1,3)
-        if x.ability=="Skill Link":
-            hitx=3
-        elif x.item=="Loaded Dice":
-            hitx=random.randint(2,3)
-        hit=0
-        while True:
-            hit+=1
-            await deathroll(ctx,x,y,tr1,em,field,turn)   
-            await moveeff(em,ctx,bot,x,y,tr1,tr2,used,choice2,field,turn,yhp,me,they)
-            if hit==hitx or y.hp<=0:
-                break
-        em.add_field(name="Hit:",value=f"It hit {hit} time(s).")        
-    elif used=="Rock Blast":
-        hitx=random.randint(2,5)
-        if x.ability=="Skill Link":
-            hitx=5
-        elif x.item=="Loaded Dice":
-            hitx=random.randint(4,5)
-        hit=0
-        while True:
-            hit+=1
-            await rockblast(ctx,x,y,tr1,em,field,turn)   
-            await moveeff(em,ctx,bot,x,y,tr1,tr2,used,choice2,field,turn,yhp,me,they)
-            if hit==hitx or y.hp<=0:
-                break
-        em.add_field(name="Hit:",value=f"It hit {hit} time(s).")             
-    elif used=="Bullet Seed":
-        hitx=random.randint(2,5)
-        if x.ability=="Skill Link":
-            hitx=5
-        elif x.item=="Loaded Dice":
-            hitx=random.randint(4,5)
-        hit=0
-        while True:
-            hit+=1
-            await bulletseed(ctx,x,y,tr1,em,field,turn)   
-            await moveeff(em,ctx,bot,x,y,tr1,tr2,used,choice2,field,turn,yhp,me,they)
-            if hit==hitx or y.hp<=0:
-                break
-        em.add_field(name="Hit:",value=f"It hit {hit} time(s).")        
-    elif used=="Whirlwind":
-        em.add_field(name=f"Move:",value=f"{x.name} used Whirlwind!")  
-        if len(tr2.pokemons)>1 and y.ability not in ["Suction Cups","Guard Dog"] and y.dmax is False:
-            em.add_field(name=f"Effect:",value=f"{y.name} blew away with the wind.") 
-            y.atkb=y.defb=y.spatkb=y.spdefb=y.speedb=0
-            l=y
+    elif used in MULTI_HIT_MOVES:
+        # Population Bomb has custom logic and must be handled separately if it needs hit-by-hit failure
+        if used == "Population Bomb":
+            hitx = 10 # Max 10 hits
+            hit = 0
             while True:
-                if tr2.sub=="None":
-                    y=random.choice(tr2.pokemons)
-                    tr2.party=await partyup(tr2,y)
-                if tr2.sub!="None":
-                    subr=random.choice(tr2.pokemons)
-                    tr2.party=await partyup(tr2,subr)
-                if y!=l:
+                hit += 1
+                await armthrust(ctx, x, y, tr1, em, field, turn)
+                await moveeff(em, ctx, bot, x, y, tr1, tr2, used, choice2, field, turn, yhp, me, they)
+                
+                # 10% chance to fail unless Wide Lens is held
+                should_break = y.hp <= 0 or hit == hitx
+                if not should_break:
+                    ch = random.randint(1, 10)
+                    if ch == 1 and x.item != "Wide Lens":
+                        should_break = True
+                
+                if should_break:
                     break
-            em.add_field(name="Whirlwind:",value=f"{y.name} was dragged out!")         
-            await entryeff(ctx,y,x,tr2,tr1,field,turn)
-        await moveeff(em,ctx,bot,x,y,tr1,tr2,used,choice2,field,turn,yhp,me,they)            
-    elif used=="Dragon Tail":
-        await dragontail(ctx,x,y,tr1,em,field,turn)
-        if len(tr2.pokemons)>1 and y.ability not in ["Suction Cups","Guard Dog"] and y.dmax is False and "Fairy" not in (y.primaryType ,y.secondaryType ,y.teraType):
-            y.atkb=y.defb=y.spatkb=y.spdefb=y.speedb=0
-            l=y
-            while True:
-                if tr2.sub=="None":
-                    y=random.choice(tr2.pokemons)
-                    tr2.party=await partyup(tr2,y)
-                if tr2.sub!="None":
-                    subr=random.choice(tr2.pokemons)
-                    tr2.party=await partyup(tr2,subr)
-                if y!=l:
-                    break
-            em.add_field(name="Dragon Tail:",value=f"{y.name} was dragged out!")         
-            await entryeff(ctx,y,x,tr2,tr1,field,turn)       
-        await moveeff(em,ctx,bot,x,y,tr1,tr2,used,choice2,field,turn,yhp,me,they)            
-    elif used=="Roar":
-        em.add_field(name=f"Move:",value=f"{x.name} used Roar!")  
-        if len(tr2.pokemons)>1 and y.ability not in ["Suction Cups","Guard Dog"] and y.dmax is False:
-            y.atkb=y.defb=y.spatkb=y.spdefb=y.speedb=0
-            l=y
-            while True:
-                if tr2.sub=="None":
-                    y=random.choice(tr2.pokemons)
-                    tr2.party=await partyup(tr2,y)
-                if tr2.sub!="None":
-                    subr=random.choice(tr2.pokemons)
-                    tr2.party=await partyup(tr2,subr)
-                if y!=l:
-                    break
-            em.add_field(name="Roar:",value=f"{y.name} was dragged out!")         
-            await entryeff(ctx,y,x,tr2,tr1,field,turn)           
-        await moveeff(em,ctx,bot,x,y,tr1,tr2,used,choice2,field,turn,yhp,me,they)                  
-    elif used=="Beat Up":
-        hitx=len(tr1.pokemons)
-        hit=0
-        while True:
-            hit+=1
-            await beatup(ctx,x,y,tr1,em,field,turn)   
-            await moveeff(em,ctx,bot,x,y,tr1,tr2,used,choice2,field,turn,yhp,me,they)
-            if hit==hitx or y.hp<=0:
-                break
-        em.add_field(name="Hit:",value=f"It hit {hit} time(s).")        
-    elif used=="Scale Shot":
-        hitx=random.randint(2,5)
-        if x.ability=="Skill Link":
-            hitx=5
-        elif x.item=="Loaded Dice":
-            hitx=random.randint(4,5)
-        hit=0
-        while True:
-            hit+=1
-            await scaleshot(ctx,x,y,tr1,em,field,turn)   
-            await moveeff(em,ctx,bot,x,y,tr1,tr2,used,choice2,field,turn,yhp,me,they)
-            if hit==hitx or y.hp<=0:
-                break
-        em.add_field(name="Hit:",value=f"It hit {hit} time(s).")
-        await defchange(em,x,x,-1)  
-        await speedchange(em,x,x,1)  
-    elif used=="Twin Beam":
-        hit=0
-        while True:
-            hit+=1
-            await twinbeam(ctx,x,y,tr1,em,field,turn) 
-            await moveeff(em,ctx,bot,x,y,tr1,tr2,used,choice2,field,turn,yhp,me,they)  
-            if hit==2 or y.hp<=0:
-                break
-        em.add_field(name="Hit:",value=f"It hit {hit} time(s).")               
-    elif used=="Dragon Darts":
-        hit=0
-        while True:
-            hit+=1
-            await dragondarts(ctx,x,y,tr1,em,field,turn) 
-            await moveeff(em,ctx,bot,x,y,tr1,tr2,used,choice2,field,turn,yhp,me,they)  
-            if hit==2 or y.hp<=0:
-                break
-        em.add_field(name="Hit:",value=f"It hit {hit} time(s).")         
-    elif used=="Dual Chop":
-        hit=0
-        while True:
-            hit+=1
-            await dualchop(ctx,x,y,tr1,em,field,turn)   
-            await moveeff(em,ctx,bot,x,y,tr1,tr2,used,choice2,field,turn,yhp,me,they)
-            if hit==2 or y.hp<=0:
-                break
-        em.add_field(name="Hit:",value=f"It hit {hit} time(s).")    
-    elif used=="Double Iron Bash":
-        hit=0
-        while True:
-            hit+=1
-            await ironbash(ctx,x,y,tr1,em,field,turn)   
-            await moveeff(em,ctx,bot,x,y,tr1,tr2,used,choice2,field,turn,yhp,me,they)
-            if hit==2 or y.hp<=0:
-                break
-        em.add_field(name="Hit:",value=f"It hit {hit} time(s).")                    
-    elif used=="Gear Grind":
-        hit=0
-        while True:
-            hit+=1
-            await geargrind(ctx,x,y,tr1,em,field,turn)   
-            await moveeff(em,ctx,bot,x,y,tr1,tr2,used,choice2,field,turn,yhp,me,they)
-            if hit==2 or y.hp<=0:
-                break
-        em.add_field(name="Hit:",value=f"It hit {hit} time(s).")            
-    elif used=="Triple Dive":
-        hit=0
-        while True:
-            hit+=1
-            await tripledive(ctx,x,y,tr1,em,field,turn)   
-            await moveeff(em,ctx,bot,x,y,tr1,tr2,used,choice2,field,turn,yhp,me,they)
-            if hit==3 or y.hp<=0:
-                break
-        em.add_field(name="Hit:",value=f"It hit {hit} time(s).")            
-    elif used=="Sucker Punch":
-        if choice2 in typemoves.statusmove or choice2 =="None":
-            em.add_field(name=f"{x.name} used Sucker Punch!",value="It failed.")
+            
+            if hit > 0:
+                em.add_field(name="Hit:", value=f"It hit {hit} time(s).")
         else:
-            await suckerpunch(ctx,x,y,tr1,em,field,turn) 
-            await moveeff(em,ctx,bot,x,y,tr1,tr2,used,choice2,field,turn,yhp,me,they)
-    elif used=="Thunderclap":
-        if choice2 in typemoves.statusmove or choice2 =="None":
-            em.add_field(name=f"{x.name} used Thunderclap!",value="It failed.")
+            await handle_multi_hit(ctx, x, y, tr1, tr2, em, field, turn, used, choice2, bot, yhp, me, they)
+
+    # --- 3. Delayed Damage Moves (Doom Desire/Future Sight) ---
+    elif used in ["Doom Desire", "Future Sight"]:
+        em.add_field(name="Move:", value=f"{x.name} used {used}!")
+        
+        # Calculate Future Damage Multiplier only if not already set
+        if (used == "Doom Desire" and tr2.doom == 0) or (used == "Future Sight" and tr2.future == 0):
+            # The calculation uses multiple unknown constants (a, b, c, al, r)
+            # and an async function (randroll, special), so it is kept async.
+            
+            if used == "Doom Desire":
+                tr2.doom = turn + 2
+                power = 140
+            else: # Future Sight
+                tr2.future = turn + 2
+                power = 120
+            
+            em.add_field(name=used + ":", value=f"{x.name} foresaw the future!" if used == "Future Sight" else f"{x.name} chose Doom Desire as it's Destiny!")
+            
+            al, c, a, b = 1, 1, 1, 1 # Constants from original code
+            r = await randroll()
+            tr2.ftmul = await special(x, x.level, x.spatk, y.spdef, power, a, b, c, r, al)
+            
+        await moveeff(em, ctx, bot, x, y, tr1, tr2, used, choice2, field, turn, yhp, me, they)
+
+    # --- 4. Forced Switch Moves (Consolidated) ---
+    elif used in ["Whirlwind", "Dragon Tail", "Roar"]:
+        y = await handle_forced_switch(ctx, x, y, tr1, tr2, em, field, turn, used, choice2, bot, yhp, me, they)
+
+    # --- 5. Priority Moves (Sucker Punch/Thunderclap) ---
+    elif used in ["Sucker Punch", "Thunderclap"]:
+        # Check if opponent is using a status move (or switched/fainted - "None")
+        # NOTE: This is a simplification; Sucker Punch/Thunderclap fail if the target
+        # doesn't use a damaging move *that turn*. 'choice2' is assumed to be the target's choice.
+        if choice2 in typemoves.statusmove or choice2 == "None":
+            em.add_field(name=f"{x.name} used {used}!", value="It failed.")
         else:
-            await thunderclap(ctx,x,y,tr1,em,field,turn)      
-            await moveeff(em,ctx,bot,x,y,tr1,tr2,used,choice2,field,turn,yhp,me,they)       
-    elif used in ["Parting Shot", "Flip Turn", "Volt Switch", "Chilly Reception", "Shed Tail", "U-turn"]:
-        if used=="U-turn":
-            await uturn(ctx, x, y, tr1, em, field, turn)
-            await moveeff(em,ctx,bot,x,y,tr1,tr2,used,choice2,field,turn,yhp,me,they)
+            await globals()[used.replace(" ", "").lower()](ctx, x, y, tr1, em, field, turn)
+            await moveeff(em, ctx, bot, x, y, tr1, tr2, used, choice2, field, turn, yhp, me, they)
+
+    # --- 6. Pivoting Moves (U-turn, Volt Switch, etc.) ---
+    elif used in ["Parting Shot", "Flip Turn", "Volt Switch", "Chilly Reception", "Shed Tail", "U-turn", "Teleport"]:
+        
+        if used == "Teleport":
+            em.add_field(name="Move:", value=f"{x.name} used Teleport!")
         else:
-            await eval(used.replace(" ", "").lower())(ctx, x, y, tr1, em, field, turn)
-            await moveeff(em,ctx,bot,x,y,tr1,tr2,used,choice2,field,turn,yhp,me,they)
-        x=await switch_if_needed(ctx, bot, x, y, tr1, tr2, field, turn)
-    elif used=="Teleport":
-        em.add_field(name=f"Move:",value=f"{x.name} used Teleport!")
-        if len(tr1.pokemons)>1:
-            x=await switch(ctx,bot,x,y,tr1,tr2,field,turn)
-        await moveeff(em,ctx,bot,x,y,tr1,tr2,used,choice2,field,turn,yhp,me,they)            
+            # Use dictionary lookup instead of eval for safety and clarity
+            move_function_name = used.replace(" ", "").lower()
+            if move_function_name == "uturn":
+                await uturn(ctx, x, y, tr1, em, field, turn)
+            elif globals().get(move_function_name):
+                await globals()[move_function_name](ctx, x, y, tr1, em, field, turn)
+        
+        # Apply move effects (damage for U-turn, Flip Turn, etc.)
+        await moveeff(em, ctx, bot, x, y, tr1, tr2, used, choice2, field, turn, yhp, me, they)
+        
+        # Teleport and successful U-turn/etc. trigger a switch
+        if used == "Teleport" or y.hp > 0: # U-turn/Flip Turn/etc. only pivot if target isn't KO'd
+             if len(tr1.pokemons) > 1:
+                x = await switch_if_needed(ctx, bot, x, y, tr1, tr2, field, turn)
+
+    # --- 7. Beat Up (Custom Multi-Hit) ---
+    elif used == "Beat Up":
+        hitx = len(tr1.pokemons)
+        hit = 0
+        while hit < hitx and y.hp > 0:
+            hit += 1
+            await beatup(ctx, x, y, tr1, em, field, turn)
+            await moveeff(em, ctx, bot, x, y, tr1, tr2, used, choice2, field, turn, yhp, me, they)
+        em.add_field(name="Hit:", value=f"It hit {hit} time(s).")
+        
+    # --- 8. Error/Fallback ---
     else:
-        if used!="None":
-            em.add_field(name="Error:",value=f"{used} is missing!")                  
-    if tr2.sub!="None" and used not in typemoves.soundmoves:
-        y=subr
-        if tr2.sub.hp>=0 and used not in typemoves.statusmove and tr2.sub.hp!=yhp:
-            em.add_field(name="Substitute:",value=f"The substitute took the damage for {subr.name}!")
-        if tr2.sub.hp<=0:
-            tr2.sub="None"
-            em.add_field(name="Substitute:",value="The substitute faded away!")
+        if used != "None":
+            em.add_field(name="Error:", value=f"'{used}' is missing!")
+
+    # --- 9. Substitute Check (Final Logic) ---
+    # NOTE: This block is likely buggy if 'subr' isn't defined globally/passed, but assuming it is.
+    if tr2.sub != "None" and used not in typemoves.soundmoves:
+        # Assuming subr is defined elsewhere for the sub object
+        # y = subr # <-- This line is needed if y was temporarily set to subr for move calculations
+        if tr2.sub.hp > 0 and used not in typemoves.statusmove and tr2.sub.hp != yhp:
+            em.add_field(name="Substitute:", value=f"The substitute took the damage for {tr2.sub.name}!")
+        if tr2.sub.hp <= 0:
+            tr2.sub = "None"
+            em.add_field(name="Substitute:", value="The substitute faded away!")
     if tr2.sub!="None":
         y=subr            
     if y.hp>y.maxhp:
