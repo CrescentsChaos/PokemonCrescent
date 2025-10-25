@@ -4,55 +4,100 @@ from moves import *
 async def switch_if_needed(ctx, bot, x, y, tr1, tr2, field, turn):
     if len(tr1.pokemons) > 1 or (x.hp < x.maxhp / 2 and x.use == "Shed Tail"):
         return await switch(ctx, bot, x, y, tr1, tr2, field, turn)
-async def stance(ctx,x,y,turn,field,used,em):    
-    x.showability=True
-    if used not in typemoves.statusmove and x.ability=="Stance Change" and x.sword!=True:
-        x.shield=False
-        x.sword=True
-        em.add_field(name=f"{x.icon} {x.name}'s Stance Change!",value="Aegislash changed to it's blade forme.")
-        per=x.hp/x.maxhp
-        x.weight=116.84
-        x.sprite="http://play.pokemonshowdown.com/sprites/ani/aegislash-blade.gif"
-        if x.shiny=="Yes":
-            x.sprite="http://play.pokemonshowdown.com/sprites/ani-shiny/aegislash-blade.gif"
-        x.hp=60
-        x.atk=140
-        x.defense=50
-        x.spatk=140
-        x.spdef=50
-        x.speed=60
-        calcst(x)
-        x.hp=x.maxhp*per
-    if used in typemoves.statusmove and x.ability=="Stance Change" and x.shield!=True:
-        x.shield=True
-        x.sword=False
-        em.add_field(name=f"{x.icon} {x.name}'s Stance Change!",value="Aegislash changed to it's shield forme.")
-        per=x.hp/x.maxhp
-        x.hp=60
-        x.sprite="http://play.pokemonshowdown.com/sprites/ani/aegislash.gif"
-        if x.shiny=="Yes":
-            x.sprite="http://play.pokemonshowdown.com/sprites/ani-shiny/aegislash.gif"
-        x.atk=50
-        x.defense=140
-        x.spatk=50
-        x.spdef=140
-        x.speed=60
-        calcst(x)
-        x.hp=x.maxhp*per
-async def preattack(ctx,x,y,tr1,tr2,used,choice2,field,turn):
-    if y.ability=="Stench" and x.ability!="Long Reach":
-        ch=random.randint(1,100)  
-        if ch>90:
-            x.flinched=True   
-    if x.item in ["Kings Rock","Razor Fang"]:
-        ch=random.randint(1,100)
-        if ch>90 and y.ability not in ["Inner Focus"]:
-            if used in typemoves.premove and x.precharge==False:
-                pass
-            if used in typemoves.premove and x.precharge==True:
-                y.flinched=True
-            else:
-                y.flinched=True
+AEGISLASH_FORMS = {
+    # Blade Forme (Offensive) - Activated by using an attacking move
+    "Blade": {
+        "value": "it's blade forme.",
+        "sprite_base": "http://play.pokemonshowdown.com/sprites/ani/aegislash-blade.gif",
+        "weight": 116.84,
+        "stats": {
+            "hp": 60, "atk": 140, "defense": 50, 
+            "spatk": 140, "spdef": 50, "speed": 60
+        }
+    },
+    # Shield Forme (Defensive) - Activated by using a status move
+    "Shield": {
+        "value": "it's shield forme.",
+        "sprite_base": "http://play.pokemonshowdown.com/sprites/ani/aegislash.gif",
+        "weight": 5.3, # Corrected weight for Shield Forme (was missing in original code)
+        "stats": {
+            "hp": 60, "atk": 50, "defense": 140, 
+            "spatk": 50, "spdef": 140, "speed": 60
+        }
+    }
+}
+
+async def _apply_stance_change(x, form_key, em):
+    """Applies the stat and sprite changes for the specified Aegislash form."""
+    
+    form_data = AEGISLASH_FORMS[form_key]
+    stats = form_data["stats"]
+    
+    # 1. Record current HP percentage
+    per = x.hp / x.maxhp
+    
+    # 2. Update status and sprite
+    x.sword = (form_key == "Blade")
+    x.shield = (form_key == "Shield")
+    
+    x.sprite = form_data["sprite_base"]
+    if x.shiny == "Yes":
+        x.sprite = form_data["sprite_base"].replace("/ani/", "/ani-shiny/")
+        
+    # 3. Apply base stats and weight
+    x.weight = form_data["weight"]
+    x.hp = stats["hp"]
+    x.atk = stats["atk"]
+    x.defense = stats["defense"]
+    x.spatk = stats["spatk"]
+    x.spdef = stats["spdef"]
+    x.speed = stats["speed"]
+    
+    # 4. Recalculate max stats and restore HP percentage
+    calcst(x)
+    x.hp = x.maxhp * per
+    
+    # 5. Add embed field
+    em.add_field(
+        name=f"{x.icon} {x.name}'s Stance Change!",
+        value=f"Aegislash changed to {form_data['value']}"
+    )
+        
+async def stance(ctx, x, y, turn, field, used, em):
+    # Only applies to Aegislash with Stance Change
+    if x.ability != "Stance Change" or "Aegislash" not in x.name and y.abiliy=="Neutralizing Gas":
+        return # Exit early if not the target Pokémon/Ability
+        
+    x.showability = True # Flag ability visibility
+
+    is_status_move = used in typemoves.statusmove
+    
+    # Logic for changing to Blade Forme (Offensive)
+    if not is_status_move and not x.sword:
+        await _apply_stance_change(x, "Blade", em)
+    
+    # Logic for changing to Shield Forme (Defensive)
+    elif is_status_move and not x.shield:
+        await _apply_stance_change(x, "Shield", em)
+        
+async def preattack(ctx, x, y, tr1, tr2, used, choice2, field, turn):
+    if y.ability == "Stench":
+        if x.ability != "Long Reach" and random.randint(1, 100) > 90:
+            x.flinched = True 
+            await ctx.send(f"{x.icon} {x.name} was pushed back by {y.name}'s Stench!")
+            return
+    is_charging = used in typemoves.premove and not x.precharge
+    
+    if x.item in ["Kings Rock", "Razor Fang"] and not is_charging:
+        if random.randint(1, 100) > 90 and y.ability not in ["Inner Focus"]:
+            if used in typemoves.premove and x.precharge == True:
+                y.flinched = True
+            elif used not in typemoves.premove:
+                y.flinched = True
+                
+            if y.flinched:
+                 await ctx.send(f"{y.icon} {y.name} flinched!")
+                
 async def accheck(x,y,used,field,em):
     if x.use!="Assist":
         used=x.use
@@ -136,6 +181,7 @@ async def accheck(x,y,used,field,em):
             em.add_field(name=f"Recoil:",value=f"{x.name} was hurt by recoil!") 
     return used           
 ####    
+
 async def moveeff(em,ctx,bot,x,y,tr1,tr2,used,choice2,field,turn,yhp,me,they):
     if y.shelltrap==True and used in typemoves.contactmoves and x.item not in ["Punching Glove","Protective Pads"]:
         await shelltrap(ctx,x,y,tr1,em,field,turn)
@@ -238,7 +284,8 @@ async def moveeff(em,ctx,bot,x,y,tr1,tr2,used,choice2,field,turn,yhp,me,they):
         if ch<=3:
             em.add_field(name=f"{x.name}'s {x.ability}!",value="It may poison the target!")
             await poison(em,y,x,100)
-            y.showability=True       
+            y.showability=True  
+                 
 async def attack(ctx,bot,x,y,tr1,tr2,used,choice2,field,turn): 
     canatk=True   
     #Choice Item        

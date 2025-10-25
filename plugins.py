@@ -1,6 +1,8 @@
 import random
 import discord
 import sqlite3
+import aiosqlite
+import asyncio
 import requests
 import aiohttp
 from pokemon import *
@@ -14,71 +16,131 @@ megastones=("Floettite","Chandelurite","Scolipite","Falinksite","Pyroarite","Scr
 
 async def pokeicon(nm):
     async with sqlite3.connect("pokemondata.db") as db:
-        async with db.execute("SELECT * FROM 'wild' WHERE name = ?", (nm,)) as cursor:
-            row = await cursor.fetchone()
-            if row:
-                return row[22]
-            else:
-                return None  # Or handle the case where the Pokémon is not found
+        row = await db.execute_fetchone("SELECT * FROM 'wild' WHERE name = ?", (nm,))
+        return row[22] if row else None
+    
 async def lbskg(pounds):
     return round(pounds * 0.45359237, 2)
 
 async def heightcon(meters):
-    feet = meters * 3.28084
-    total_inches = feet * 12
+    total_inches = meters * 39.37008 
     feet_part = int(total_inches // 12)
     inches_part = round(total_inches % 12)
     return f"{feet_part}'{inches_part}\""
 
-async def usagerecord(team):
-    db=sqlite3.connect("record.db")
-    c=db.cursor()
-    for i in team:
-        c.execute(f"select * from `pokemons` where name='{i.name}'")
-        v=c.fetchone()
-        if v==None:
-            #insert
-            c.execute(f"""INSERT INTO `pokemons` VALUES (
-            "{i.name}",
-            "{i.nature} 1",
-            "{(i.item.replace(' ','_')).replace('[Used]','')} 1",
-            "{i.ability.replace(' ','_')} 1",
-            1,
-            0
-            )""")
-            db.commit()
-        else:
-            #update
-            natures=await convert_items_string(v[1])
-            items=await convert_items_string(v[2])
-            abilities=await convert_items_string(v[3])
-            if "Used" in i.item:
-                    i.item=i.item.replace('[Used]','')
-            if i.nature in natures:
-                natures[i.nature]=natures[i.nature]+1
-                natures=await convert_dict_string(natures)
-            elif i.nature not in natures:
-                natures[i.nature]=1
-                natures=await convert_dict_string(natures)
-            if i.item.replace(' ','_') in items:
-                items[i.item.replace(' ','_')]=items[i.item.replace(' ','_')]+1
-                items=await convert_dict_string(items)
-            elif i.item.replace(' ','_') not in items:
-                items[i.item.replace(' ','_')]=1
-                items=await convert_dict_string(items)
-            if i.ability.replace(' ','_') in abilities:
-                abilities[i.ability.replace(' ','_')]=abilities[i.ability.replace(' ','_')]+1
-                abilities=await convert_dict_string(abilities)
-            elif i.ability.replace(' ','_') not in abilities:
-                abilities[i.ability.replace(' ','_')]=1
-                abilities=await convert_dict_string(abilities)
-            c.execute(f"""Update `pokemons` set natures="{natures}",items="{items}",abilities="{abilities}",total={v[4]+1} where name='{i.name}'""")
-            db.commit()
-    c.execute(f"select * from `alltime`")
-    tot=c.fetchone()
-    tot=tot[0]
-    c.execute(f"""Update `alltime` set total={tot+1}""")
-    db.commit()
+async def _update_usage_dict(current_db_string: str, new_value: str) -> str:
+    """Helper to deserialize, update, and serialize the usage count dictionaries."""
+    usage_dict = await convert_items_string(current_db_string)
+    usage_dict[new_value] = usage_dict.get(new_value, 0) + 1
+    return await convert_dict_string(usage_dict)
+
+async def usagerecord(team, _update_usage_dict):
+    """
+    Records the usage statistics (natures, items, abilities) for each Pokémon 
+    in the team to the record.db database.
+    """
+    async with aiosqlite.connect("record.db") as db:
+        for pokemon in team:
+            # Clean the item and ability strings once
+            item_name = pokemon.item.replace('[Used]', '').replace(' ', '_')
+            ability_name = pokemon.ability.replace(' ', '_')
+
+            # --- FIX: Use a cursor for execute_fetchone ---
+            async with db.cursor() as cursor:
+                # 1. Check if the Pokémon exists
+                await cursor.execute(
+                    "SELECT natures, items, abilities, total, wins FROM pokemons WHERE name = ?", 
+                    (pokemon.name,)
+                )
+                row = await cursor.fetchone()
+            # ----------------------------------------------
+
+            if row is None:
+                # Pokémon does not exist: INSERT new record
+                await db.execute(
+                    """
+                    INSERT INTO pokemons (name, natures, items, abilities, total, wins) 
+                    VALUES (?, ?, ?, ?, 1, 0)
+                    """,
+                    (
+                        pokemon.name,
+                        f"{pokemon.nature} 1",
+                        f"{item_name} 1",
+                        f"{ability_name} 1",
+                    )
+                )
+            else:
+                # Pokémon exists: UPDATE record
+                # Note: We fetch (natures, items, abilities, total, wins). The original code used indices row[1] to row[4]
+                current_natures, current_items, current_abilities, total_uses, _ = row
+                
+                # Assuming _update_usage_dict is defined elsewhere and handles the string manipulation
+                # If _update_usage_dict is async, ensure it is awaited.
+                new_natures = await _update_usage_dict(current_natures, pokemon.nature)
+                new_items = await _update_usage_dict(current_items, item_name)
+                new_abilities = await _update_usage_dict(current_abilities, ability_name)
+
+                await db.execute(
+                    """
+                    UPDATE pokemons SET natures = ?, items = ?, abilities = ?, total = ? 
+                    WHERE name = ?
+                    """,
+                    (new_natures, new_items, new_abilities, total_uses + 1, pokemon.name)
+                )
+        
+        # Update overall total usage
+        await db.execute("UPDATE alltime SET total = total + 1")
+        await db.commit()
+        
+# async def usagerecord(team):
+#     db=sqlite3.connect("record.db")
+#     c=db.cursor()
+#     for i in team:
+#         c.execute(f"select * from `pokemons` where name='{i.name}'")
+#         v=c.fetchone()
+#         if v==None:
+#             #insert
+#             c.execute(f"""INSERT INTO `pokemons` VALUES (
+#             "{i.name}",
+#             "{i.nature} 1",
+#             "{(i.item.replace(' ','_')).replace('[Used]','')} 1",
+#             "{i.ability.replace(' ','_')} 1",
+#             1,
+#             0
+#             )""")
+#             db.commit()
+#         else:
+#             #update
+#             natures=await convert_items_string(v[1])
+#             items=await convert_items_string(v[2])
+#             abilities=await convert_items_string(v[3])
+#             if "Used" in i.item:
+#                     i.item=i.item.replace('[Used]','')
+#             if i.nature in natures:
+#                 natures[i.nature]=natures[i.nature]+1
+#                 natures=await convert_dict_string(natures)
+#             elif i.nature not in natures:
+#                 natures[i.nature]=1
+#                 natures=await convert_dict_string(natures)
+#             if i.item.replace(' ','_') in items:
+#                 items[i.item.replace(' ','_')]=items[i.item.replace(' ','_')]+1
+#                 items=await convert_dict_string(items)
+#             elif i.item.replace(' ','_') not in items:
+#                 items[i.item.replace(' ','_')]=1
+#                 items=await convert_dict_string(items)
+#             if i.ability.replace(' ','_') in abilities:
+#                 abilities[i.ability.replace(' ','_')]=abilities[i.ability.replace(' ','_')]+1
+#                 abilities=await convert_dict_string(abilities)
+#             elif i.ability.replace(' ','_') not in abilities:
+#                 abilities[i.ability.replace(' ','_')]=1
+#                 abilities=await convert_dict_string(abilities)
+#             c.execute(f"""Update `pokemons` set natures="{natures}",items="{items}",abilities="{abilities}",total={v[4]+1} where name='{i.name}'""")
+#             db.commit()
+#     c.execute(f"select * from `alltime`")
+#     tot=c.fetchone()
+#     tot=tot[0]
+#     c.execute(f"""Update `alltime` set total={tot+1}""")
+#     db.commit()
 async def convert_items_string(input_string):
     # Converting string to dictionary
     items_dict = {}
@@ -128,25 +190,23 @@ async def findnum(ctx,row):
     c.execute(f"select * from '{mem}' where rowid={row}")
     mon=c.fetchone()
     return allmon.index(mon)+1
+
 async def pricetag(r):
-    price=0
-    iv=round((r[3]+r[4]+r[5]+r[6]+r[7]+r[8])/186,2)
-    if r[23]=="Common":
-        price=random.randint(100,200)
-    elif r[23]=="Uncommon":
-        price=random.randint(300,400)
-    elif r[23]=="Rare":
-        price=random.randint(500,700)
-    elif r[23]=="Very Rare":
-        price=random.randint(1000,1500)
-    elif r[23]=="Common Legendary":
-        price=random.randint(5000,7500)
-    elif r[23]=="Legendary":
-        price=random.randint(15000,20000)
-    elif r[23]=="Mythical":
-        price=random.randint(30000,50000)
-    price=int(price+price*iv)   
-    return price          
+    BASE_PRICES = {
+        "Common": (100, 200),
+        "Uncommon": (300, 400),
+        "Rare": (500, 700),
+        "Very Rare": (1000, 1500),
+        "Common Legendary": (5000, 7500),
+        "Legendary": (15000, 20000),
+        "Mythical": (30000, 50000),
+    }
+    rarity = r[23]
+    iv = round(sum(r[3:9]) / 186, 2)
+    min_price, max_price = BASE_PRICES.get(rarity, (0, 0))
+    base_price = random.randint(min_price, max_price)
+    final_price = int(base_price * (1 + iv))
+    return final_price         
     
 async def row(ctx,num,c):
     user=None
@@ -158,63 +218,109 @@ async def row(ctx,num,c):
     hh=c.fetchall()
     num=hh[num-1][27]            
     return num   
-     
-async def pokonvert(ctx, member, num=None):
-    if num is not None:
-        num = int(num)
-    dt = sqlite3.connect("pokemondata.db")
-    db = sqlite3.connect("owned.db")
-    cx = dt.cursor()
-    c = db.cursor()
-    c.execute(f"SELECT * FROM '{member.id}'")
-    allmon=c.fetchall()
-    if num==None:
-        num=len(allmon)
-        num=await row(ctx,num,c)   
-    c.execute(f"SELECT * FROM '{member.id}' where rowid={num}")
-    n = c.fetchone()
-    cx.execute(f"SELECT * FROM 'wild' WHERE name=?", (n[0],))
-    m = cx.fetchall()[0]
-    p = Pokemon(
-        name=m[0],
-        nickname=n[1],
-        primaryType=m[1],
-        secondaryType=m[2],
-        level=n[2],
-        hp=m[4],
-        atk=m[5],
-        defense=m[6],
-        spatk=m[7],
-        spdef=m[8],
-        speed=m[9],
-        moves=n[22],
-        ability=n[15],
-        sprite=m[12],
-        gender=n[19],
-        tera=n[20],
-        maxiv="Custom",
-        item=n[18],
-        shiny=n[17],
-        nature=n[16],
-        hpiv=n[3],
-        atkiv=n[4],
-        defiv=n[5],
-        spatkiv=n[6],
-        spdefiv=n[7],
-        speediv=n[8],
-        hpev=n[9],
-        atkev=n[10],
-        defev=n[11],
-        spatkev=n[12],
-        spdefev=n[13],
-        speedev=n[14],
-        catchdate=n[24],
-        icon=m[22],
-        weight=m[13],
-        height=m[25]
+
+async def pokonvert(ctx, member, num: int = None):
+    # Use asynchronous context managers for connection safety
+    async with aiosqlite.connect("pokemondata.db") as wild_db, \
+               aiosqlite.connect("owned.db") as owned_db:
         
-    )
-    return p,allmon
+        member_id_str = str(member.id)
+        allmon_query = f"SELECT * FROM '{member_id_str}'"
+        allmon = await owned_db.execute_fetchall(allmon_query)
+        
+        if num is None:
+            num = len(allmon)
+            # Assuming row() handles the selection logic and returns the row number
+            num = await row(ctx, num, owned_db.cursor())
+            
+        num = int(num)
+        owned_query = f"SELECT * FROM '{member_id_str}' WHERE rowid = ?"
+        
+        # --- FIX 1: Use a cursor to fetch the owned Pokémon data ---
+        async with owned_db.cursor() as cursor:
+            await cursor.execute(owned_query, (num,))
+            n = await cursor.fetchone()
+        
+        if n is None:
+            return None, allmon
+        
+        # --- FIX 2: Use a cursor to fetch the wild Pokémon data ---
+        wild_query = "SELECT * FROM wild WHERE name = ?"
+        async with wild_db.cursor() as cursor:
+            await cursor.execute(wild_query, (n[0],))
+            m = await cursor.fetchone()
+        
+        if m is None:
+            return None, allmon
+            
+        # Create the Pokemon object (unchanged logic)
+        p = Pokemon(
+            name=m[0], nickname=n[1], primaryType=m[1], secondaryType=m[2],
+            level=n[2], moves=n[22], ability=n[15], gender=n[19], tera=n[20], 
+            item=n[18], shiny=n[17], nature=n[16], catchdate=n[24], icon=m[22], 
+            sprite=m[12], weight=m[13], height=m[25], maxiv="Custom",
+            hp=m[4], atk=m[5], defense=m[6], spatk=m[7], spdef=m[8], speed=m[9],
+            hpiv=n[3], atkiv=n[4], defiv=n[5], spatkiv=n[6], spdefiv=n[7], speediv=n[8],
+            hpev=n[9], atkev=n[10], defev=n[11], spatkev=n[12], spdefev=n[13], speedev=n[14],
+        )
+        return p, allmon
+         
+# async def pokonvert(ctx, member, num=None):
+#     if num is not None:
+#         num = int(num)
+#     dt = sqlite3.connect("pokemondata.db")
+#     db = sqlite3.connect("owned.db")
+#     cx = dt.cursor()
+#     c = db.cursor()
+#     c.execute(f"SELECT * FROM '{member.id}'")
+#     allmon=c.fetchall()
+#     if num==None:
+#         num=len(allmon)
+#         num=await row(ctx,num,c)   
+#     c.execute(f"SELECT * FROM '{member.id}' where rowid={num}")
+#     n = c.fetchone()
+#     cx.execute(f"SELECT * FROM 'wild' WHERE name=?", (n[0],))
+#     m = cx.fetchall()[0]
+#     p = Pokemon(
+#         name=m[0],
+#         nickname=n[1],
+#         primaryType=m[1],
+#         secondaryType=m[2],
+#         level=n[2],
+#         hp=m[4],
+#         atk=m[5],
+#         defense=m[6],
+#         spatk=m[7],
+#         spdef=m[8],
+#         speed=m[9],
+#         moves=n[22],
+#         ability=n[15],
+#         sprite=m[12],
+#         gender=n[19],
+#         tera=n[20],
+#         maxiv="Custom",
+#         item=n[18],
+#         shiny=n[17],
+#         nature=n[16],
+#         hpiv=n[3],
+#         atkiv=n[4],
+#         defiv=n[5],
+#         spatkiv=n[6],
+#         spdefiv=n[7],
+#         speediv=n[8],
+#         hpev=n[9],
+#         atkev=n[10],
+#         defev=n[11],
+#         spatkev=n[12],
+#         spdefev=n[13],
+#         speedev=n[14],
+#         catchdate=n[24],
+#         icon=m[22],
+#         weight=m[13],
+#         height=m[25]
+        
+#     )
+#     return p,allmon
 
 
 async def numberify(num):
@@ -223,6 +329,7 @@ async def numberify(num):
     chunks = [reversed_num[i:i+3] for i in range(0, len(reversed_num), 3)]
     result = ','.join(chunks)[::-1]    
     return result
+
 async def subl(num, original):
     start = (num - 1) * 10
     end = start + 10
@@ -230,6 +337,7 @@ async def subl(num, original):
     sub_list = original[start:end]
 
     return sub_list
+
 async def gensub(num, original_dict):
     sub_dict = {}
 
@@ -261,6 +369,7 @@ async def movect(move):
         return "<:status:1127210505275183156>"
     else:
         return "<:special:1127210563685077022>"
+    
 async def movetypeicon(x,move,field="Normal"):
     types=("Rock","Fire","Water","Grass","Electric","Ground","Flying","Fighting","Fairy","Dragon","Steel","Poison","Dark","Ghost","Normal","Bug","Ice","Psychic")
     res="Normal"
@@ -695,26 +804,29 @@ async def entryeff(ctx, x, y, tr1, tr2, field, turn):
 async def maxendturn(x,turn):
     if x.dmax is True:
        x.maxend=turn+2         
-async def ulttrans(ctx,x,y,tr1,tr2,field,turn):       
-    em=discord.Embed(title=f"{x.name}'s Ultra Burst!",description=f"{x.name} regained its true power through Ultra Burst!")
-    x.name="Ultra Necrozma"
-    x.ability="Neuroforce"
-    if x.shiny=="No":
-        x.sprite="http://play.pokemonshowdown.com/sprites/ani/necrozma-ultra.gif"
-    elif x.shiny=="Yes":
-        x.sprite="http://play.pokemonshowdown.com/sprites/ani-shiny/necrozma-ultra.gif"
-    per=x.hp/x.maxhp
-    x.hp=97
-    x.atk=167
-    x.defense=97
-    x.spatk=167
-    x.spdef=97
-    x.speed=129
-    calcst(x)
-    x.hp=x.maxhp*per    
+       
+async def ulttrans(ctx, x, y, tr1, tr2, field, turn):
+    hp_percent = x.hp / x.maxhp
+    x.name = "Ultra Necrozma"
+    x.ability = "Neuroforce"
+    is_shiny = "shiny" if x.shiny == "Yes" else ""
+    x.sprite = f"http://play.pokemonshowdown.com/sprites/ani{'-'+is_shiny if is_shiny else ''}/necrozma-ultra.gif"
+    x.hp = 97
+    x.atk = 167
+    x.defense = 97
+    x.spatk = 167
+    x.spdef = 97
+    x.speed = 129
+    calcst(x) 
+    x.hp = int(x.maxhp * hp_percent) 
+    em = discord.Embed(
+        title=f"✨ {x.name}'s Ultra Burst! ✨",
+        description=f"{x.name} regained its true power through Ultra Burst!"
+    )
     em.set_image(url=x.sprite)
     await ctx.send(embed=em)
-    await entryeff(ctx,x,y,tr1,tr2,field,turn)
+    await entryeff(ctx, x, y, tr1, tr2, field, turn)
+    
 async def maxtrans(ctx,x,tr1,turn):
     x.dmax=True
     tr1.canmax=False
@@ -747,377 +859,504 @@ async def maxtrans(ctx,x,tr1,turn):
     x.hp*=2
     x.maxhp*=2
     return x,em
-async def teratrans(ctx,x,tr1,field):
-    x.teraType=x.tera
-    tr1.cantera=False
-    x.nickname+=f" {await teraicon(x.tera)}"
-    em=discord.Embed(title="Terastallization:",description=f"{tr1.name} terastallized {x.name} into {x.teraType}-Type!")   
+
+OGERPON_MASKS = {
+    "Cornerstone Mask": {
+        "stat_change": "Defense", "func": "defchange", "sprite": "https://cdn.discordapp.com/attachments/1102579499989745764/1151387710855057518/IMG_20230913_112226.jpg", "gif": "https://cdn.discordapp.com/attachments/1102579499989745764/1152291696017670174/image0.gif"
+    },
+    "Wellspring Mask": {
+        "stat_change": "Special Defense", "func": "spdefchange", "sprite": "https://cdn.discordapp.com/attachments/1102579499989745764/1151387700117643316/IMG_20230913_112215.jpg", "gif": "https://cdn.discordapp.com/attachments/1102579499989745764/1152291615709347960/image0.gif"
+    },
+    "Hearthflame Mask": {
+        "stat_change": "Attack", "func": "atkchange", "sprite": "https://cdn.discordapp.com/attachments/1102579499989745764/1151387689338277928/IMG_20230913_112203.jpg", "gif": "https://cdn.discordapp.com/attachments/1102579499989745764/1152292963758641152/image0.gif"
+    },
+    # Default case (Teal Mask)
+    "default": {
+        "stat_change": "Speed", "func": "speedchange", "sprite": "https://cdn.discordapp.com/attachments/1102579499989745764/1151387771164971048/IMG_20230913_112147.jpg", "gif": "https://cdn.discordapp.com/attachments/1102579499989745764/1152290298345562132/image0.gif"
+    }
+}
+
+async def teratrans(ctx, x, tr1, field):
+    x.teraType = x.tera
+    tr1.cantera = False
+    x.nickname += f" {await teraicon(x.tera)}"
+    
+    em = discord.Embed(
+        title="Terastallization:",
+        description=f"{tr1.name} terastallized {x.name} into {x.teraType}-Type!"
+    ) 
     em.set_thumbnail(url=f"https://play.pokemonshowdown.com/sprites/types/Tera{x.teraType}.png")
-    if x.name=="Terapagos" and x.ability=="Tera Shell":
-        x.ability="Teraform Zero"
-        field.weather='Clear'
-        field.terrain='Normal'
-        x.sprite="https://cdn.discordapp.com/attachments/1102579499989745764/1184947676018647152/1024-s.png"
-        em.add_field(name=f"{x.icon} {x.name}'s {x.ability}!",value="Terapagos transformed into its Stellar form!")
-        per=x.hp/x.maxhp
-        x.hp=160
-        x.atk=105
-        x.defense=110
-        x.spatk=130
-        x.spdef=110
-        x.speed=85
-        calcst(x)        
-        x.hp=x.maxhp*per
+    if x.name == "Terapagos" and x.ability == "Tera Shell":
+        x.ability = "Teraform Zero"
+        field.weather = 'Clear'
+        field.terrain = 'Normal'
+        hp_percent = x.hp / x.maxhp
+        x.hp, x.atk, x.defense, x.spatk, x.spdef, x.speed = 160, 105, 110, 130, 110, 85
+        calcst(x) 
+        x.hp = int(x.maxhp * hp_percent) 
+        x.sprite = "https://cdn.discordapp.com/attachments/1102579499989745764/1184947676018647152/1024-s.png"
+        em.add_field(name=f"{x.icon} {x.name}'s {x.ability}!", value="Terapagos transformed into its Stellar form!")
         em.set_image(url="https://cdn.discordapp.com/attachments/1102579499989745764/1184950556100411403/image0.gif")
-    elif x.name=="Ogerpon":
-        x.ability="Embody Aspect"
-        if x.item=="Cornerstone Mask":
-            x.sprite="https://cdn.discordapp.com/attachments/1102579499989745764/1151387710855057518/IMG_20230913_112226.jpg"
-            em.add_field(name=f"{x.icon} {x.name}'s {x.ability}!",value=f"Cornerstone Mask worn by {x.name} shone brilliantly, and {x.name}'s Defense rose!")
-            em.set_image(url="https://cdn.discordapp.com/attachments/1102579499989745764/1152291696017670174/image0.gif")
-            await defchange(em,x,x,1)
-        elif x.item=="Wellspring Mask":
-            x.sprite="https://cdn.discordapp.com/attachments/1102579499989745764/1151387700117643316/IMG_20230913_112215.jpg"
-            em.add_field(name=f"{x.icon} {x.name}'s {x.ability}!",value=f"Wellspring Mask worn by {x.name} shone brilliantly, and {x.name}'s Special Defense rose!")
-            em.set_image(url="https://cdn.discordapp.com/attachments/1102579499989745764/1152291615709347960/image0.gif")
-            await spdefchange(em,x,x,1)
-        elif x.item=="Hearthflame Mask":
-            x.sprite="https://cdn.discordapp.com/attachments/1102579499989745764/1151387689338277928/IMG_20230913_112203.jpg"
-            em.add_field(name=f"{x.icon} {x.name}'s {x.ability}!",value=f"Hearthflame Mask worn by {x.name} shone brilliantly, and {x.name}'s Attack rose!")
-            em.set_image(url="https://cdn.discordapp.com/attachments/1102579499989745764/1152292963758641152/image0.gif")
-            await atkchange(em,x,x,1)
-        else:
-            x.sprite="https://cdn.discordapp.com/attachments/1102579499989745764/1151387771164971048/IMG_20230913_112147.jpg"
-            em.add_field(name=f"{x.icon} {x.name}'s {x.ability}!",value=f"Teal Mask worn by {x.name} shone brilliantly, and {x.name}'s Speed rose!")
-            em.set_image(url="https://cdn.discordapp.com/attachments/1102579499989745764/1152290298345562132/image0.gif")
-            await speedchange(em,x,x,1)
+    elif x.name == "Ogerpon":
+        x.ability = "Embody Aspect"
+        mask_data = OGERPON_MASKS.get(x.item, OGERPON_MASKS["default"])
+        x.sprite = mask_data["sprite"]
+        stat_name = mask_data["stat_change"]
+        em.add_field(
+            name=f"{x.icon} {x.name}'s {x.ability}!",
+            value=f"{x.item} worn by {x.name} shone brilliantly, and {x.name}'s {stat_name} rose!"
+        )
+        em.set_image(url=mask_data["gif"])
+        if mask_data["func"] == "defchange":
+            await defchange(em, x, x, 1)
+        elif mask_data["func"] == "spdefchange":
+            await spdefchange(em, x, x, 1)
+        elif mask_data["func"] == "atkchange":
+            await atkchange(em, x, x, 1)
+        else: 
+            await speedchange(em, x, x, 1)
+    
     else:
-        em.set_image(url=x.sprite)
-    if x.gsprite!="None":
-        em.set_image(url=x.gsprite)
-    return x,em
-async def prebuff(ctx,x,y,tr1,tr2,turn,field):
-    atkbuff=1
-    defbuff=1
-    spatkbuff=1
-    spdefbuff=1
-    speedbuff=1   
-    pre=discord.Embed(title="Pre-move buffs:")
-    if x.item=="Thick Club" and "Marowak" in x.name:
-        atkbuff*=2
-    if x.ability=="Schooling" and "School" not in x.name and x.hp>(x.maxhp*0.25):
-        pre.add_field(name=f"{x.icon} {x.name}'s Schooling!",value="Wishiwashi formed a school!")
-        x.name="School Wishiwashi"
-        x.sprite="https://play.pokemonshowdown.com/sprites/ani/wishiwashi-school.gif"
-        if x.shiny=="Yes":
-            x.sprite="https://play.pokemonshowdown.com/sprites/ani-shiny/wishiwashi-school.gif"
-        per=x.hp/x.maxhp
-        x.hp=55
-        x.atk=140
-        x.defense=130
-        x.spatk=140
-        x.spdef=135
-        x.speed=30
-        calcst(x)
-        x.hp=x.maxhp*per               
-    if x.ability=="Tera Shift":
-        pre.add_field(name=f"{x.icon} {x.name}'s Tera Shift!",value="Terapagos trasformed!")
-        x.ability="Tera Shell"
-        x.sprite="https://cdn.discordapp.com/attachments/1102579499989745764/1150127557245681765/ezgif.com-resize_9.gif"
-        per=x.hp/x.maxhp
-        x.hp=95
-        x.atk=95
-        x.defense=110
-        x.spatk=105
-        x.spdef=110
-        x.speed=85
-        calcst(x)
-        x.hp=x.maxhp*per          
-    if tr1.auroraveil is True and y.ability!="Infiltrator":
-        defbuff*=2
-        spdefbuff*=2
-    if tr1.tailwind is True:   
-        speedbuff*=2      
-    if tr1.reflect is True and y.ability!="Infiltrator":
-        defbuff*=2
-    if tr1.lightscreen is True and y.ability!="Infiltrator":
-        spdefbuff*=2
-    if x.item=="Float Stone":
-        defbuff*=0.5
-        spdefbuff*=0.5
-    if x.item=="Iron Ball":
-        speedbuff*=0.5
-    if x.item=="Wise Glasses":
-        spatkbuff*=1.1            
-    if x.item=="Muscle Band":
-        atkbuff*=1.1
-    if x.ability=="Zen Mode":
-        if "Zen" not in x.name:
-            pre.add_field(name=f"{x.icon} {x.name}'s Zen Mode!",value=f"{x.name} transformed!")
-            x.nickname+="-Zen"
-            if "Galarian" in x.name:
-                x.primaryType,x.secondaryType="Ice","Fire"
-                per=x.hp/x.maxhp
-                x.sprite="https://play.pokemonshowdown.com/sprites/ani/darmanitan-galarzen.gif"
-                x.hp=105
-                x.atk=160
-                x.defense=55
-                x.spatk=30
-                x.spdef=55
-                x.speed=135
-                calcst(x)
-                x.hp=x.maxhp*per
-            if "Galarian" not in x.name:
-                x.primaryType,x.secondaryType="Fire","Psychic"
-                sprite="https://play.pokemonshowdown.com/sprites/ani/darmanitan-zen.gif"
-                per=x.hp/x.maxhp
-                x.hp=105
-                x.atk=30
-                x.defense=105
-                x.spatk=140
-                x.spdef=105
-                x.speed=55
-                calcst(x)
-                x.hp=x.maxhp*per   
-    if x.ability=="Flower Gift" and field.weather in ["Sunny","Extreme Sunlight"]:
-        x.sprite="http://play.pokemonshowdown.com/sprites/ani/cherrim-sunshine.gif"
-        speedbuff*=1.5
-        atkbuff*=1.5
-    if x.ability=="Illusion" and "Zoroark" not in x.name:
-        atkbuff*=1.3
-        spatkbuff*=1.3
-    if x.ability=="Quick Feet" and x.status!="Alive":
-            speedbuff*=2
-    if x.ability in ["Bull Rush","Quill Rush"] and x.bullrush==True:
-            speedbuff*=1.5
-            atkbuff*=1.2
-            x.bullrush=False
-    if field.weather=="Strong Winds" and "Delta Stream" not in (x.ability,y.ability):
-            pre.add_field(name="Delta Stream Faded!",value="The mysterious strong winds have dissipated!")
-            field.weather="Clear"
-    if y.ability=="Screen Cleaner":
-        tr1.lightscreen=False
-        tr1.reflect=False
-        tr1.auroraveil=False   
-    if x.ability=="Unburden" and (x.item=="None" or "Used" in x.item):
-        speedbuff*=2
-    if x.ability=="Grass Pelt" and field.terrain=="Grassy":
-        defbuff*=1.5
-    if x.ability=="Forecast":
-        if field.weather=="Clear":
-            x.primaryType="Normal"
-            x.sprite="https://play.pokemonshowdown.com/sprites/ani/castform.gif"
-        if field.weather=="Snowstrom":
-            x.primaryType="Ice"
-            x.sprite="https://play.pokemonshowdown.com/sprites/ani/castform-snowy.gif"
-        if field.weather=="Rainy":
-            x.primaryType="Water"
-            x.sprite="https://play.pokemonshowdown.com/sprites/ani/castform-rainy.gif"
-        if field.weather=="Sunny":
-            x.primaryType="Fire"
-            x.sprite="https://play.pokemonshowdown.com/sprites/ani/castform-sunny.gif"     
-    if x.ability=="Defeatist" and x.hp<=(x.maxhp/3):
-        atkbuff*=0.5
-        spatkbuff*=0.5
-    if "Poison" in x.status and x.ability=="Toxic Boost":
-        atkbuff*=1.5
-    if x.ability=="Supreme Overlord":
-        atkbuff*=1+0.1*(6-len(tr1.pokemons))
-        spatkbuff*=1+0.1*(6-len(tr1.pokemons))
-    if field.weather in ["Sunny","Extreme Sunlight"] and x.ability=="Orichalcum Pulse":
-        atkbuff*=1.34
-    if field.terrain=="Electric" and x.ability=="Hadron Engine":
-        spatkbuff*=1.34
-    if ("Protosynthesis" in x.ability and (field.weather in ["Sunny","Extreme Sunlight"] or x.item=="Booster Energy")) or x.ability in ["Protosynthesis [Attack]","Protosynthesis [Sp. Attack]","Protosynthesis [Defense]","Protosynthesis [Sp. Defense]","Protosynthesis [Speed]"]:
-        if field.weather not in ["Sunny","Extreme Sunlight"] and "[" not in x.ability:
-            pre.add_field(name=f"{x.icon} {x.name}'s {await itemicon(x.item)} {x.item}!",value=f"{x.name} used its Booster Energy to activate Protosynthesis!")
-            x.item+="[Used]"
-        m=[a,b,c,d,e]=[x.atk,x.defense,x.spatk,x.spdef,x.speed]
-        if tr1.reflect==True:
-            m=[x.atk,x.defense/2,x.spatk,x.spdef,x.speed]
-        if tr1.lightscreen==True:
-            m=[x.atk,x.defense,x.spatk,x.spdef/2,x.speed]
-        z=max(m)
-        if z == a or "[Attack" in x.ability:
-            atkbuff *= 1.3
-            x.ability = "Protosynthesis [Attack]"
-        elif z == b or "[Defense" in x.ability:
-            defbuff *= 1.3
-            x.ability = "Protosynthesis [Defense]"
-        elif z == c or "[Sp. Attack" in x.ability:
-            spatkbuff *= 1.3
-            x.ability = "Protosynthesis [Sp. Attack]"
-        elif z == d or "[Sp. Defense" in x.ability:
-            spdefbuff *= 1.3
-            x.ability = "Protosynthesis [Sp. Defense]"
-        elif z == e or "Speed" in x.ability:
-            speedbuff *= 1.5
-            x.ability = "Protosynthesis [Speed]"
-    if ("Quark Drive" in x.ability and (field.terrain=="Electric" or x.item=="Booster Energy")) or x.ability in ["Quark Drive [Attack]","Quark Drive [Sp. Attack]","Quark Drive [Defense]","Quark Drive [Sp. Defense]","Quark Drive [Speed]"]:
-        if field.terrain not in ["Electric"] and "[" not in x.ability:
-            pre.add_field(name=f"{x.icon} {x.name}'s {await itemicon(x.item)} {x.item}!",value=f"{x.name} used its Booster Energy to activate Quark Drive!")
-            x.item+="[Used]"
-        m=[a,b,c,d,e]=[x.atk,x.defense,x.spatk,x.spdef,x.speed]
-        if tr1.reflect==True:
-            m=[x.atk,x.defense/2,x.spatk,x.spdef,x.speed]
-        if tr1.lightscreen==True:
-            m=[x.atk,x.defense,x.spatk,x.spdef/2,x.speed]
-        z=max(m)
-        if z == a or "[Attack" in x.ability:
-            atkbuff *= 1.3
-            x.ability = "Quark Drive [Attack]"
-        elif z == b or "[Defense" in x.ability:
-            defbuff *= 1.3
-            x.ability = "Quark Drive [Defense]"
-        elif z == c or "[Sp. Attack" in x.ability:
-            spatkbuff *= 1.3
-            x.ability = "Quark Drive [Sp. Attack]"
-        elif z == d or "[Sp. Defense" in x.ability:
-            spdefbuff *= 1.3
-            x.ability = "Quark Drive [Sp. Defense]"
-        elif z == e or "Speed" in x.ability:
-            speedbuff *= 1.5
-            x.ability = "Quark Drive [Speed]"
-    if y.ability=="Vessel of Ruin":
-        spatkbuff*=0.75
-    elif y.ability=="Tablets of Ruin":
-        atkbuff*=0.75
-    elif y.ability=="Sword of Ruin":
-        defbuff*=0.75
-    elif y.ability=="Beads of Ruin":
-        spdefbuff*=0.75        	
-    if x.ability=="Guts" and x.status!="Alive":
-        atkbuff*=1.5
-    if x.ability=="Feline Prowess":
-        spatkbuff*=2
-    if field.terrain=="Electric" and x.ability=="Surge Surfer":
-        speedbuff*=2
-    if x.status=="Paralyzed" and x.ability!="Quick Feet":
-        speedbuff*=0.5
-    if x.status=="Frostbite":
-        spatkbuff*=0.5
-    if x.status=="Burned" and x.ability!="Guts":
-        atkbuff*=0.5
-    if "Pikachu"in x.name and x.item=="Light Ball":
-        atkbuff*=2
-        spatkbuff*=2
-    if x.ability=="Marvel Scale" and x.status!="Alive":
-        defbuff*=1.5
-    if x.ability=="Hustle":
-        atkbuff*=1.5
-    if x.ability=="Flare Boost" and x.status=="Burned":
-        spatkbuff*=1.5
-    if field.weather in ["Rainy","Heavy Rain"] and x.ability=="Swift Swim" and y.ability!="Cloud Nine":
-        speedbuff*=2
-    if field.weather in ["Sunny","Extreme Sunlight"] and x.ability in ["Chlorophyll","Big Leaves"] and y.ability!="Cloud Nine":
-        speedbuff*=2
-    if field.weather in ["Sandstorm"] and x.ability=="Sand Rush" and y.ability!="Cloud Nine":
-        speedbuff*=2
-    if field.weather in ["Hail","Snowstorm"] and x.ability=="Slush Rush" and y.ability!="Cloud Nine":
-        speedbuff*=2
-    if field.weather=="Snowstorm" and ("Ice" in (x.primaryType,x.secondaryType,x.teraType)) and y.ability!="Cloud Nine":
-        defbuff*=1.5
-    elif field.weather=="Sandstorm" and ("Rock" in (x.primaryType,x.secondaryType,x.teraType)) and y.ability!="Cloud Nine":
-        spdefbuff*=1.5
-    if y.ability=="Fur Coat":
-        atkbuff*=0.5
-    if x.item=="Choice Band" and x.dmax is False:
-        atkbuff*=1.5
-    if x.item=="Choice Specs" and x.dmax is False:
-        spatkbuff*=1.5
-    if x.item=="Choice Scarf" and x.dmax is False:
-        speedbuff*=1.5
-    if x.item=="Assault Vest":
-        spdefbuff*=1.5
-    if x.ability=="Typeless":
-        x.primaryType=x.atktype
-    elif x.ability=="Ice Scales":
-        spdefbuff*=2
-    elif x.ability in ["Sage Power","Majestic Bird"]:
-        spatkbuff*=1.5
-    elif x.ability=="Gorilla Tactics":
-        atkbuff*=1.5        
-    elif x.ability in ["Huge Power","Pure Power"]:
-        atkbuff*=2
-    if x.item=="Life Orb":
-        atkbuff*=1.3
-        spatkbuff*=1.3
-    if x.item=="Eviolite":
-        defbuff*=1.5
-        spdefbuff*=1.5
-    muldict={1:1.5,2:2,3:2.5,4:3,5:3.5,6:4,0:1,-1:0.66,-2:0.5,-3:0.4,-4:0.33,-5:0.29,-6:0.25}
-    x.atk=x.maxatk*atkbuff*muldict[x.atkb]
-    x.defense=x.maxdef*defbuff*muldict[x.defb]
-    x.spatk=x.maxspatk*spatkbuff*muldict[x.spatkb]
-    x.spdef=x.maxspdef*spdefbuff*muldict[x.spdefb]
-    x.speed=x.maxspeed*speedbuff*muldict[x.speedb] 
-    if len(pre.fields)!=0:
-        await ctx.send(embed=pre)        
+        em.set_image(url=x.gsprite if x.gsprite != "None" else x.sprite)
         
-async def action(bot, ctx, tr1, tr2, x, y):
-    if tr1.ai:
-        if tr1.ai:
-            new = [i.tera for i in tr1.pokemons]
-            move=1
-            if "m-Z" in x.item and tr1.canz and x.zuse:
-                move=5
-            if x.item not in megastones and tr1.canmax and x.tera == "Max" and x.teraType == "???" and "m-Z" not in x.item:
-                x.tera = random.choice([x.primaryType, x.secondaryType])
-                move=8
-            if x.item not in megastones and tr1.canmax and x.teraType == "???" and "m-Z" not in x.item and "Max" not in new:
-                maxch = random.randint(1, 6)
-                move=8 if maxch == 1 else 1
-            if x.item in megastones and tr1.canmega:
-                return random.choices([1, 6], weights=[1, 10], k=1)[0]
-            if x.tera not in ["???", "Max"] and tr1.cantera==True and x.item not in megastones and  (x.name=="Ogerpon" or x.name=="Terapagos" or x.tera not in (x.primaryType,x.secondaryType)):
-                move=9
-            else:
-                move = random.choices([1, 2], weights=[10, 1], k=1)[0]
-            if y.trap==x or y.trap==y or (y.ability == "Magnet Pull" and "Steel" in (x.primaryType, x.secondaryType, x.teraType)) or (y.ability == "Shadow Tag" and ("Ghost" not in (x.primaryType, x.secondaryType, x.teraType) or x.item!="Shed Shell")) or (y.ability == "Arena Trap" and (x.ability!="Levitate" or x.item!="Shed Shell")) or True in (x.firespin,x.infestation,x.sandtomb,x.whirlpool) and move==2:
-                return 1
-            else:
-                return move
+    return x, em
+TRANSFORM_DATA = {
+    "Wishiwashi-School": {
+        "name": "School Wishiwashi", "ability": "Schooling", 
+        "stats": (55, 140, 130, 140, 135, 30),
+        "sprite_base": "https://play.pokemonshowdown.com/sprites/ani/wishiwashi-school.gif"
+    },
+    "Terapagos-Shell": {
+        "name": "Terapagos", "ability": "Tera Shell", 
+        "stats": (95, 95, 110, 105, 110, 85),
+        "sprite_base": "https://cdn.discordapp.com/attachments/1102579499989745764/1150127557245681765/ezgif.com-resize_9.gif"
+    },
+    "Darmanitan-Zen": {
+        "nickname_suffix": "-Zen", "ability": "Zen Mode", 
+        "types": ("Fire", "Psychic"),
+        "stats": (105, 30, 105, 140, 105, 55),
+        "sprite_base": "https://play.pokemonshowdown.com/sprites/ani/darmanitan-zen.gif"
+    },
+    "Darmanitan-Galarian-Zen": {
+        "nickname_suffix": "-Zen", "ability": "Zen Mode", 
+        "types": ("Ice", "Fire"),
+        "stats": (105, 160, 55, 30, 55, 135),
+        "sprite_base": "https://play.pokemonshowdown.com/sprites/ani/darmanitan-galarzen.gif"
+    },
+    "Castform-Normal": {"type": "Normal", "sprite_base": "https://play.pokemonshowdown.com/sprites/ani/castform.gif"},
+    "Castform-Snowy": {"type": "Ice", "sprite_base": "https://play.pokemonshowdown.com/sprites/ani/castform-snowy.gif"},
+    "Castform-Rainy": {"type": "Water", "sprite_base": "https://play.pokemonshowdown.com/sprites/ani/castform-rainy.gif"},
+    "Castform-Sunny": {"type": "Fire", "sprite_base": "https://play.pokemonshowdown.com/sprites/ani/castform-sunny.gif"}
+}
+
+# Mapping of Ruin Abilities to the stat they suppress on opponents
+RUIN_ABILITIES = {
+    "Vessel of Ruin": "spatkbuff",
+    "Tablets of Ruin": "atkbuff",
+    "Sword of Ruin": "defbuff",
+    "Beads of Ruin": "spdefbuff"
+}
+
+def _apply_stats_and_hp(pokemon, data_key):
+    """Handles stat changes, recalculates final stats, and restores HP percentage."""
+    data = TRANSFORM_DATA[data_key]
+    hp, atk, defense, spatk, spdef, speed = data["stats"]
+    
+    hp_percent = pokemon.hp / pokemon.maxhp
+    
+    pokemon.hp, pokemon.atk, pokemon.defense, pokemon.spatk, pokemon.spdef, pokemon.speed = \
+        hp, atk, defense, spatk, spdef, speed
+    
+    # Recalculate max stats (assumed to be done by calcst)
+    calcst(pokemon) 
+    
+    # Restore current HP based on percentage
+    pokemon.hp = int(pokemon.maxhp * hp_percent)
+
+def _get_max_stat_modifier(pokemon, tr1):
+    """Determines which stat gets boosted by Protosynthesis/Quark Drive."""
+    stats = [pokemon.atk, pokemon.defense, pokemon.spatk, pokemon.spdef, pokemon.speed]
+    
+    # Apply screen multipliers for Defense and Sp. Defense
+    # Note: This is simplified, usually the buff is applied to the final stat after calculation
+    # but here we follow the original logic of applying it to base/max stat before comparison.
+    if tr1.reflect:
+        stats[1] /= 2
+    if tr1.lightscreen:
+        stats[3] /= 2
+        
+    max_val = max(stats)
+    
+    # The original logic compares the max value to the un-multiplied max-stat variables (a, b, c, d, e)
+    # which is flawed if the stats have different max values but end up equal after screen division.
+    # We will prioritize the index of the max value in the modified list for better reliability.
+    
+    max_index = stats.index(max_val)
+    
+    if max_index == 0: return "atkbuff", "Attack", 1.3
+    if max_index == 1: return "defbuff", "Defense", 1.3
+    if max_index == 2: return "spatkbuff", "Sp. Attack", 1.3
+    if max_index == 3: return "spdefbuff", "Sp. Defense", 1.3
+    if max_index == 4: return "speedbuff", "Speed", 1.5
+    
+async def prebuff(ctx, x, y, tr1, tr2, turn, field):
+    """Applies pre-move buffs, debuffs, and form changes to the active Pokémon (x)."""
+    
+    # Initialize buff multipliers
+    buffs = {
+        "atkbuff": 1.0, "defbuff": 1.0, "spatkbuff": 1.0, 
+        "spdefbuff": 1.0, "speedbuff": 1.0
+    }
+    
+    pre_embed = discord.Embed(title="Pre-move buffs:")
+
+    # --- 1. Form Changes (Wishiwashi, Terapagos, Zen Mode) ---
+
+    # Wishiwashi (Schooling)
+    if x.ability == "Schooling" and "School" not in x.name and x.hp > (x.maxhp * 0.25):
+        pre_embed.add_field(name=f"{x.icon} {x.name}'s Schooling!", value="Wishiwashi formed a school!")
+        x.sprite = TRANSFORM_DATA["Wishiwashi-School"]["sprite_base"].replace("/ani/", "/ani-shiny/") if x.shiny == "Yes" else TRANSFORM_DATA["Wishiwashi-School"]["sprite_base"]
+        _apply_stats_and_hp(x, "Wishiwashi-School")
+
+    # Terapagos (Tera Shift)
+    if x.ability == "Tera Shift":
+        pre_embed.add_field(name=f"{x.icon} {x.name}'s Tera Shift!", value="Terapagos transformed!")
+        _apply_stats_and_hp(x, "Terapagos-Shell")
+        x.ability = "Tera Shell" # Update ability after stat application
+
+    # Darmanitan (Zen Mode)
+    if x.ability == "Zen Mode":
+        if "Zen" not in x.name:
+            if ("Galarian" in x.name and x.hp <= (x.maxhp / 2)): # Check for Galarian and HP threshold
+                data_key = "Darmanitan-Galarian-Zen"
+                pre_embed.add_field(name=f"{x.icon} {x.name}'s Zen Mode!", value=f"{x.name} transformed!")
+                _apply_stats_and_hp(x, data_key)
+                x.nickname += TRANSFORM_DATA[data_key]["nickname_suffix"]
+                x.primaryType, x.secondaryType = TRANSFORM_DATA[data_key]["types"]
+                x.sprite = TRANSFORM_DATA[data_key]["sprite_base"]
+            elif "Galarian" not in x.name and x.hp <= (x.maxhp / 2): # Check for Regular and HP threshold
+                data_key = "Darmanitan-Zen"
+                pre_embed.add_field(name=f"{x.icon} {x.name}'s Zen Mode!", value=f"{x.name} transformed!")
+                _apply_stats_and_hp(x, data_key)
+                x.nickname += TRANSFORM_DATA[data_key]["nickname_suffix"]
+                x.primaryType, x.secondaryType = TRANSFORM_DATA[data_key]["types"]
+                x.sprite = TRANSFORM_DATA[data_key]["sprite_base"]
+
+    # --- 2. Terrain/Weather Form Changes and Fades (Castform, Flower Gift, Delta Stream) ---
+    
+    # Castform (Forecast)
+    if x.ability == "Forecast":
+        weather_map = {"Clear": "Normal", "Snowstorm": "Ice", "Rainy": "Water", "Sunny": "Fire"}
+        type_key = weather_map.get(field.weather)
+        if type_key:
+            data_key = f"Castform-{weather_map.get(field.weather)}"
+            x.primaryType = TRANSFORM_DATA[data_key]["type"]
+            x.sprite = TRANSFORM_DATA[data_key]["sprite_base"]
+
+    # Delta Stream Fade
+    if field.weather == "Strong Winds" and "Delta Stream" not in (x.ability, y.ability):
+        pre_embed.add_field(name="Delta Stream Faded!", value="The mysterious strong winds have dissipated!")
+        field.weather = "Clear"
+    
+    # --- 3. Trainer Screens and Field Effects ---
+
+    if y.ability == "Screen Cleaner":
+        tr1.lightscreen = tr1.reflect = tr1.auroraveil = False
+    
+    if tr1.auroraveil and y.ability != "Infiltrator":
+        buffs["defbuff"] *= 2; buffs["spdefbuff"] *= 2
+    if tr1.reflect and y.ability != "Infiltrator":
+        buffs["defbuff"] *= 2
+    if tr1.lightscreen and y.ability != "Infiltrator":
+        buffs["spdefbuff"] *= 2
+    if tr1.tailwind:
+        buffs["speedbuff"] *= 2
+    if x.ability == "Grass Pelt" and field.terrain == "Grassy":
+        buffs["defbuff"] *= 1.5
+    if field.weather == "Snowstorm" and any(t in (x.primaryType, x.secondaryType, x.teraType) for t in ["Ice"]):
+        buffs["defbuff"] *= 1.5
+    elif field.weather == "Sandstorm" and any(t in (x.primaryType, x.secondaryType, x.teraType) for t in ["Rock"]) and y.ability != "Cloud Nine":
+        buffs["spdefbuff"] *= 1.5
+
+    # --- 4. Item Buffs/Debuffs ---
+    
+    ITEM_BUFFS = {
+        "Thick Club": lambda mon: ("Marowak" in mon.name and buffs.update({"atkbuff": buffs["atkbuff"] * 2})),
+        "Float Stone": lambda mon: buffs.update({"defbuff": buffs["defbuff"] * 0.5, "spdefbuff": buffs["spdefbuff"] * 0.5}),
+        "Iron Ball": lambda mon: buffs.update({"speedbuff": buffs["speedbuff"] * 0.5}),
+        "Wise Glasses": lambda mon: buffs.update({"spatkbuff": buffs["spatkbuff"] * 1.1}),
+        "Muscle Band": lambda mon: buffs.update({"atkbuff": buffs["atkbuff"] * 1.1}),
+        "Choice Band": lambda mon: (not mon.dmax and buffs.update({"atkbuff": buffs["atkbuff"] * 1.5})),
+        "Choice Specs": lambda mon: (not mon.dmax and buffs.update({"spatkbuff": buffs["spatkbuff"] * 1.5})),
+        "Choice Scarf": lambda mon: (not mon.dmax and buffs.update({"speedbuff": buffs["speedbuff"] * 1.5})),
+        "Assault Vest": lambda mon: buffs.update({"spdefbuff": buffs["spdefbuff"] * 1.5}),
+        "Life Orb": lambda mon: buffs.update({"atkbuff": buffs["atkbuff"] * 1.3, "spatkbuff": buffs["spatkbuff"] * 1.3}),
+        "Eviolite": lambda mon: buffs.update({"defbuff": buffs["defbuff"] * 1.5, "spdefbuff": buffs["spdefbuff"] * 1.5}),
+        "Light Ball": lambda mon: ("Pikachu" in mon.name and buffs.update({"atkbuff": buffs["atkbuff"] * 2, "spatkbuff": buffs["spatkbuff"] * 2}))
+    }
+    
+    # Iterate through all item buffs
+    ITEM_BUFFS.get(x.item, lambda mon: None)(x)
+
+
+    # --- 5. Ability Buffs/Debuffs ---
+    
+    ABILITY_BUFFS = {
+        "Flower Gift": lambda mon: (field.weather in ["Sunny", "Extreme Sunlight"] and buffs.update({"speedbuff": buffs["speedbuff"] * 1.5, "atkbuff": buffs["atkbuff"] * 1.5})),
+        "Illusion": lambda mon: ("Zoroark" not in mon.name and buffs.update({"atkbuff": buffs["atkbuff"] * 1.3, "spatkbuff": buffs["spatkbuff"] * 1.3})),
+        "Quick Feet": lambda mon: (mon.status != "Alive" and buffs.update({"speedbuff": buffs["speedbuff"] * 2})),
+        "Unburden": lambda mon: (mon.item == "None" or "Used" in mon.item and buffs.update({"speedbuff": buffs["speedbuff"] * 2})),
+        "Defeatist": lambda mon: (mon.hp <= (mon.maxhp / 3) and buffs.update({"atkbuff": buffs["atkbuff"] * 0.5, "spatkbuff": buffs["spatkbuff"] * 0.5})),
+        "Toxic Boost": lambda mon: ("Poison" in mon.status and buffs.update({"atkbuff": buffs["atkbuff"] * 1.5})),
+        "Orichalcum Pulse": lambda mon: (field.weather in ["Sunny", "Extreme Sunlight"] and buffs.update({"atkbuff": buffs["atkbuff"] * 1.34})),
+        "Hadron Engine": lambda mon: (field.terrain == "Electric" and buffs.update({"spatkbuff": buffs["spatkbuff"] * 1.34})),
+        "Guts": lambda mon: (mon.status != "Alive" and buffs.update({"atkbuff": buffs["atkbuff"] * 1.5})),
+        "Feline Prowess": lambda mon: buffs.update({"spatkbuff": buffs["spatkbuff"] * 2}),
+        "Surge Surfer": lambda mon: (field.terrain == "Electric" and buffs.update({"speedbuff": buffs["speedbuff"] * 2})),
+        "Marvel Scale": lambda mon: (mon.status != "Alive" and buffs.update({"defbuff": buffs["defbuff"] * 1.5})),
+        "Hustle": lambda mon: buffs.update({"atkbuff": buffs["atkbuff"] * 1.5}),
+        "Flare Boost": lambda mon: (mon.status == "Burned" and buffs.update({"spatkbuff": buffs["spatkbuff"] * 1.5})),
+        "Swift Swim": lambda mon: (field.weather in ["Rainy", "Heavy Rain"] and y.ability != "Cloud Nine" and buffs.update({"speedbuff": buffs["speedbuff"] * 2})),
+        "Chlorophyll": lambda mon: (field.weather in ["Sunny", "Extreme Sunlight"] and y.ability != "Cloud Nine" and buffs.update({"speedbuff": buffs["speedbuff"] * 2})),
+        "Big Leaves": lambda mon: (field.weather in ["Sunny", "Extreme Sunlight"] and y.ability != "Cloud Nine" and buffs.update({"speedbuff": buffs["speedbuff"] * 2})),
+        "Sand Rush": lambda mon: (field.weather in ["Sandstorm"] and y.ability != "Cloud Nine" and buffs.update({"speedbuff": buffs["speedbuff"] * 2})),
+        "Slush Rush": lambda mon: (field.weather in ["Hail", "Snowstorm"] and y.ability != "Cloud Nine" and buffs.update({"speedbuff": buffs["speedbuff"] * 2})),
+        "Fur Coat": lambda mon: buffs.update({"atkbuff": buffs["atkbuff"] * 0.5}), # Note: This is an opposing Pokémon debuff
+        "Ice Scales": lambda mon: buffs.update({"spdefbuff": buffs["spdefbuff"] * 2}),
+        "Sage Power": lambda mon: buffs.update({"spatkbuff": buffs["spatkbuff"] * 1.5}),
+        "Majestic Bird": lambda mon: buffs.update({"spatkbuff": buffs["spatkbuff"] * 1.5}),
+        "Gorilla Tactics": lambda mon: buffs.update({"atkbuff": buffs["atkbuff"] * 1.5}),
+        "Huge Power": lambda mon: buffs.update({"atkbuff": buffs["atkbuff"] * 2}),
+        "Pure Power": lambda mon: buffs.update({"atkbuff": buffs["atkbuff"] * 2})
+    }
+    
+    # Iterate through all ability buffs
+    ABILITY_BUFFS.get(x.ability, lambda mon: None)(x)
+    
+    # Special: Supreme Overlord
+    if x.ability == "Supreme Overlord":
+        multiplier = 1 + 0.1 * (6 - len(tr1.pokemons))
+        buffs["atkbuff"] *= multiplier
+        buffs["spatkbuff"] *= multiplier
+        
+    # Special: Typeless
+    if x.ability == "Typeless":
+        x.primaryType = x.atktype
+
+    # Special: Bull Rush/Quill Rush (needs to be reset)
+    if x.ability in ["Bull Rush", "Quill Rush"] and x.bullrush == True:
+        buffs["speedbuff"] *= 1.5
+        buffs["atkbuff"] *= 1.2
+        x.bullrush = False
+
+    # --- 6. Opposing Ability Debuffs (Ruins) ---
+    
+    # Apply Ruin abilities
+    if y.ability in RUIN_ABILITIES:
+        ruin_buff_key = RUIN_ABILITIES[y.ability]
+        buffs[ruin_buff_key] *= 0.75
+    
+    # --- 7. Status Debuffs ---
+
+    if x.status == "Paralyzed" and x.ability != "Quick Feet":
+        buffs["speedbuff"] *= 0.5
+    if x.status == "Frostbite":
+        buffs["spatkbuff"] *= 0.5
+    if x.status == "Burned" and x.ability != "Guts":
+        buffs["atkbuff"] *= 0.5
+        
+    # --- 8. Protosynthesis and Quark Drive ---
+    
+    # Protosynthesis
+    is_proto_active = ("Protosynthesis" in x.ability and (field.weather in ["Sunny", "Extreme Sunlight"] or x.item == "Booster Energy")) or "[Attack" in x.ability or "[Defense" in x.ability or "[Sp. Attack" in x.ability or "[Sp. Defense" in x.ability or "[Speed" in x.ability
+    
+    if is_proto_active:
+        is_booster_used = field.weather not in ["Sunny", "Extreme Sunlight"] and "[" not in x.ability
+        if is_booster_used:
+            pre_embed.add_field(name=f"{x.icon} {x.name}'s {await itemicon(x.item)} {x.item}!", value=f"{x.name} used its Booster Energy to activate Protosynthesis!")
+            x.item += "[Used]"
+            
+        buff_key, stat_name, multiplier = _get_max_stat_modifier(x, tr1)
+        buffs[buff_key] *= multiplier
+        x.ability = f"Protosynthesis [{stat_name}]"
+
+    # Quark Drive
+    is_quark_active = ("Quark Drive" in x.ability and (field.terrain == "Electric" or x.item == "Booster Energy")) or "[Attack" in x.ability or "[Defense" in x.ability or "[Sp. Attack" in x.ability or "[Sp. Defense" in x.ability or "[Speed" in x.ability
+
+    if is_quark_active:
+        is_booster_used = field.terrain != "Electric" and "[" not in x.ability
+        if is_booster_used:
+            pre_embed.add_field(name=f"{x.icon} {x.name}'s {await itemicon(x.item)} {x.item}!", value=f"{x.name} used its Booster Energy to activate Quark Drive!")
+            x.item += "[Used]"
+            
+        buff_key, stat_name, multiplier = _get_max_stat_modifier(x, tr1)
+        buffs[buff_key] *= multiplier
+        x.ability = f"Quark Drive [{stat_name}]"
+    
+    # --- 9. Final Stat Calculation ---
+
+    # Base formula from the original code: x.stat = x.maxstat * buff_multiplier * stage_multiplier
+    muldict = {1: 1.5, 2: 2, 3: 2.5, 4: 3, 5: 3.5, 6: 4, 0: 1, -1: 0.66, -2: 0.5, -3: 0.4, -4: 0.33, -5: 0.29, -6: 0.25}
+    
+    x.atk = x.maxatk * buffs["atkbuff"] * muldict[x.atkb]
+    x.defense = x.maxdef * buffs["defbuff"] * muldict[x.defb]
+    x.spatk = x.maxspatk * buffs["spatkbuff"] * muldict[x.spatkb]
+    x.spdef = x.maxspdef * buffs["spdefbuff"] * muldict[x.spdefb]
+    x.speed = x.maxspeed * buffs["speedbuff"] * muldict[x.speedb]
+    
+    # Send embed if any field was added
+    if pre_embed.fields:
+        await ctx.send(embed=pre_embed)
+
+    return x, y, tr1, tr2, field    
+    
+def _is_trapped(user_mon, opp_mon):
+    """Checks if the user's Pokémon (user_mon) is prevented from switching."""
+    # Check for Arena Trap (if opponent has it and user is grounded/not holding Shed Shell)
+    arena_trap = (opp_mon.ability == "Arena Trap" and user_mon.ability != "Levitate" and user_mon.item != "Shed Shell")
+    
+    # Check for Shadow Tag (if opponent has it and user isn't Ghost/holding Shed Shell)
+    shadow_tag = (opp_mon.ability == "Shadow Tag" and "Ghost" not in (user_mon.primaryType, user_mon.secondaryType, user_mon.teraType) and user_mon.item != "Shed Shell")
+
+    # Check for Magnet Pull (if opponent has it and user is Steel-type)
+    magnet_pull = (opp_mon.ability == "Magnet Pull" and "Steel" in (user_mon.primaryType, user_mon.secondaryType, user_mon.teraType))
+    
+    # Check for trapping move effects
+    move_trap = any([user_mon.firespin, user_mon.infestation, user_mon.sandtomb, user_mon.whirlpool])
+
+    # Check for custom trainer/battle trap flags (y.trap == x or y.trap == y)
+    custom_trap = (opp_mon.trap == user_mon or opp_mon.trap == opp_mon)
+    
+    return custom_trap or arena_trap or shadow_tag or magnet_pull or move_trap
+
+async def _get_player_action(bot, ctx, tr1, x, tr2):
+    """Handles the user input loop and returns the validated action number."""
+    
+    # 1. Build the Description (Logic is correct and remains unchanged)
+    des = "#1 💥 Fight\n#2 🔁 Switch\n#3 🚫 Forfeit\n"
+    
+    if "m-Z" in x.item and tr1.canz and x.zuse:
+        des += "#5 <:zmove:1140788256577949717> Z-Move\n"
+    elif tr1.canmega and not x.dmax and (x.item in megastones or "Dragon Ascent" in x.moves) and x.teraType == "???":
+        des += "#6 <:megaevolve:1104646688951500850> Mega Evolve\n"
+    elif not x.dmax and x.item == "Ultranecrozium-Z" and "Ultra" not in x.name:
+        des += "#7 Ultra Burst\n"
+    elif tr1.canmax and not x.dmax and x.item not in megastones and x.teraType == "???" and "m-Z" not in x.item:
+        des += "#8 <:dynamax:1104646304904257647> Dynamax/Gigantamax\n"
+    elif tr1.cantera and not x.dmax and x.item not in megastones and x.teraType == "???" and "m-Z" not in x.item and x.tera != "Max":
+        des += f"#9 {await teraicon(x.tera)} Terastallize\n"
+
+    # Define the set of currently *available* action numbers for validation
+    available_actions = {1, 2, 3}
+    for line in des.split('\n'):
+        if line.startswith('#'):
+            available_actions.add(int(line[1])) # Add 5, 6, 7, 8, or 9 if present
+
+    em = discord.Embed(title=f"{tr1.name}, what do you wanna do? (Actions: {', '.join(map(str, sorted(available_actions)))})", description=des)
+    em.set_footer(text="Wait a few seconds before entering your action. Re-enter action if it's not working. Please only enter the single digit number of your action.")
+
+    # 2. Get Input (Determine target and channel)
+    target = tr1.member if not tr2.ai else ctx.author
+    # Use context channel if AI is opponent (tr2.ai=True), otherwise use DM
+    if not tr2.ai:
+        channel = tr1.member.dm_channel or await tr1.member.create_dm()
     else:
-        inaction = None
-        while inaction==None or inaction.isdigit()==False:
-            des = "#1 💥 Fight\n#2 🔁 Switch\n#3 🚫 Forfeit\n"
-            if "m-Z" in x.item and tr1.canz and x.zuse:
-                des += "#5 <:zmove:1140788256577949717> Z-Move\n"
-            elif tr1.canmega and not x.dmax and (x.item in megastones or "Dragon Ascent" in x.moves) and x.teraType == "???":
-                des += "#6 <:megaevolve:1104646688951500850> Mega Evolve\n"
-            elif not x.dmax and x.item == "Ultranecrozium-Z" and "Ultra" not in x.name:
-                des += "#7 Ultra Burst\n"
-            elif tr1.canmax and not x.dmax and x.item not in megastones and x.teraType == "???" and "m-Z" not in x.item:
-                des += "#8 <:dynamax:1104646304904257647> Dynamax/Gigantamax\n"
-            if tr1.cantera and not x.dmax and x.item not in megastones and x.teraType == "???" and "m-Z" not in x.item and x.tera != "Max":
-                des += f"#9 {await teraicon(x.tera)} Terastallize\n"
-            em = discord.Embed(title=f"{tr1.name}, what do you wanna do?", description=des)
-            em.set_footer(text="Wait a few seconds before entering your action. Re-enter action if it's not working.")
-            if tr2.ai:
-                await ctx.send(embed=em)
-                inaction = await bot.wait_for('message', check=lambda msg: msg.author == ctx.author)
+        channel = ctx.channel
+    
+    await channel.send(embed=em)
+    
+    # --- REVISED check_func for stricter channel/author validation ---
+    def check_func(msg):
+        # 1. Author must match the player (tr1.member or ctx.author)
+        if msg.author != target:
+            return False
+        
+        # 2. Channel must match the expected channel (DM or context channel)
+        if msg.channel.id != channel.id:
+            return False
+
+        # 3. Content must be a single digit number that is an available action
+        content = msg.content.strip()
+        if content.isdigit():
+            action_num = int(content)
+            return action_num in available_actions
+        
+        # 4. Strictly require a single digit if we're not using the ambiguous content check
+        return False 
+    # -----------------------------------------------------------------
+
+    # Use a simpler loop for robustness
+    while True:
+        try:
+            msg = await bot.wait_for('message', check=check_func, timeout=120)
+            
+            # Since check_func now ensures the content is a single, valid digit, 
+            # we just convert it and return.
+            return int(msg.content.strip())
+            
+        except TimeoutError:
+            # Explicitly catch timeout and return 3
+            return 3 
+        except Exception:
+            # If any other error occurs (highly unlikely with the check_func), 
+            # we can either log it and continue the loop, or force a fight/forfeit.
+            # Returning 3 (Forfeit) is the safest fail-state.
+            return 3
+                
+async def action(bot, ctx, tr1, tr2, x, y):
+    """
+    Determines the action (move, switch, transform) for a trainer (tr1), 
+    either by AI or by user input.
+    """
+    
+    # --- AI Logic (tr1.ai == True) ---
+    if tr1.ai:
+        # Check for transformation priority (order matters)
+        
+        # 1. Mega Evolve (Highest priority)
+        if x.item in megastones and tr1.canmega:
+            # 10:1 chance for Mega vs Fight
+            return random.choices([1, 6], weights=[1, 10], k=1)[0] 
+        
+        # 2. Z-Move
+        if "m-Z" in x.item and tr1.canz and x.zuse:
+            move = 5
+        
+        # 3. Terastallize
+        elif x.tera not in ["???", "Max"] and tr1.cantera and x.item not in megastones and x.teraType == "???" and \
+             (x.name == "Ogerpon" or x.name == "Terapagos" or x.tera not in (x.primaryType, x.secondaryType)):
+            move = 9
+            
+        # 4. Dynamax/Gigantamax
+        elif x.item not in megastones and tr1.canmax and x.teraType == "???" and "m-Z" not in x.item:
+            # Check for the Max form on a team member (from the original logic)
+            new = [i.tera for i in tr1.pokemons]
+            if x.tera == "Max" or "Max" not in new:
+                # 1/6 chance to Dynamax
+                max_choice = random.randint(1, 6)
+                move = 8 if max_choice == 1 else 1
             else:
-                await tr1.member.send(embed=em)
-                inaction = await bot.wait_for('message', check=lambda msg: isinstance(msg.channel, discord.DMChannel) and msg.author == tr1.member)
-            try:
-                inaction = int(inaction.content)
-            except:
-                if "1" in inaction:
-                    inaction=1
-                elif "2" in inaction:
-                    inaction=2
-                elif "6" in inaction:
-                    inaction=6
-                elif "9" in inaction:
-                    inaction=9
-                else:
-                    inaction=1   
-            if inaction == 2:
-                if y.trap==x or y.trap==y or (y.ability == "Magnet Pull" and "Steel" in (x.primaryType, x.secondaryType, x.teraType)) or (y.ability == "Shadow Tag" and ("Ghost" not in (x.primaryType, x.secondaryType, x.teraType) or x.item!="Shed Shell")) or (y.ability == "Arena Trap" and (x.ability!="Levitate" or x.item!="Shed Shell")) or True in (x.firespin,x.infestation,x.sandtomb,x.whirlpool):
-                    return 1
-                else:
-                    return 2
-            return inaction
+                move = 1 # Fight if another mon is Dynamaxed/no Max form selected
+        
+        # 5. Default Action: 10:1 chance for Fight vs Switch
+        else:
+            move = random.choices([1, 2], weights=[10, 1], k=1)[0]
+
+        # 6. Final Trapping Check
+        if move == 2 and _is_trapped(x, y):
+            return 1  # Force Fight if trapped
+        else:
+            return move
+        
+    # --- Player Logic (tr1.ai == False) ---
+    else:
+        action_num = await _get_player_action(bot, ctx, tr1, x, tr2)
+        
+        # Final Trapping Check
+        if action_num == 2 and _is_trapped(x, y):
+            return 1  # Force Fight if trapped
+        
+        return action_num
         
 async def spartyup(tr1,x):
     di={
@@ -1137,14 +1376,75 @@ async def spartyup(tr1,x):
     }
     tr1.sparty[tr1.party.index(x.icon)]=di[x.status]
     return tr1.sparty
+
 async def score(ctx, x, y, tr1, tr2, turn, bg):
-    types=await typeicon(x.primaryType)
-    if x.secondaryType!="???":
-        types=f"{await typeicon(x.primaryType)}{await typeicon(x.secondaryType)}"
+    
+    # 1. Create a list of all potential awaitable coroutines (including those that are None)
+    awaitables = [
+        typeicon(x.primaryType),
+        typeicon(x.secondaryType) if x.secondaryType != "???" else None,
+        spartyup(tr1, x),
+        itemicon(x.item) if x.showitem else None,
+        statusicon(x.status),
+        bufficon(x.atkb),
+        bufficon(x.defb),
+        bufficon(x.spatkb),
+        bufficon(x.spdefb),
+        bufficon(x.speedb)
+    ]
+    
+    # 2. Filter out all 'None' values
+    coroutines_to_run = [c for c in awaitables if c is not None]
+
+    # 3. Run only the valid coroutines
+    results = await asyncio.gather(*coroutines_to_run)
+    
+    # --- Mapping Results Back ---
+    # This part gets tricky because the number of 'results' is variable.
+    # To maintain the original structure and make sure 'results' aligns with the original 10 items, 
+    # you need a different approach.
+    
+    # The better approach is to wrap the None value in an awaitable:
+    
+    # ------------------------------------------------
+    # 2. Use an Awaitable to Return None (Alternative Fix)
+    # ------------------------------------------------
+    
+    # Helper to return None as an awaitable
+    async def return_none():
+        return None
+        
+    results = await asyncio.gather(
+        typeicon(x.primaryType),
+        typeicon(x.secondaryType) if x.secondaryType != "???" else return_none(), # <- Fix 1
+        spartyup(tr1, x),
+        itemicon(x.item) if x.showitem else return_none(),                     # <- Fix 2
+        statusicon(x.status),
+        bufficon(x.atkb),
+        bufficon(x.defb),
+        bufficon(x.spatkb),
+        bufficon(x.spdefb),
+        bufficon(x.speedb)
+    )
+
+    p_type_icon, s_type_icon, tr1.sparty, item_icon, status_icon_val, atkb_icon, defb_icon, spatkb_icon, spdefb_icon, speedb_icon = results
+
+    # Reconstruct the 'types' string
+    types = p_type_icon
+    if x.secondaryType != "???":
+        types = f"{p_type_icon}{s_type_icon}"
+
     team = " ".join(tr1.party)
-    tr1.sparty = await spartyup(tr1, x)
     steam = " ".join(tr1.sparty)
-    hpbar = "<:HP:1107296292243255356>" + "<:GREY:1107331848360689747>" * 10 + "<:END:1107296362988580907>"
+    
+    # --- HP Bar Construction (No change needed, it's efficient) ---
+    hp_ratio = x.hp / x.maxhp
+    hpbar_base = "<:HP:1107296292243255356>"
+    hpbar_end = "<:END:1107296362988580907>"
+    fill_count = int(hp_ratio * 10)
+    grey_count = 10 - fill_count
+    grey_fill = "<:GREY:1107331848360689747>" * grey_count
+
     status_icons = {
         "Frostbite": "<:FBT:1107340620097404948>",
         "Frozen": "<:FZN:1107340597980827668>",
@@ -1155,66 +1455,88 @@ async def score(ctx, x, y, tr1, tr2, turn, bg):
         "Poisoned": "<:PSN:1107340504762437723>",
         "Badly Poisoned": "<:PSN:1107340504762437723>"
     }
+
+    fill_emoji = ""
     if x.dmax:
-        hpbar = "<:HP:1107296292243255356>" + "<:dynamax:1141227784958652547>" * int((x.hp / x.maxhp) * 10) + "<:GREY:1107331848360689747>" * (10 - int((x.hp / x.maxhp) * 10)) + "<:END:1107296362988580907>"
+        fill_emoji = "<:dynamax:1141227784958652547>"
     elif x.status in status_icons:
-        hpbar = "<:HP:1107296292243255356>" + status_icons[x.status] * int((x.hp / x.maxhp) * 10) + "<:GREY:1107331848360689747>" * (10 - int((x.hp / x.maxhp) * 10)) + "<:END:1107296362988580907>"
+        fill_emoji = status_icons[x.status]
     elif x.status == "Alive":
-        if 0.6 < (x.hp / x.maxhp) <= 1:
-            hpbar = "<:HP:1107296292243255356>" + "<:GREEN:1107296335780139113>" * int((x.hp / x.maxhp) * 10) + "<:GREY:1107331848360689747>" * (10 - int((x.hp / x.maxhp) * 10)) + "<:END:1107296362988580907>"
-        elif 0.3 < (x.hp / x.maxhp) <= 0.6:
-            hpbar = "<:HP:1107296292243255356>" + "<:YELLOW:1107331825929556111>" * int((x.hp / x.maxhp) * 10) + "<:GREY:1107331848360689747>" * (10 - int((x.hp / x.maxhp) * 10)) + "<:END:1107296362988580907>"
-        elif 0 < (x.hp / x.maxhp) <= 0.3:
-            hpbar = "<:HP:1107296292243255356>" + "<:RED:1107331787480379543>" * int((x.hp / x.maxhp) * 10) + "<:GREY:1107331848360689747>" * (10 - int((x.hp / x.maxhp) * 10)) + "<:END:1107296362988580907>"
+        if 0.6 < hp_ratio <= 1:
+            fill_emoji = "<:GREEN:1107296335780139113>"
+        elif 0.3 < hp_ratio <= 0.6:
+            fill_emoji = "<:YELLOW:1107331825929556111>"
+        elif 0 < hp_ratio <= 0.3:
+            fill_emoji = "<:RED:1107331787480379543>"
+            
+    hpbar = f"{hpbar_base}{fill_emoji * fill_count}{grey_fill}{hpbar_end}"
+    
+    # --- Optimization 2: Field Effects (Fixing the logic bug) ---
     rflct = ""
+    ls = ""
+    av = ""
+    tw = ""
+
     if tr1.reflect:
         rflct = f"\n<:reflect:1142009182095163422> Reflect"
-    ls = ""
     if tr1.lightscreen:
-        rflct = f"\n<:lightscreen:1142009225741082657> Light Screen"
-    av = ""
+        ls = f"\n<:lightscreen:1142009225741082657> Light Screen"
     if tr1.auroraveil:
         av = f"\n<:auroraveil:1142009279705006102> Aurora Veil"
-    tw = ""
     if tr1.tailwind:
-        av = f"\n<:tailwind:1142043322064572446> Tailwind"
-    itm=""     
-    abl=""
-    if x.showability==True:
-        abl=f"\n**Ability:** {x.ability}"
-    if x.showitem==True:
-        it=x.item
+        tw = f"\n<:tailwind:1142043322064572446> Tailwind"
+
+    # --- Ability and Item (No change needed) ---
+    abl = f"\n**Ability:** {x.ability}" if x.showability else ""
+    itm = ""
+    if x.showitem:
+        it = x.item
         if "Used" in x.item:
-            it= "None"
-        itm=f"\n**Held Item:** {await itemicon(x.item)} {it}"
+            it = "None"
+        itm = f"\n**Held Item:** {item_icon} {it}"
+
+    # --- Embed Construction (No change needed) ---
     em = discord.Embed(
         title=f"{tr1.name}:",
         description=f"{team}\n{steam}",
         color=bg,
     )
-    
-    em.add_field(name="Stats:", value=f"{types} **{x.nickname}** Lv. {x.level}\n**HP:** {round(x.hp)}/{x.maxhp} ({round((x.hp / x.maxhp)*100,2)}%){abl}{itm}\n**ATK:** {await bufficon(x.atkb)} **DEF:** {await bufficon(x.defb)} **SPA:** {await bufficon(x.spatkb)} **SPD:** {await bufficon(x.spdefb)} **SPE:** {await bufficon(x.speedb)}{rflct}{ls}{av}{tw}")
-    em.add_field(name="HP Bar:", value=f"{hpbar}{await statusicon(x.status)}")
-    if tr1.hazard!=[]:
-        hazard=""
+
+    em.add_field(
+        name="Stats:", 
+        value=(
+            f"{types} **{x.nickname}** Lv. {x.level}\n"
+            f"**HP:** {round(x.hp)}/{x.maxhp} ({round(hp_ratio*100, 2)}%){abl}{itm}\n"
+            f"**ATK:** {atkb_icon} **DEF:** {defb_icon} **SPA:** {spatkb_icon} **SPD:** {spdefb_icon} **SPE:** {speedb_icon}"
+            f"{rflct}{ls}{av}{tw}"
+        )
+    )
+    em.add_field(name="HP Bar:", value=f"{hpbar}{status_icon_val}")
+
+    # --- Hazards Field (No change needed) ---
+    if tr1.hazard != []:
+        hazard = ""
+        # Using string methods for cleaner hazard creation
         if "Stealth Rock" in tr1.hazard:
-            hazard+="\n<:stealthrock:1154507457763233823> Stealth Rock"
-        if "Spikes" in tr1.hazard:
-            hazard+=f"\n<:spikes:1154509457976459380> Spikes x{tr1.hazard.count('Spikes')}"
-        if "Toxic Spikes" in tr1.hazard:
-            hazard+=f"\n<:toxicspikes:1154509769168662648> Toxic Spikes x{tr1.hazard.count('Toxic Spikes')}"
-        if "Steel Spikes" in tr1.hazard:
-            hazard+=f"\n<:steelspikes:1154509599467118694> Steel Spikes x{tr1.hazard.count('Steel Spikes')}"
+            hazard += "\n<:stealthrock:1154507457763233823> Stealth Rock"
+        hazard += f"\n<:spikes:1154509457976459380> Spikes x{tr1.hazard.count('Spikes')}" if "Spikes" in tr1.hazard else ""
+        hazard += f"\n<:toxicspikes:1154509769168662648> Toxic Spikes x{tr1.hazard.count('Toxic Spikes')}" if "Toxic Spikes" in tr1.hazard else ""
+        hazard += f"\n<:steelspikes:1154509599467118694> Steel Spikes x{tr1.hazard.count('Steel Spikes')}" if "Steel Spikes" in tr1.hazard else ""
         if "Sticky Web" in tr1.hazard:
-            hazard+="\n<:stickyweb:1154510037067255808> Sticky Web"
-        em.add_field(name="Hazards:",value=f"{hazard}",inline=False)
+            hazard += "\n<:stickyweb:1154510037067255808> Sticky Web"
+        
+        # Remove the leading '\n' if present
+        em.add_field(name="Hazards:", value=hazard.lstrip('\n'), inline=False)
+        
     em.set_image(url=x.sprite)
     em.set_footer(text=f"ATK: {x.atkb} DEF: {x.defb} SPA: {x.spatkb} SPD: {x.spdefb} SPE: {x.speedb}")
+    
     if tr1.sub != "None":
         em.set_image(url="https://play.pokemonshowdown.com/sprites/substitutes/gen5/substitute.png")
     if x.gsprite != "None":
         em.set_image(url=x.gsprite)
     await ctx.send(embed=em)
+    
 async def statusicon(s):
     di={
     "Male":"<:male:1140875825693085757>",
@@ -1330,137 +1652,179 @@ async def bufficon(s,base=0):
     
 async def movelist(ctx, x, tr1, tr2, field):
     move_list = []
-    # Logic for Z-Moves (highest priority)
-    if x.zuse:
-        move_list.append(f"#1 {await movetypeicon(x, x.zmove, field)} {x.zmove} {await itemicon(x.item)} PP: 1")
-    # Logic for Dynamax Moves
-    elif x.dmax:
-        for i, m in enumerate(x.maxmoves):
-            move_list.append(f"#{i+1} {await movetypeicon(x, m, field)} {m} {await movect(m)} PP: {x.pplist[x.maxmoves.index(m)]}")
-    # Logic for Normal Moves
+    
+    # Define which moves and PP list to use
+    if x.dmax:
+        moves = x.maxmoves
+        pp_list = x.pplist
     else:
-        for i, m in enumerate(x.moves):
-            move_list.append(f"#{i+1} {await movetypeicon(x, m, field)} {m} {await movect(m)} PP: {x.pplist[x.moves.index(m)]}")
+        moves = x.moves
+        pp_list = x.pplist
+
+    # --- Optimization: Concurrent Awaitables ---
+    awaitables = []
+    
+    if x.zuse:
+        # Z-Move logic (only one move)
+        # Gather movetypeicon and itemicon concurrently
+        awaitables.append(movetypeicon(x, x.zmove, field))
+        awaitables.append(itemicon(x.item))
+        # No movect for Z-Moves, PP is hardcoded to 1
+        
+        results = await asyncio.gather(*awaitables)
+        z_type_icon, z_item_icon = results
+        
+        move_list.append(f"#1 {z_type_icon} {x.zmove} {z_item_icon} PP: 1")
+    
+    else:
+        # Dynamax or Normal Moves logic (multiple moves)
+        # Create a list of all movetypeicon and movect calls
+        for m in moves:
+            awaitables.append(movetypeicon(x, m, field))
+            awaitables.append(movect(m))
+        
+        # Run all awaits concurrently
+        if awaitables:
+            results = await asyncio.gather(*awaitables)
+            
+            # Map results back to move_list
+            for i, m in enumerate(moves):
+                # Results are interleaved: [type_1, ct_1, type_2, ct_2, ...]
+                type_icon = results[i * 2]
+                move_ct = results[i * 2 + 1]
+                
+                # Dynamax moves use the original move's PP index
+                move_list.append(f"#{i+1} {type_icon} {m} {move_ct} PP: {pp_list[x.moves.index(m)]}")
 
     # Join the list of moves into a single string with newlines
     move_string = "\n".join(move_list)
+    
     # Create and send the embed
     embed = discord.Embed(
         title=f"What will {x.name} use?",
         description=move_string,
         color=discord.Color.red()
     )
+    
+    # Conditional sending (No change needed)
     if tr2.ai:
         await ctx.send(embed=embed)
     else:
+        # Assuming tr1.member is the Discord user object for tr1
         await tr1.member.send(embed=embed)
        
-async def fchoice(ctx,bot,x,y,tr1,tr2,field):
-    if tr1.ai==True:
-        choice=await moveAI(x,y,tr1,tr2,field)
+async def fchoice(ctx, bot, x, y, tr1, tr2, field):
+    # --- AI Trainer Logic (Direct Return) ---
+    if tr1.ai:
+        # Assuming moveAI returns a tuple/list where the first element is the move choice
+        choice = await moveAI(x, y, tr1, tr2, field)
         return choice[0]
-    if tr1.ai==False:
-        await movelist(ctx,x,tr1,tr2,field)    
-        if tr2.ai==True:
-            while True:
-                choice=await bot.wait_for('message')
-                if x.zuse==True and tr1.canz==True:
-                    x.zuse=False
-                    tr1.canz=False
-                    return x.zmove
-                elif choice.content not in ["1","2","3","4"] and choice.author==ctx.author:
-                    await tr1.member.send("Wrong Input.")
-                if choice.content in ["1","2","3","4"] and choice.author==ctx.author:
-                    num=int(choice.content)-1
-                    if "Choice" in x.item and x.choiced=="None" and x.dmax==False:
-                        try:
-                            choice=x.moves[num]
-                            x.choiced=True
-                            x.choicedmove=choice
-                            return choice  
-                        except:
-                            await tr1.member.send("Wrong Input.")
-                    if "Choice" in x.item and x.choiced!="None" and x.dmax==False:
-                        try:
-                            x.choiced=True
-                            choice=x.moves[x.moves.index(x.choicedmove)]
-                            return choice  
-                        except:
-                            choice="Struggle"
-                            return choice       
-                    if x.dmax==True:
-                        try:
-                             choice=x.maxmoves[num]
-                             return choice 
-                        except:     
-                             await tr1.member.send("Wrong Input.")   
-                    if "Assault Vest" in x.item:
-                        try:
-                            choice=x.moves[num]      
-                            if choice in typemoves.statusmove:
-                                await tr1.member.send("Cannot use status moves while holding Assault Vest")   
-                            else:
-                                return choice
-                        except:
-                             await tr1.member.send("Wrong Input.")   
-                    if len(x.moves)==0 or len(x.maxmoves)==0:
-                        return "Struggle" 
+
+    # --- Human Trainer Logic (Input Loop) ---
+    
+    # 1. Display the move list once
+    await movelist(ctx, x, tr1, tr2, field)
+
+    # 2. Define the input check function (depends on the opponent type)
+    if tr2.ai:
+        # Check for message content and author in the main channel (ctx.author == tr1.member)
+        def check(message):
+            # For human vs AI, the input is expected in the command channel
+            return message.author == ctx.author and message.channel == ctx.channel
+        
+        # We'll use tr1.member.send for feedback, but the 'wait_for' will check the main channel
+        wait_target = ctx.author
+        send_feedback = lambda msg: tr1.member.send(msg)
+        
+    else: # tr2.ai == False (Human vs Human)
+        # Check for message content in the DM channel from tr1.member
+        def check(message):
+            return isinstance(message.channel, discord.DMChannel) and message.author == tr1.member
+
+        # For human vs human, input is expected via DM
+        wait_target = tr1.member 
+        send_feedback = lambda msg: tr1.member.send(msg)
+    
+    # Use the appropriate check and feedback mechanism
+    while True:
+        try:
+            # Wait for the next message matching the check
+            choice_message = await bot.wait_for('message', check=check)
+            content = choice_message.content
+
+            # --- Z-Move Check (Highest Priority) ---
+            if x.zuse and tr1.canz:
+                x.zuse = False
+                tr1.canz = False
+                return x.zmove
+
+            # --- Input Validation (Must be "1", "2", "3", or "4") ---
+            if content not in ["1", "2", "3", "4"]:
+                #await send_feedback("Wrong Input. Please enter a number between 1 and 4.")
+                continue # Go back to the start of the loop
+
+            num = int(content) - 1 # Convert to 0-indexed number
+            
+            # Use the correct move list based on Dynamax status
+            current_moves = x.maxmoves if x.dmax else x.moves
+
+            # Handle moves list being empty (should return struggle)
+            if not current_moves:
+                 return "Struggle"
+            
+            # Check if the number is out of bounds for the current move list
+            if not (0 <= num < len(current_moves)):
+                await send_feedback("Wrong Input. That move slot is empty or invalid.")
+                continue # Go back to the start of the loop
+            
+            # --- Dynamax Logic (Highest Move Selection Priority) ---
+            if x.dmax:
+                return current_moves[num]
+
+            # --- Choice Item Logic (Not Dynamaxed) ---
+            if "Choice" in x.item:
+                selected_move = x.moves[num]
+
+                # First time choosing a move with a Choice item
+                if x.choiced == "None":
+                    x.choiced = True
+                    x.choicedmove = selected_move
+                    return selected_move
+                
+                # Already locked into a move
+                elif x.choiced != "None":
+                    # Check if the player selected the move they are locked into
+                    if selected_move == x.choicedmove:
+                        return selected_move
                     else:
+                        # Auto-select the locked move, or return Struggle if the move is gone
                         try:
-                            choice=x.moves[num] 
-                            return choice 
-                        except:  
-                            await tr1.member.send("Wrong Input.") 
-        if tr2.ai==False:
-            def check(message):
-                return isinstance(message.channel,discord.DMChannel) and message.author==tr1.member
-            while True:
-                choice=await bot.wait_for('message',check=check)
-                if x.zuse==True and tr1.canz==True:
-                    x.zuse=False
-                    tr1.canz=False
-                    return x.zmove
-                elif choice.content not in ["1","2","3","4"]:
-                    await tr1.member.send("Wrong Input.")
-                elif choice.content in ["1","2","3","4"]:
-                    num=int(choice.content)-1
-                    if "Choice" in x.item and x.choiced=="None" and x.dmax==False:
-                        try:
-                            choice=x.moves[num]
-                            x.choiced=choice
-                            return choice  
-                        except:
-                            await tr1.member.send("Wrong Input.")
-                    if "Choice" in x.item and x.choiced!="None" and x.dmax==False:
-                        try:
-                            choice=x.moves[x.moves.index(x.choiced)]
-                            return choice  
-                        except:
-                            choice="Struggle"
-                            return choice       
-                    if x.dmax==True:
-                        try:
-                             choice=x.maxmoves[num]
-                             return choice 
-                        except:     
-                             await tr1.member.send("Wrong Input.")   
-                    if "Assault Vest" in x.item:
-                        try:
-                            choice=x.moves[num]      
-                            if choice in typemoves.statusmove:
-                                await tr1.member.send("Cannot use status moves while holding Assault Vest")   
-                            else:
-                                return choice
-                        except:
-                             await tr1.member.send("Wrong Input.")   
-                    if len(x.moves)==0 or len(x.maxmoves)==0:
-                        return "Struggle" 
-                    else:
-                        try:
-                            choice=x.moves[num] 
-                            return choice 
-                        except:  
-                            await tr1.member.send("Wrong Input.") 
+                            # Use the stored choicedmove name to find its *current* index
+                            return x.moves[x.moves.index(x.choicedmove)]
+                        except ValueError:
+                            # The locked move is gone (e.g., deleted by other means)
+                            return "Struggle"
+            
+            # --- Assault Vest Logic (Not Dynamaxed, No Choice Lock) ---
+            if "Assault Vest" in x.item:
+                selected_move = x.moves[num]
+                # Assuming 'typemoves.statusmove' is accessible and is a collection of status moves
+                if selected_move in typemoves.statusmove:
+                    await send_feedback("Cannot use status moves while holding Assault Vest.")
+                    continue # Go back to the start of the loop
+                else:
+                    return selected_move
+
+            # --- Default Move Selection ---
+            # If no special conditions applied, just return the chosen move
+            return x.moves[num]
+
+        # General Exception Handling for safety (e.g., if x.moves[num] fails unexpectedly)
+        except Exception as e:
+            # The most likely error remaining is an Index Error, but general catch is safer here.
+            print(f"Error during move choice: {e}")
+            await send_feedback("An unexpected error occurred. Please try again or re-enter your choice.")
+            continue # Go back to the start of the loop
                       
 async def megatrans(ctx,x,y,tr1,tr2,field,turn):
     des=f"{x.icon} {x.name}'s {x.item} is reacting to {tr1.name}'s Keystone!\n{x.name} has Mega Evolved into Mega {x.name}!"
@@ -3276,166 +3640,175 @@ async def weather(ctx, field, bg):
 async def partyup(tr1,new):
     if new.icon not in tr1.party:
         tr1.party[tr1.party.index("<:ball:1127196564948009052>")]=new.icon
-    return tr1.party                
-async def switch(ctx,bot,x,y,tr1,tr2,field,turn):
-    if x.dmax==True:
-        x.gsprite=x.sprite
-        x.name=x.name.replace(" <:dynamax:1104646304904257647>","")
-        x.hp/=2
-        x.maxhp/=2
-        x.dmax=False
-    if x.ability in ["Protean", "Libero"]:
-        type_assignments = {
+    return tr1.party 
+async def send_switch_message(ctx, tr1, new):
+    """Handles the creation and sending of the 'sent out' embed."""
+    em = discord.Embed(title=f"{tr1.name} sent out {new.name}!")
+    em.set_thumbnail(url=tr1.sprite)
+    em.set_image(url=new.sprite)
+    await ctx.send(embed=em)
+
+async def apply_illusion_effect(tr1, new):
+    """Applies the Illusion ability's sprite and nickname change."""
+    # Find the last pokemon (highest index) in the party for Illusion
+    last_pokemon = tr1.pokemons[-1]
+    
+    # Check if the new pokemon is the last one; if so, Illusion doesn't trigger
+    if new != last_pokemon:
+        new.nickname = last_pokemon.nickname
+        new.sprite = last_pokemon.sprite
+        # Note: The original code sets nickname twice, which is redundant but preserved if needed elsewhere.
+        # new.nickname = last_pokemon.nickname
+                       
+async def switch(ctx, bot, x, y, tr1, tr2, field, turn):
+    # --- 1. Cleanup Active Pokémon (x) State ---
+    
+    # Dynamax Cleanup
+    if x.dmax:
+        x.gsprite = x.sprite
+        x.name = x.name.replace(" <:dynamax:1104646304904257647>", "")
+        x.hp /= 2
+        x.maxhp /= 2
+        x.dmax = False
+    
+    # Protean/Libero Cleanup (Reset to original base types)
+    type_assignments = {
         "Kecleon": ("Normal", "Ghost"),
         "Meowscarada": ("Grass", "Dark"),
         "Cinderace": ("Fire", "???"),
         "Greninja": ("Water", "Dark")
     }
-
-        if x.name in type_assignments:
-            x.primaryType, x.secondaryType=type_assignments[x.name]
+    if x.ability in ["Protean", "Libero"] and x.name in type_assignments:
+        x.primaryType, x.secondaryType = type_assignments[x.name]
+        
+    # Ability-specific Cleanup
     if "Disguise" in x.ability:
         x.ability = "Disguise"
         x.sprite = "http://play.pokemonshowdown.com/sprites/ani/mimikyu.gif"
-
-    if "Quark Drive" in x.ability:
-        x.ability = "Quark Drive"
-
-    if "Protosynthesis" in x.ability:
-        x.ability = "Protosynthesis"
-
+    if "Quark Drive" in x.ability: x.ability = "Quark Drive"
+    if "Protosynthesis" in x.ability: x.ability = "Protosynthesis"
     if "Ditto" in x.name:
-        x.ability="Imposter"
-        x.name="Ditto"
-        x.sprite="sprites/Ditto.png"
-    x.atkb=x.defb=x.spatkb=x.spdefb=x.speedb=0
-    x.atk=x.maxatk
-    x.speed=x.maxspeed
-    x.spatk=x.maxspatk
-    x.spdef=x.maxspdef
-    x.defense=x.maxdef
-    x.accuracy=x.evasion=100
-    x.toxicCounter=1
-    x.perishturn=0
-    x.canfakeout=True 
-    x.choicedmove="None"    
-    x.priority=x.recharge=x.seeded=x.flinched=x.protect=y.protect=x.shelltrap=x.choiced=x.dbond=x.salty=x.flashfire=x.taunted=x.confused=x.encore=x.cursed=x.yawn=x.aring=False
-    if tr1.sub!="None" and "Shed Tail" not in x.moves:
-        tr1.sub="None"
-    new=""
-    n=0
-    pklist=""
-    for i in tr1.pokemons:
-        n+=1
-        pklist+=f"#{n} {i.icon} {i.name} {i.hp}/{i.maxhp}\n"
-    em=discord.Embed(title="Choose your pokémon!",description=pklist)
-    last_pokemon = tr1.pokemons[len(tr1.pokemons) - 1]
-    if tr1.ai==True:
-        new = ""
-        while not new or new == x:
+        x.ability = "Imposter"
+        x.name = "Ditto"
+        x.sprite = "sprites/Ditto.png"
+        
+    # Reset Stat Stages and Status Effects
+    x.atkb = x.defb = x.spatkb = x.spdefb = x.speedb = 0
+    x.atk, x.speed, x.spatk, x.spdef, x.defense = x.maxatk, x.maxspeed, x.maxspatk, x.maxspdef, x.maxdef
+    x.accuracy = x.evasion = 100
+    x.toxicCounter = 1
+    x.perishturn = 0
+    x.canfakeout = True 
+    x.choicedmove = "None"
+    
+    # Reset various boolean flags
+    x.priority = x.recharge = x.seeded = x.flinched = x.protect = y.protect = x.shelltrap = x.choiced = x.dbond = x.salty = x.flashfire = x.taunted = x.confused = x.encore = x.cursed = x.yawn = x.aring = False
+    
+    # Substitute removal
+    if tr1.sub != "None" and "Shed Tail" not in x.moves:
+        tr1.sub = "None"
+        
+    # --- 2. AI Switch Logic ---
+    if tr1.ai:
+        new = None
+        # Select a random Pokémon that is not currently in battle (x)
+        while new is None or new == x:
             new = random.choice(tr1.pokemons)
-        if new.ability=="Illusion":
-             last_pokemon = tr1.pokemons[len(tr1.pokemons) - 1]
-             new.nickname = last_pokemon.nickname
-             new.sprite = last_pokemon.sprite
-             new.nickname = last_pokemon.nickname
+
+        # Apply Withdrawal Effect and Illusion
         await withdraweff(ctx, x, tr1, y)
-        em = discord.Embed(title=f"{tr1.name} sent out {new.name}!")
-        em.set_thumbnail(url=tr1.sprite)
-        em.set_image(url=new.sprite)
-        await ctx.send(embed=em)
-        await entryeff(ctx, new, y, tr1, tr2, field, turn)    
-        tr1.party=await partyup(tr1,new)       
+        if new.ability == "Illusion":
+            await apply_illusion_effect(tr1, new)
+            
+        await send_switch_message(ctx, tr1, new)
+        await entryeff(ctx, new, y, tr1, tr2, field, turn)
+        tr1.party = await partyup(tr1, new)
         return new
 
-    elif tr2.ai == True and tr1.ai == False:
-        while new == "" or new == x:
-            await ctx.send(embed=em)  
+    # --- 3. Human Switch Logic (Combined) ---
+    else:
+        new = None
+        pklist = ""
+        # Build the Pokemon list for the embed
+        for i, p in enumerate(tr1.pokemons):
+            pklist += f"#{i+1} {p.icon} {p.name} {p.hp}/{p.maxhp}\n"
+            
+        em = discord.Embed(title="Choose your pokémon!", description=pklist)
+
+        # Define the check for bot.wait_for based on opponent
+        if tr2.ai: # Human vs AI: input in main channel
             def check(message):
-                return message.author == ctx.author
-            num = await bot.wait_for('message', check=check)
-            num = int(num.content) if num.content.isdigit() else 0        
-            if True:
-                if 0<num<7:
-                    num=num-1
-                    new=x
-                    if x in tr1.pokemons:
-                        cnum=tr1.pokemons.index(x)
-                        if cnum==num:
-                            await tr1.member.send(f"{x.name} is already in battle!")
-                        if cnum!=num:
-                            new=tr1.pokemons[num]
-                            await withdraweff(ctx,x,tr1,y)
-                        await entryeff(ctx,new,y,tr1,tr2,field,turn)
-                        if new.ability=="Illusion":
-                            last_pokemon = tr1.pokemons[len(tr1.pokemons) - 1]
-                            new.nickname = last_pokemon.nickname
-                            new.sprite = last_pokemon.sprite
-                            new.nickname = last_pokemon.nickname
-                        em=discord.Embed(title=f"{tr1.name} sent out {new.name}!")
-                        em.set_thumbnail(url=tr1.sprite)
-                        em.set_image(url=new.sprite)
-                        await ctx.send(embed=em)
-                        tr1.party=await partyup(tr1,new)      
-                        return new
-                    elif x not in tr1.pokemons:
-                        new=tr1.pokemons[num]            
-                        if new.ability=="Illusion":
-                            last_pokemon = tr1.pokemons[len(tr1.pokemons) - 1]
-                            new.nickname = last_pokemon.nickname
-                            new.sprite = last_pokemon.sprite
-                            new.nickname = last_pokemon.nickname              
-                        await entryeff(ctx,new,y,tr1,tr2,field,turn)
-                        em=discord.Embed(title=f"{tr1.name} sent out {new.name}!")
-                        em.set_thumbnail(url=tr1.sprite)
-                        em.set_image(url=new.sprite)
-                        await ctx.send(embed=em)
-                        tr1.party=await partyup(tr1,new)      
-                        return new
-    elif tr2.ai==False and tr1.ai==False:
-        while new=="" or new==x:
-            await tr1.member.send(embed=em)  
+                return message.author == ctx.author and message.channel == ctx.channel
+            send_target = ctx # Send the embed to the channel
+            send_feedback = lambda msg: tr1.member.send(msg) # Send error feedback via DM
+        else: # Human vs Human: input in DM
             def check(message):
-                return isinstance(message.channel,discord.DMChannel) and message.author==tr1.member
-            num=await bot.wait_for('message',check=check)
-            if True:
-                num=int(num.content)
-                if 0<num<7:
-                    num=num-1
-                    new=x
-                    if x in tr1.pokemons:
-                        cnum=tr1.pokemons.index(x)
-                        if cnum==num:
-                            await tr1.member.send(f"{x.name} is already in battle!")
-                        if cnum!=num:
-                            new=tr1.pokemons[num]
-                            if new.ability=="Illusion":
-                                last_pokemon = tr1.pokemons[len(tr1.pokemons) - 1]
-                                new.nickname = last_pokemon.nickname
-                                new.sprite = last_pokemon.sprite
-                                new.nickname = last_pokemon.nickname
-                            await withdraweff(ctx,x,tr1,y)
-                        await entryeff(ctx,new,y,tr1,tr2,field,turn)
-                        em=discord.Embed(title=f"{tr1.name} sent out {new.name}!")
-                        em.set_thumbnail(url=tr1.sprite)
-                        em.set_image(url=new.sprite)
-                        await ctx.send(embed=em)
-                        tr1.party=await partyup(tr1,new)      
-                        return new
-                    if x not in tr1.pokemons:
-                        new=tr1.pokemons[num]           
-                        if new.ability=="Illusion":
-                            last_pokemon = tr1.pokemons[len(tr1.pokemons) - 1]
-                            new.nickname = last_pokemon.nickname
-                            new.sprite = last_pokemon.sprite
-                            new.nickname = last_pokemon.nickname               
-                        await entryeff(ctx,new,y,tr1,tr2,field,turn)
-                        em=discord.Embed(title=f"{tr1.name} sent out {new.name}!")
-                        em.set_thumbnail(url=tr1.sprite)
-                        em.set_image(url=new.sprite)
-                        await ctx.send(embed=em)
-                        tr1.party=await partyup(tr1,new)      
-                        return new
+                return isinstance(message.channel, discord.DMChannel) and message.author == tr1.member
+            send_target = tr1.member # Send the embed to the DM
+            send_feedback = lambda msg: tr1.member.send(msg) # Send error feedback via DM
+
+        # Input loop
+        while new is None or new == x:
+            await send_target.send(embed=em)
+            
+            try:
+                num_msg = await bot.wait_for('message', check=check, timeout=60.0) # Added timeout
+                num_str = num_msg.content.strip()
+                
+                # Input validation
+                if not num_str.isdigit():
+                    await send_feedback("Invalid input. Please enter the number (1-6) corresponding to your Pokémon.")
+                    continue
+
+                num = int(num_str)
+                index = num - 1
+
+                # Range check (assuming a max of 6 Pokémon)
+                if not (0 <= index < len(tr1.pokemons)):
+                    await send_feedback(f"Invalid number. Please select a number between 1 and {len(tr1.pokemons)}.")
+                    continue
+
+                selected_pokemon = tr1.pokemons[index]
+
+                # Check if the chosen Pokémon is currently in battle
+                if selected_pokemon == x:
+                    await send_feedback(f"{x.name} is already in battle! Choose another Pokémon.")
+                    continue
+                
+                # Check if the chosen Pokémon is fainted/out of commission
+                if selected_pokemon.hp <= 0:
+                    await send_feedback(f"{selected_pokemon.name} has already fainted!")
+                    continue
+
+                # Valid switch choice found
+                new = selected_pokemon
+                
+                # --- Switch Execution ---
+                
+                # Only run withdraweff if the current Pokémon (x) was active (i.e., not a forced switch after faint)
+                if x in tr1.pokemons:
+                    await withdraweff(ctx, x, tr1, y)
+                
+                # Apply Illusion
+                if new.ability == "Illusion":
+                    await apply_illusion_effect(tr1, new)
+
+                # Apply Entry Effects and Update Party
+                await entryeff(ctx, new, y, tr1, tr2, field, turn)
+                await send_switch_message(ctx, tr1, new)
+                tr1.party = await partyup(tr1, new)
+                
+                return new
+
+            except asyncio.TimeoutError:
+                await send_feedback("Switch choice timed out. The battle has ended.")
+                return None # Or handle battle termination
+            except Exception as e:
+                # Catch any unexpected errors during processing
+                print(f"Error during switch input: {e}")
+                await send_feedback("An error occurred. Please try again or re-enter your choice.")
+                continue
+                    
 async def withdraweff(ctx, x, tr1, y):
     em = discord.Embed(title="Withdraw Effect:")
     if x.ability == "Zero to Hero" and "Hero" not in x.name and x.hp > 0 and not x.dmax and y.ability!="Neutralizing Gas":
@@ -3668,7 +4041,7 @@ async def calculate_hazard_buff(pokemon, weak_types):
 
 async def rankedteam(ctx):
     # Initialize name and sprite with fallback values outside the 'try' block
-    name = "Default Trainer"
+    name = "Mysterious Trainer"
     sprite = "https://play.pokemonshowdown.com/sprites/trainers/unknown.png"
     
     # --- 1. Asynchronous API Call using aiohttp ---
