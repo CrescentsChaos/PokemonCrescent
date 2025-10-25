@@ -1463,7 +1463,7 @@ async def fchoice(ctx,bot,x,y,tr1,tr2,field):
                             await tr1.member.send("Wrong Input.") 
                       
 async def megatrans(ctx,x,y,tr1,tr2,field,turn):
-    des=f"{x.icon} {x.name}'s c is reacting to {tr1.name}'s Keystone!\n{x.name} has Mega Evolved into Mega {x.name}!"
+    des=f"{x.icon} {x.name}'s {x.item} is reacting to {tr1.name}'s Keystone!\n{x.name} has Mega Evolved into Mega {x.name}!"
     x.nickname=f"Mega {x.name}"
     if x.name not in ["Mewtwo","Charizard","Raichu"]:
         x.sprite=x.sprite.replace(".gif","-mega.gif")
