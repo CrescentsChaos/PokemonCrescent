@@ -6,11 +6,11 @@ import datetime
 import requests
 import time
 import aiohttp
-from typing import Optional,List, Tuple
+from typing import Optional,List, Tuple,TYPE_CHECKING,Literal
 from keep_alive import keep_alive
 from discord.ext import commands
 from discord import File
-from discord import app_commands
+from discord import app_commands,ui
 from pokemon import *
 from trainers import *
 from field import *

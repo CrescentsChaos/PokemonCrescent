@@ -9,6 +9,7 @@ from pokemon import *
 from movelist import *
 from trainers import *
 from pokemon import calcst
+from typing import Optional,List, Tuple,TYPE_CHECKING,Set, Dict
 from typematchup import *
 from AI import *
 from hiddenpower import *
@@ -1163,81 +1164,152 @@ def _is_trapped(user_mon, opp_mon):
     custom_trap = (opp_mon.trap == user_mon or opp_mon.trap == opp_mon)
     
     return custom_trap or arena_trap or shadow_tag or magnet_pull or move_trap
-
-async def _get_player_action(bot, ctx, tr1, x, tr2):
-    """Handles the user input loop and returns the validated action number."""
     
-    # 1. Build the Description (Logic is correct and remains unchanged)
-    des = "#1 💥 Fight\n#2 🔁 Switch\n#3 🚫 Forfeit\n"
-    
-    if "m-Z" in x.item and tr1.canz and x.zuse:
-        des += "#5 <:zmove:1140788256577949717> Z-Move\n"
-    elif tr1.canmega and not x.dmax and (x.item in megastones or "Dragon Ascent" in x.moves) and x.teraType == "???":
-        des += "#6 <:megaevolve:1104646688951500850> Mega Evolve\n"
-    elif not x.dmax and x.item == "Ultranecrozium-Z" and "Ultra" not in x.name:
-        des += "#7 Ultra Burst\n"
-    elif tr1.canmax and not x.dmax and x.item not in megastones and x.teraType == "???" and "m-Z" not in x.item:
-        des += "#8 <:dynamax:1104646304904257647> Dynamax/Gigantamax\n"
-    elif tr1.cantera and not x.dmax and x.item not in megastones and x.teraType == "???" and "m-Z" not in x.item and x.tera != "Max":
-        des += f"#9 {await teraicon(x.tera)} Terastallize\n"
+class PlayerActionView(discord.ui.View):
+    def __init__(self, tr1: 'Trainer', available_actions: Set[int], action_descriptions: Dict[int, str]):
+        super().__init__(timeout=120.0)
+        self.tr1 = tr1
+        self.action_descriptions = action_descriptions
+        self.selected_action: Optional[int] = None
+        
+        # Define base button styles and emojis using only standard colors
+        styles = {
+            1: (discord.ButtonStyle.green, "💥", "Fight"),        # Success
+            2: (discord.ButtonStyle.blurple, "🔁", "Switch"),      # Primary
+            3: (discord.ButtonStyle.green, "🚫", "Forfeit"),         # Danger
+            
+            # Use 'blurple' or 'gray' to replace 'gold' and 'dark_teal'
+            5: (discord.ButtonStyle.blurple, "<:zmove:1140788256577949717>", "Z-Move"), 
+            6: (discord.ButtonStyle.blurple, "<:megaevolve:1104646688951500850>", "Mega Evolve"), 
+            7: (discord.ButtonStyle.blurple, "🌟", "Ultra Burst"),
+            8: (discord.ButtonStyle.green, "<:dynamax:1104646304904257647>", "Dynamax"), 
+            
+            # Use 'blurple' or 'gray' to replace 'fuchsia'
+            9: (discord.ButtonStyle.blurple, f"✨", "Terastallize"),
+        }
 
-    # Define the set of currently *available* action numbers for validation
+        # Add buttons based on available_actions set
+        for action_num in sorted(available_actions):
+            if action_num in styles:
+                style, emoji, label = styles[action_num]
+                
+                # Use a partial function to pass the action_num to the callback
+                button = discord.ui.Button(
+                    label=f"{label}",
+                    style=style,
+                    emoji=emoji,
+                    custom_id=f"action_{action_num}"
+                )
+                button.callback = self.create_action_callback(action_num)
+                self.add_item(button)
+
+    def create_action_callback(self, action_num: int):
+        async def callback(interaction: discord.Interaction):
+            if interaction.user.id != self.tr1.member.id:
+                await interaction.response.send_message("This action menu is not for you.", ephemeral=True)
+                return
+
+            self.selected_action = action_num
+            await interaction.response.defer() # Defer before stopping
+            self.stop()
+            
+        return callback
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        # Check moved into the button callbacks for personalized error
+        return True
+
+    async def on_timeout(self):
+        # On timeout, the action defaults to 3 (Forfeit) handled in _get_player_action
+        pass
+
+# --- Helper to process available actions and descriptions ---
+
+async def get_action_data(tr1, x):
+    """Processes Pokemon state to determine available actions."""
+    
+    action_descriptions = {
+        1: "Fight", 2: "Switch", 3: "Forfeit"
+    }
     available_actions = {1, 2, 3}
-    for line in des.split('\n'):
-        if line.startswith('#'):
-            available_actions.add(int(line[1])) # Add 5, 6, 7, 8, or 9 if present
+    
+    # Check Z-Move (5)
+    if "m-Z" in x.item and tr1.canz and x.zuse:
+        available_actions.add(5)
+        action_descriptions[5] = "Z-Move"
+        
+    # Check Mega Evolve (6)
+    if tr1.canmega and not x.dmax and (x.item in megastones or "Dragon Ascent" in x.moves) and x.teraType == "???":
+        available_actions.add(6)
+        action_descriptions[6] = "Mega Evolve"
+        
+    # Check Ultra Burst (7)
+    if not x.dmax and x.item == "Ultranecrozium-Z" and "Ultra" not in x.name:
+        available_actions.add(7)
+        action_descriptions[7] = "Ultra Burst"
+        
+    # Check Dynamax/Gigantamax (8)
+    if tr1.canmax and not x.dmax and x.item not in megastones and x.teraType == "???" and "m-Z" not in x.item:
+        available_actions.add(8)
+        action_descriptions[8] = "Dynamax/Gigantamax"
+        
+    # Check Terastallize (9)
+    if tr1.cantera and not x.dmax and x.item not in megastones and x.teraType == "???" and "m-Z" not in x.item and x.tera != "Max":
+        available_actions.add(9)
+        action_descriptions[9] = f"Terastallize {await teraicon(x.tera)}"
+        
+    return available_actions, action_descriptions   
+async def _get_player_action(bot, ctx, tr1, x, tr2):
+    """Handles the user input using buttons and returns the validated action number."""
+    
+    # 1. Determine Available Actions (Replaces original description building)
+    available_actions, action_descriptions = await get_action_data(tr1, x)
 
-    em = discord.Embed(title=f"{tr1.name}, what do you wanna do? (Actions: {', '.join(map(str, sorted(available_actions)))})", description=des)
-    em.set_footer(text="Wait a few seconds before entering your action. Re-enter action if it's not working. Please only enter the single digit number of your action.")
-
-    # 2. Get Input (Determine target and channel)
-    target = tr1.member if not tr2.ai else ctx.author
-    # Use context channel if AI is opponent (tr2.ai=True), otherwise use DM
+    # 2. Get Input Target and Channel
+    # Human vs Human (DM) or Human vs AI (Channel)
     if not tr2.ai:
         channel = tr1.member.dm_channel or await tr1.member.create_dm()
     else:
         channel = ctx.channel
     
-    await channel.send(embed=em)
+    # 3. Create and Send View
+    view = PlayerActionView(tr1, available_actions, action_descriptions)
     
-    # --- REVISED check_func for stricter channel/author validation ---
-    def check_func(msg):
-        # 1. Author must match the player (tr1.member or ctx.author)
-        if msg.author != target:
-            return False
-        
-        # 2. Channel must match the expected channel (DM or context channel)
-        if msg.channel.id != channel.id:
-            return False
+    # Build the description string for the embed
+    des_list = [f"#{num} {action_descriptions.get(num, 'Action')}" for num in sorted(available_actions)]
+    des = "\n".join(des_list)
 
-        # 3. Content must be a single digit number that is an available action
-        content = msg.content.strip()
-        if content.isdigit():
-            action_num = int(content)
-            return action_num in available_actions
+    em = discord.Embed(
+        title=f"{tr1.name}, what do you wanna do?", 
+        description=des
+    )
+    em.set_footer(text="Select your action using the buttons below.")
+    
+    # Send the embed with the buttons
+    msg = await channel.send(embed=em, view=view)
+    
+    # 4. Wait for the button press (or timeout)
+    try:
+        await view.wait()
         
-        # 4. Strictly require a single digit if we're not using the ambiguous content check
-        return False 
-    # -----------------------------------------------------------------
-
-    # Use a simpler loop for robustness
-    while True:
+        # Clean up the message after selection
         try:
-            msg = await bot.wait_for('message', check=check_func, timeout=120)
+            await msg.edit(view=None)
+        except:
+            pass
             
-            # Since check_func now ensures the content is a single, valid digit, 
-            # we just convert it and return.
-            return int(msg.content.strip())
+        # Return the selected action number
+        return view.selected_action if view.selected_action is not None else 3 # Default to Forfeit on miss
+        
+    except asyncio.TimeoutError:
+        # Clean up the message on timeout
+        try:
+            await msg.edit(content="Action timed out. Forfeiting battle.", embed=None, view=None)
+        except:
+            pass
             
-        except TimeoutError:
-            # Explicitly catch timeout and return 3
-            return 3 
-        except Exception:
-            # If any other error occurs (highly unlikely with the check_func), 
-            # we can either log it and continue the loop, or force a fight/forfeit.
-            # Returning 3 (Forfeit) is the safest fail-state.
-            return 3
-                
+        # Explicitly catch timeout and return 3 (Forfeit)
+        return 3             
 async def action(bot, ctx, tr1, tr2, x, y):
     """
     Determines the action (move, switch, transform) for a trainer (tr1), 
@@ -1584,185 +1656,218 @@ async def bufficon(s,base=0):
         return "<:low:1140755454071418910>"
     elif s>base:
         return "<:high:1140755420533772389>"  
-    
+class MoveChoiceView(discord.ui.View):
+    def __init__(self, x: 'Pokemon', tr1: 'Trainer', tr2, field, move_data: List[Tuple[str, str, str, str, int]]):
+        super().__init__(timeout=120.0)
+        self.x = x
+        self.tr1 = tr1
+        self.tr2 = tr2
+        self.field = field
+        self.move_data = move_data # (Move Name, Type Icon, Ct Icon, PP Left)
+        self.selected_move: Optional[str] = None
+
+        # Create buttons for each move
+        for i, (m_name, t_icon, ct_icon, pp_text, pp_left) in enumerate(move_data):
+            # Move index is 0-indexed here
+            move_index = i
+            
+            # Disable if PP is zero
+            is_disabled = (pp_left <= 0)
+            
+            # Use 'red' if PP is 0, 'green' otherwise
+            button_style = discord.ButtonStyle.red if is_disabled else discord.ButtonStyle.green
+            
+            button = discord.ui.Button(
+                label=f"{m_name} {pp_text}",
+                style=button_style,
+                custom_id=f"move_{move_index}",
+                disabled=is_disabled
+            )
+            button.callback = self.create_move_callback(move_index, m_name)
+            self.add_item(button)
+
+    def create_move_callback(self, move_index: int, move_name: str):
+        async def callback(interaction: discord.Interaction):
+            # Check if the correct user pressed the button
+            if interaction.user.id != self.tr1.member.id:
+                await interaction.response.send_message("This move menu is not for you.", ephemeral=True)
+                return
+
+            # Acknowledge the interaction
+            await interaction.response.defer()
+            
+            # --- Perform immediate validation checks here (e.g., Assault Vest, Choice Lock) ---
+            
+            current_move_list = self.x.maxmoves if self.x.dmax else self.x.moves
+            selected_move = current_move_list[move_index]
+            
+            # 1. Assault Vest Check
+            # NOTE: Assuming typemoves.statusmove is accessible, otherwise this check needs data
+            if "Assault Vest" in self.x.item:
+                 # Check if the selected_move is a status move
+                 if selected_move in typemoves.statusmove: # Requires typemoves
+                    await interaction.followup.send("Cannot use status moves while holding Assault Vest.", ephemeral=True)
+                    return # Keep view alive
+            
+            # 2. Choice Item Lock Check (Only checks if *another* move was selected)
+            if "Choice" in self.x.item and self.x.choiced != "None":
+                if selected_move != self.x.choicedmove:
+                    # User clicked wrong move, force the correct one
+                    try:
+                        # Find the index of the locked move
+                        lock_index = current_move_list.index(self.x.choicedmove)
+                        
+                        # Return the locked move, but send feedback to the user
+                        self.selected_move = self.x.choicedmove
+                        await interaction.followup.send(f"Locked into {self.x.choicedmove} by Choice Item!", ephemeral=True)
+                        self.stop()
+                        return
+                    except ValueError:
+                        # Locked move is gone (e.g., PP exhausted, deleted)
+                        self.selected_move = "Struggle"
+                        self.stop()
+                        return
+            
+            # 3. Default Choice / First Choice Item Lock
+            if "Choice" in self.x.item and self.x.choiced == "None":
+                self.x.choiced = True
+                self.x.choicedmove = selected_move
+            
+            # Final valid move selection
+            self.selected_move = selected_move
+            self.stop()
+            
+        return callback
+
+    async def on_timeout(self):
+        # On timeout, the move defaults to Struggle handled in fchoice
+        pass
+        
 async def movelist(ctx, x, tr1, tr2, field):
-    move_list = []
+    """
+    Prepares and returns the list of moves and their data for the view.
+    Does NOT send an embed.
+    """
+    move_data = [] # Stores (Move Name, Type Icon, Ct Icon, PP Text, PP Left)
     
     # Define which moves and PP list to use
-    if x.dmax:
-        moves = x.maxmoves
-        pp_list = x.pplist
-    else:
-        moves = x.moves
-        pp_list = x.pplist
+    moves = x.maxmoves if x.dmax else x.moves
+    pp_list = x.pplist
+    
+    # --- Z-Move Logic (Override the entire list) ---
+    if x.zuse and tr1.canz:
+        # Z-Move is unique and only one option, usually handled outside the move list selection
+        # For simplicity with buttons, we'll keep Z-Move selection separate from the 4 moves.
+        # However, since your Z-Move logic uses fchoice, we'll return an empty list
+        # and handle the Z-Move return directly in fchoice.
+        return []
 
-    # --- Optimization: Concurrent Awaitables ---
+    # --- Dynamax or Normal Moves logic ---
+    if not moves:
+        return [] # No moves left
+        
     awaitables = []
-    
-    if x.zuse:
-        # Z-Move logic (only one move)
-        # Gather movetypeicon and itemicon concurrently
-        awaitables.append(movetypeicon(x, x.zmove, field))
-        awaitables.append(itemicon(x.item))
-        # No movect for Z-Moves, PP is hardcoded to 1
+    # Create a list of all movetypeicon and movect calls
+    for m in moves:
+        awaitables.append(movetypeicon(x, m, field))
+        awaitables.append(movect(m))
         
+    # Run all awaits concurrently
+    if awaitables:
         results = await asyncio.gather(*awaitables)
-        z_type_icon, z_item_icon = results
         
-        move_list.append(f"#1 {z_type_icon} {x.zmove} {z_item_icon} PP: 1")
-    
-    else:
-        # Dynamax or Normal Moves logic (multiple moves)
-        # Create a list of all movetypeicon and movect calls
-        for m in moves:
-            awaitables.append(movetypeicon(x, m, field))
-            awaitables.append(movect(m))
-        
-        # Run all awaits concurrently
-        if awaitables:
-            results = await asyncio.gather(*awaitables)
+        # Map results back to move_data
+        for i, m in enumerate(moves):
+            type_icon = results[i * 2]
+            move_ct = results[i * 2 + 1]
             
-            # Map results back to move_list
-            for i, m in enumerate(moves):
-                # Results are interleaved: [type_1, ct_1, type_2, ct_2, ...]
-                type_icon = results[i * 2]
-                move_ct = results[i * 2 + 1]
-                
-                # Dynamax moves use the original move's PP index
+            # Get the correct PP index (Dynamax moves map to the original move's PP index)
+            try:
                 if x.dmax:
-                    move_list.append(f"#{i+1} {type_icon} {m} {move_ct} PP: {pp_list[x.maxmoves.index(m)]}")
+                    # Find the corresponding original move index for maxmove (complex lookup needed)
+                    # For simplicity, we assume maxmoves is in the same order as x.moves
+                    pp_index = i
                 else:
-                    move_list.append(f"#{i+1} {type_icon} {m} {move_ct} PP: {pp_list[x.moves.index(m)]}")
+                    pp_index = x.moves.index(m)
+                
+                pp_left = pp_list[pp_index]
+            except (IndexError, ValueError):
+                pp_left = 0 # Safety catch
 
-    # Join the list of moves into a single string with newlines
-    move_string = "\n".join(move_list)
-    
-    # Create and send the embed
-    embed = discord.Embed(
-        title=f"What will {x.name} use?",
-        description=move_string,
-        color=discord.Color.red()
-    )
-    
-    # Conditional sending (No change needed)
-    if tr2.ai:
-        await ctx.send(embed=embed)
-    else:
-        # Assuming tr1.member is the Discord user object for tr1
-        await tr1.member.send(embed=embed)
+            pp_text = f""
+            
+            # Store data as a tuple: (Move Name, Type Icon, Ct Icon, PP Text, PP Left)
+            move_data.append((m, type_icon, move_ct, pp_text, pp_left))
+
+    return move_data
        
 async def fchoice(ctx, bot, x, y, tr1, tr2, field):
     # --- AI Trainer Logic (Direct Return) ---
     if tr1.ai:
-        # Assuming moveAI returns a tuple/list where the first element is the move choice
         choice = await moveAI(x, y, tr1, tr2, field)
         return choice[0]
 
-    # --- Human Trainer Logic (Input Loop) ---
+    # --- Human Trainer Logic (Button View) ---
     
-    # 1. Display the move list once
-    await movelist(ctx, x, tr1, tr2, field)
+    # 1. Z-Move Check (If Z-Move is available, it's the only immediate option)
+    if x.zuse and tr1.canz:
+        x.zuse = False
+        tr1.canz = False
+        # Send a brief message confirming Z-Move selection (optional)
+        # await tr1.member.send(f"{x.name} is preparing to use {x.zmove}!")
+        return x.zmove
 
-    # 2. Define the input check function (depends on the opponent type)
-    if tr2.ai:
-        # Check for message content and author in the main channel (ctx.author == tr1.member)
-        def check(message):
-            # For human vs AI, the input is expected in the command channel
-            return message.author == ctx.author and message.channel == ctx.channel
-        
-        # We'll use tr1.member.send for feedback, but the 'wait_for' will check the main channel
-        wait_target = ctx.author
-        send_feedback = lambda msg: tr1.member.send(msg)
-        
-    else: # tr2.ai == False (Human vs Human)
-        # Check for message content in the DM channel from tr1.member
-        def check(message):
-            return isinstance(message.channel, discord.DMChannel) and message.author == tr1.member
-
-        # For human vs human, input is expected via DM
-        wait_target = tr1.member 
-        send_feedback = lambda msg: tr1.member.send(msg)
+    # 2. Get Move Data
+    move_data = await movelist(ctx, x, tr1, tr2, field)
     
-    # Use the appropriate check and feedback mechanism
-    while True:
+    if not move_data:
+        return "Struggle"
+    
+    # 3. Determine Channel
+    if not tr2.ai: # Human vs Human: DM
+        channel = tr1.member.dm_channel or await tr1.member.create_dm()
+    else: # Human vs AI: Channel
+        channel = ctx.channel
+
+    # 4. Create and Send View
+    view = MoveChoiceView(x, tr1, tr2, field, move_data)
+    
+    # Create the embed description from the move_data for display
+    des_list = []
+    for i, (m_name, t_icon, ct_icon, pp_text, pp_left) in enumerate(move_data):
+        des_list.append(f"#{i+1} {t_icon} {m_name} {ct_icon} {pp_text}")
+    
+    embed = discord.Embed(
+        title=f"What will {x.name} use? (Select a Move)",
+        description="\n".join(des_list),
+        color=discord.Color.red()
+    )
+
+    msg = await channel.send(embed=embed, view=view)
+    
+    # 5. Wait for selection
+    try:
+        await view.wait()
+        
+        # Clean up the message
         try:
-            # Wait for the next message matching the check
-            choice_message = await bot.wait_for('message', check=check)
-            content = choice_message.content
-
-            # --- Z-Move Check (Highest Priority) ---
-            if x.zuse and tr1.canz:
-                x.zuse = False
-                tr1.canz = False
-                return x.zmove
-
-            # --- Input Validation (Must be "1", "2", "3", or "4") ---
-            if content not in ["1", "2", "3", "4"]:
-                #await send_feedback("Wrong Input. Please enter a number between 1 and 4.")
-                continue # Go back to the start of the loop
-
-            num = int(content) - 1 # Convert to 0-indexed number
+            await msg.edit(view=None)
+        except:
+            pass
             
-            # Use the correct move list based on Dynamax status
-            current_moves = x.maxmoves if x.dmax else x.moves
-
-            # Handle moves list being empty (should return struggle)
-            if not current_moves:
-                 return "Struggle"
+        # Return the selected move (already validated for most conditions within the view)
+        if view.selected_move:
+            return view.selected_move
+        else:
+            return "Struggle" # Should only happen on timeout
             
-            # Check if the number is out of bounds for the current move list
-            if not (0 <= num < len(current_moves)):
-                await send_feedback("Wrong Input. That move slot is empty or invalid.")
-                continue # Go back to the start of the loop
-            
-            # --- Dynamax Logic (Highest Move Selection Priority) ---
-            if x.dmax:
-                return current_moves[num]
-
-            # --- Choice Item Logic (Not Dynamaxed) ---
-            if "Choice" in x.item:
-                selected_move = x.moves[num]
-
-                # First time choosing a move with a Choice item
-                if x.choiced == "None":
-                    x.choiced = True
-                    x.choicedmove = selected_move
-                    return selected_move
-                
-                # Already locked into a move
-                elif x.choiced != "None":
-                    # Check if the player selected the move they are locked into
-                    if selected_move == x.choicedmove:
-                        return selected_move
-                    else:
-                        # Auto-select the locked move, or return Struggle if the move is gone
-                        try:
-                            # Use the stored choicedmove name to find its *current* index
-                            return x.moves[x.moves.index(x.choicedmove)]
-                        except ValueError:
-                            # The locked move is gone (e.g., deleted by other means)
-                            return "Struggle"
-            
-            # --- Assault Vest Logic (Not Dynamaxed, No Choice Lock) ---
-            if "Assault Vest" in x.item:
-                selected_move = x.moves[num]
-                # Assuming 'typemoves.statusmove' is accessible and is a collection of status moves
-                if selected_move in typemoves.statusmove:
-                    await send_feedback("Cannot use status moves while holding Assault Vest.")
-                    continue # Go back to the start of the loop
-                else:
-                    return selected_move
-
-            # --- Default Move Selection ---
-            # If no special conditions applied, just return the chosen move
-            return x.moves[num]
-
-        # General Exception Handling for safety (e.g., if x.moves[num] fails unexpectedly)
-        except Exception as e:
-            # The most likely error remaining is an Index Error, but general catch is safer here.
-            print(f"Error during move choice: {e}")
-            await send_feedback("An unexpected error occurred. Please try again or re-enter your choice.")
-            continue # Go back to the start of the loop
+    except asyncio.TimeoutError:
+        # Clean up the message and return Struggle
+        try:
+            await msg.edit(content="Move selection timed out. Using Struggle.", embed=None, view=None)
+        except:
+            pass
+        return "Struggle"
                       
 async def megatrans(ctx,x,y,tr1,tr2,field,turn):
     des=f"{x.icon} {x.name}'s {x.item} is reacting to {tr1.name}'s Keystone!\n{x.name} has Mega Evolved into Mega {x.name}!"
@@ -3680,7 +3785,94 @@ async def apply_illusion_effect(tr1, new):
         new.sprite = last_pokemon.sprite
         # Note: The original code sets nickname twice, which is redundant but preserved if needed elsewhere.
         # new.nickname = last_pokemon.nickname
-                       
+class PokemonSwitchSelect(discord.ui.Select):
+    def __init__(self, tr1: 'Trainer', current_pokemon: 'Pokemon'):
+        self.tr1 = tr1
+        self.current_pokemon = current_pokemon
+        self.selected_index = -1
+        
+        options = []
+        for i, p in enumerate(tr1.pokemons):
+            # --- FIX: REMOVE 'disabled=is_disabled' ---
+            is_fainted_or_active = (p.hp <= 0 or p == current_pokemon)
+            hp_status = "KO" if p.hp <= 0 else f"{int(p.hp)}/{int(p.maxhp)} HP"
+            
+            options.append(
+                discord.SelectOption(
+                    label=f"#{i+1} {p.name} ({hp_status})",
+                    # Append a warning to the description instead of disabling
+                    description=f"Ability: {p.ability}" if not is_fainted_or_active else "Cannot switch (Fainted or Active)",
+                    value=str(i),
+                    emoji=p.icon,
+                    # NO 'disabled' ARGUMENT HERE
+                )
+            )
+
+        super().__init__(
+            placeholder="Choose a Pokémon to switch into...", 
+            min_values=1, max_values=1, options=options
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+        index = int(self.values[0])
+        selected_pokemon = self.tr1.pokemons[index]
+        
+        # --- NEW VALIDATION LOGIC ---
+        if selected_pokemon.hp <= 0 or selected_pokemon == self.current_pokemon:
+            # Send an error message, but keep the view alive so they can pick again.
+            await interaction.response.send_message(
+                f"{selected_pokemon.name} cannot be chosen! Select a different Pokémon.", 
+                ephemeral=True
+            )
+            return
+        
+        # If valid, proceed with the original logic:
+        self.selected_index = index
+        
+        # Acknowledge and stop the view
+        await interaction.response.defer() 
+        self.view.stop()
+
+class PokemonSwitchView(discord.ui.View):
+    def __init__(self, tr1: 'Trainer', current_pokemon: 'Pokemon', send_target):
+        super().__init__(timeout=60.0)
+        self.tr1 = tr1
+        self.current_pokemon = current_pokemon
+        self.send_target = send_target
+        self.switch_select = PokemonSwitchSelect(tr1, current_pokemon)
+        self.add_item(self.switch_select)
+        self.chosen_pokemon: Optional['Pokemon'] = None
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        # Only the player controlling the switch can use the view
+        if interaction.user.id != self.tr1.member.id:
+            await interaction.response.send_message("This switch menu is not for you.", ephemeral=True)
+            return False
+        return True
+    
+    async def on_timeout(self):
+        # Notify the user on timeout if they haven't made a choice
+        if self.chosen_pokemon is None:
+            await self.send_target.send("Switch choice timed out. The battle has ended.", embed=None, view=None)
+
+    # A button to re-send the switch menu if the user loses the message
+    @discord.ui.button(label="Re-send Menu", style=discord.ButtonStyle.gray, row=1)
+    async def resend_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # Acknowledge the interaction
+        await interaction.response.send_message("Re-sending the switch menu.", ephemeral=True)
+        # Send a new copy of the full menu
+        em = await self.tr1.get_party_embed(self.current_pokemon) # Assuming you have a helper for this
+        await self.send_target.send(embed=em, view=self)
+
+    async def wait_for_switch(self) -> Optional['Pokemon']:
+        # Wait for the view to stop (either by selection or timeout)
+        await self.wait() 
+        
+        if self.switch_select.selected_index != -1:
+            # A selection was made
+            return self.tr1.pokemons[self.switch_select.selected_index]
+        return None
+                           
 async def switch(ctx, bot, x, y, tr1, tr2, field, turn):
     # --- 1. Cleanup Active Pokémon (x) State ---
     
@@ -3749,87 +3941,56 @@ async def switch(ctx, bot, x, y, tr1, tr2, field, turn):
     # --- 3. Human Switch Logic (Combined) ---
     else:
         new = None
+        
+        # Determine where to send the switch menu (Channel vs. DM)
+        if tr2.ai: # Human vs AI: input in main channel
+            send_target = ctx.channel 
+            send_feedback = lambda msg: ctx.send(msg)
+        else: # Human vs Human: input in DM
+            send_target = tr1.member 
+            send_feedback = lambda msg: tr1.member.send(msg)
+
+        # Build the initial embed for the user (optional, but good for context)
         pklist = ""
-        # Build the Pokemon list for the embed
         for i, p in enumerate(tr1.pokemons):
-            pklist += f"#{i+1} {p.icon} {p.name} {p.hp}/{p.maxhp}\n"
+            hp_status = "KO" if p.hp <= 0 else f"{int(p.hp)}/{int(p.maxhp)} HP"
+            pklist += f"#{i+1} {p.icon} {p.name} ({hp_status})\n"
             
         em = discord.Embed(title="Choose your pokémon!", description=pklist)
 
-        # Define the check for bot.wait_for based on opponent
-        if tr2.ai: # Human vs AI: input in main channel
-            def check(message):
-                return message.author == ctx.author and message.channel == ctx.channel
-            send_target = ctx # Send the embed to the channel
-            send_feedback = lambda msg: tr1.member.send(msg) # Send error feedback via DM
-        else: # Human vs Human: input in DM
-            def check(message):
-                return isinstance(message.channel, discord.DMChannel) and message.author == tr1.member
-            send_target = tr1.member # Send the embed to the DM
-            send_feedback = lambda msg: tr1.member.send(msg) # Send error feedback via DM
-
-        # Input loop
-        while new is None or new == x:
-            await send_target.send(embed=em)
+        # Initialize and send the view
+        switch_view = PokemonSwitchView(tr1, x, send_target)
+        msg = await send_target.send(embed=em, view=switch_view)
+        
+        # Wait for the selection
+        new = await switch_view.wait_for_switch()
+        
+        # Clean up the message after selection or timeout
+        try:
+            await msg.edit(view=None)
+        except:
+            pass
+        
+        # --- Switch Execution ---
+        if new:
+            # Only run withdraweff if the current Pokémon (x) was active (i.e., not a forced switch after faint)
+            if x in tr1.pokemons:
+                await withdraweff(ctx, x, tr1, y)
             
-            try:
-                num_msg = await bot.wait_for('message', check=check, timeout=60.0) # Added timeout
-                num_str = num_msg.content.strip()
-                
-                # Input validation
-                if not num_str.isdigit():
-                    await send_feedback("Invalid input. Please enter the number (1-6) corresponding to your Pokémon.")
-                    continue
+            # Apply Illusion
+            if new.ability == "Illusion":
+                await apply_illusion_effect(tr1, new)
 
-                num = int(num_str)
-                index = num - 1
-
-                # Range check (assuming a max of 6 Pokémon)
-                if not (0 <= index < len(tr1.pokemons)):
-                    await send_feedback(f"Invalid number. Please select a number between 1 and {len(tr1.pokemons)}.")
-                    continue
-
-                selected_pokemon = tr1.pokemons[index]
-
-                # Check if the chosen Pokémon is currently in battle
-                if selected_pokemon == x:
-                    await send_feedback(f"{x.name} is already in battle! Choose another Pokémon.")
-                    continue
-                
-                # Check if the chosen Pokémon is fainted/out of commission
-                if selected_pokemon.hp <= 0:
-                    await send_feedback(f"{selected_pokemon.name} has already fainted!")
-                    continue
-
-                # Valid switch choice found
-                new = selected_pokemon
-                
-                # --- Switch Execution ---
-                
-                # Only run withdraweff if the current Pokémon (x) was active (i.e., not a forced switch after faint)
-                if x in tr1.pokemons:
-                    await withdraweff(ctx, x, tr1, y)
-                
-                # Apply Illusion
-                if new.ability == "Illusion":
-                    await apply_illusion_effect(tr1, new)
-
-                # Apply Entry Effects and Update Party
-                await entryeff(ctx, new, y, tr1, tr2, field, turn)
-                await send_switch_message(ctx, tr1, new)
-                tr1.party = await partyup(tr1, new)
-                
-                return new
-
-            except asyncio.TimeoutError:
-                await send_feedback("Switch choice timed out. The battle has ended.")
-                return None # Or handle battle termination
-            except Exception as e:
-                # Catch any unexpected errors during processing
-                print(f"Error during switch input: {e}")
-                await send_feedback("An error occurred. Please try again or re-enter your choice.")
-                continue
-                    
+            # Apply Entry Effects and Update Party
+            await entryeff(ctx, new, y, tr1, tr2, field, turn)
+            await send_switch_message(ctx, tr1, new)
+            tr1.party = await partyup(tr1, new)
+            
+            return new
+        else:
+            # Timeout/Cancellation handled by the view
+            return None
+        
 async def withdraweff(ctx, x, tr1, y):
     # Determine if Neutralizing Gas is active on the opponent's side (y)
     neutralizing_gas_active = y.ability == "Neutralizing Gas"

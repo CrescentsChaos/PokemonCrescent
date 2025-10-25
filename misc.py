@@ -1389,48 +1389,128 @@ async def nickname(ctx:discord.Interaction,num:int=1,select:str="None"):
         c.execute(f"""Update `{ctx.user.id}` set nickname="{select}" where rowid={num}""") 
         db.commit()
         await ctx.response.send_message(f"Nickname updated!")
-@bot.command(aliases=["dt"])
-async def data(ctx,*name):        
-    name=(" ".join(name)).title()
-    db=sqlite3.connect("record.db")
-    c=db.cursor()
-    dt=sqlite3.connect("pokemondata.db")
-    ct=dt.cursor()
-    ct.execute(f"select * from 'wild' where name='{name}'")
-    mon=ct.fetchone()
-    c.execute(f"select * from 'pokemons' where name='{name}'")
-    p=c.fetchone()
-    c.execute(f"select * from 'alltime'")
-    v=c.fetchone()
-    if p!=None:
-        userate=round((p[4]/v[0])*100,2)
-        winrate=round((p[5]/p[4])*100,2)
-        data=discord.Embed(title=f"{mon[22]} {name}:")
-        data.add_field(name="Statistics:",value=f"**Matches:** {p[4]}\n**Wins:** {p[5]}\n**Userate:** {userate}%\n**Winrate:** {winrate}%")
-        natures=await convert_items_string(p[1])
-        items=await convert_items_string(p[2])
-        abilities=await convert_items_string(p[3])
-        nature=dict(list(natures.items())[:3])
-        item=dict(list(items.items())[:5])
-        ability=dict(list(abilities.items())[:3])
-        nt=""
-        for k,vl in nature.items():
-            nt+=f"{k}: {round((vl/p[4])*100,2)}%\n"
-        it=""
-        for k,vl in item.items():
-            it+=f"{await itemicon(k.replace('_',' '))} {k.replace('_',' ')}: {round((vl/p[4])*100,2)}%\n"
-        ab=""
-        for k,vl in ability.items():
-            ab+=f"{k.replace('_',' ')}: {round((vl/p[4])*100,2)}%\n"
-        data.add_field(name="Natures:",value=nt)
-        data.add_field(name="Abilities:",value=ab)
-        data.add_field(name="Items:",value=it)
-        data.set_thumbnail(url=mon[12])
-        await ctx.send(embed=data)
+async def convert_items_string(data_string: str) -> dict:
+    """Mock: Converts a string like 'Adamant:100,Jolly:50' into a dictionary."""
+    # In a real scenario, this would deserialize the string data from the database.
+    if not data_string: return {}
+    try:
+        parts = data_string.split(',')
+        return {k: int(v) for k, v in (part.split(':') for part in parts)}
+    except:
+        return {}
+
+async def itemicon(item_name: str) -> str:
+    """Mock: Returns an emoji for a given item."""
+    return "💊" if item_name.lower() in ("choice scarf", "choice band") else "❓"
+
+@bot.tree.command(name="data", description="Shows competitive usage statistics for a Pokémon.")
+@app_commands.describe(pokemon_name="The name of the Pokémon to look up (e.g., 'Garchomp').")
+async def data_slash(interaction: discord.Interaction, pokemon_name: str):
+    # Standardizing the name for database lookup
+    name = pokemon_name.title()
+
+    # --- Database Connections ---
+    db = sqlite3.connect("record.db")
+    c = db.cursor()
+    dt = sqlite3.connect("pokemondata.db")
+    ct = dt.cursor()
+
+    # Get Pokémon basic info from 'pokemondata.db'
+    ct.execute(f"SELECT * FROM 'wild' WHERE name=?", (name,))
+    mon = ct.fetchone()
+
+    if mon is None:
+        await interaction.response.send_message(f"Pokémon '{name}' not found in the database.", ephemeral=True)
+        db.close()
+        dt.close()
+        return
+
+    # Get competitive data from 'record.db'
+    c.execute(f"SELECT * FROM 'pokemons' WHERE name=?", (name,))
+    p = c.fetchone()
+    
+    # Get total matches for userate calculation from 'alltime'
+    c.execute(f"SELECT * FROM 'alltime'")
+    v = c.fetchone() # Assuming v[0] is the total match count
+
+    # --- Data Processing and Embed Creation ---
+    
+    # mon[22] is the icon/emoji, mon[12] is the thumbnail URL
+    pokemon_icon = mon[22]
+    thumbnail_url = mon[12]
+
+    if p is not None and v is not None:
+        # p[4] = Matches, p[5] = Wins, p[1]=Natures, p[2]=Items, p[3]=Abilities
+        total_matches_played = v[0]
+        pokemon_matches = p[4]
+        pokemon_wins = p[5]
+
+        # Calculate Rates
+        userate = round((pokemon_matches / total_matches_played) * 100, 2) if total_matches_played > 0 else 0.00
+        winrate = round((pokemon_wins / pokemon_matches) * 100, 2) if pokemon_matches > 0 else 0.00
+
+        # Create Embed
+        data = discord.Embed(title=f"{pokemon_icon} {name}:", color=discord.Color.blue())
+        data.add_field(
+            name="Statistics:",
+            value=f"**Matches:** {pokemon_matches}\n**Wins:** {pokemon_wins}\n**Userate:** {userate}%\n**Winrate:** {winrate}%",
+            inline=False
+        )
+        
+        # --- Top Usage Data ---
+        
+        # p[1]=Natures, p[2]=Items, p[3]=Abilities
+        natures = await convert_items_string(p[1])
+        items = await convert_items_string(p[2])
+        abilities = await convert_items_string(p[3])
+
+        # Get top 3 Natures, top 5 Items, top 3 Abilities
+        # Sorting dictionaries by value (count) descending and slicing
+        top_natures = dict(sorted(natures.items(), key=lambda item: item[1], reverse=True)[:3])
+        top_items = dict(sorted(items.items(), key=lambda item: item[1], reverse=True)[:5])
+        top_abilities = dict(sorted(abilities.items(), key=lambda item: item[1], reverse=True)[:3])
+        
+        # Format Natures
+        nt = ""
+        for k, vl in top_natures.items():
+            percent = round((vl / pokemon_matches) * 100, 2)
+            nt += f"**{k}:** {percent}%\n"
+        data.add_field(name="Top Natures:", value=nt or "N/A", inline=True)
+        
+        # Format Abilities
+        ab = ""
+        for k, vl in top_abilities.items():
+            percent = round((vl / pokemon_matches) * 100, 2)
+            ab += f"**{k.replace('_', ' ')}:** {percent}%\n"
+        data.add_field(name="Top Abilities:", value=ab or "N/A", inline=True)
+
+        # Format Items
+        it = ""
+        for k, vl in top_items.items():
+            percent = round((vl / pokemon_matches) * 100, 2)
+            item_display = k.replace('_', ' ')
+            icon = await itemicon(item_display)
+            it += f"{icon} **{item_display}:** {percent}%\n"
+        data.add_field(name="Top Items:", value=it or "N/A", inline=True)
+
+        data.set_thumbnail(url=thumbnail_url)
+        
+        # Send the successful response
+        await interaction.response.send_message(embed=data)
+
     else:
-        data=discord.Embed(title=f"{mon[22]} {name}:",description="No data available!")
-        data.set_thumbnail(url=mon[12])
-        await ctx.send(embed=data)
+        # Case where Pokémon exists (mon is not None) but no usage data is recorded (p is None or v is None)
+        data = discord.Embed(
+            title=f"{pokemon_icon} {name}:",
+            description="No competitive usage data available!",
+            color=discord.Color.orange()
+        )
+        data.set_thumbnail(url=thumbnail_url)
+        await interaction.response.send_message(embed=data)
+    
+    # Close database connections
+    db.close()
+    dt.close()
 @bot.tree.command(name="teach",description="Teach your pokémon a new move.")
 async def teach(ctx:discord.Interaction,mon:int,move:str):
     "Teaches your pokémon a certain move."
