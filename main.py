@@ -16,34 +16,63 @@ async def levelup(ctx:discord.Interaction,num:int=1,level:int=1):
     
 @bot.tree.command(name="evolve",description="Evolves a pokemon.")
 async def evolve(ctx:discord.Interaction,num:int=1): 
-    ev="" 
-    dt=sqlite3.connect("pokemondata.db")
-    ct=dt.cursor()
-    db=sqlite3.connect("owned.db")
-    c=db.cursor()
-    if num is not None:
-        num=await row(ctx,num,c)
-    c.execute(f"SELECT * FROM '{ctx.user.id}'")
-    allmon=c.fetchall()
-    if num==None:
-        num=len(allmon)
-        num=await row(ctx,num,c)
-    c.execute(f"SELECT * FROM '{ctx.user.id}' where rowid={num}")
-    n = c.fetchone()
-    ct.execute(f"SELECT * FROM 'wild' WHERE name=?", (n[0],))
-    m = ct.fetchone()
-    level=0
-    if m[20] not in [None,"None"] and "-" in m[20]:
-       level=int(m[20].split('-')[1])-1 
-       if n[2]>level and m[20] not in [None,"None"]:
-            c.execute(f"""Update `{ctx.user.id}` set name="{m[20].split('-')[0]}" where rowid={num}""") 
-            if n[0]==n[1]:
-             c.execute(f"""Update `{ctx.user.id}` set nickname="{m[20].split('-')[0]}" where rowid={num}""") 
-            db.commit()
-            ev=discord.Embed(title="Evolution:",description=f"Congratulations, Your {await pokeicon(n[0])} {n[0]} evolved into {await pokeicon(m[20].split('-')[0])} {m[20].split('-')[0]}!")
-    else:
-        ev=discord.Embed(title="Evolution:",description=f"Unfortunately, Your {await pokeicon(n[0])} {n[0]} cannot evolve!")
-    await ctx.response.send_message(embed=ev)
+    # Defer the response immediately since database operations can take time
+    await ctx.response.defer() 
+    
+    ev = "" 
+    # 1. Use aiosqlite for both databases
+    async with aiosqlite.connect("pokemondata.db") as dt, aiosqlite.connect("owned.db") as db:
+        # Get asynchronous cursors
+        ct = await dt.cursor()
+        c = await db.cursor()
+        
+        # 2. Modify the call to 'row' to use the async cursor 'c' 
+        # (This also means the 'row' function must be updated - see Step 2)
+        if num is not None:
+            num = await row(ctx, num, c)
+
+        # 3. Use await with ALL cursor operations
+        await c.execute(f"SELECT * FROM '{ctx.user.id}'")
+        allmon = await c.fetchall()
+        
+        if num == None:
+            num = len(allmon)
+            num = await row(ctx, num, c)
+            
+        await c.execute(f"SELECT * FROM '{ctx.user.id}' where rowid={num}")
+        n = await c.fetchone()
+        
+        # Using placeholder '?' for security
+        await ct.execute("SELECT * FROM 'wild' WHERE name=?", (n[0],))
+        m = await ct.fetchone()
+        
+        level = 0
+        if m and m[20] not in [None, "None"] and "-" in m[20]:
+            level = int(m[20].split('-')[1]) - 1 
+            
+            if n[2] > level: # n[2] is likely the current level
+                # Update Pokémon Name (Evolution)
+                await c.execute(f"""UPDATE `{ctx.user.id}` SET name=? WHERE rowid={num}""", (m[20].split('-')[0],))
+                
+                # Update Nickname if it was the default name
+                if n[0] == n[1]: # n[0] is name, n[1] is nickname
+                    await c.execute(f"""UPDATE `{ctx.user.id}` SET nickname=? WHERE rowid={num}""", (m[20].split('-')[0],))
+                
+                await db.commit() # Commit the changes to the 'owned' database
+                
+                ev = discord.Embed(
+                    title="Evolution:",
+                    description=f"Congratulations, Your {await pokeicon(n[0])} **{n[0]}** evolved into {await pokeicon(m[20].split('-')[0])} **{m[20].split('-')[0]}**!"
+                )
+        else:
+            ev = discord.Embed(
+                title="Evolution:",
+                description=f"Unfortunately, Your {await pokeicon(n[0])} **{n[0]}** cannot evolve!"
+            )
+            
+    # 4. Use edit_original_response after deferral
+    await ctx.edit_original_response(embed=ev)
+    
 @bot.tree.command(name="ranking",description="Shows ranking of the pokémons.")
 async def ranking(ctx:discord.Interaction,page:int=1):    
     dt=sqlite3.connect("pokemondata.db")

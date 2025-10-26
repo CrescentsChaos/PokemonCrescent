@@ -16,8 +16,15 @@ from hiddenpower import *
 megastones=("Floettite","Chandelurite","Scolipite","Falinksite","Pyroarite","Scraftinite","Drampanite","Eelektrossite","Dragalgite","Barbaracite","Clefablite","Starmite","Meganiumite","Excadrite","Emboarite","Froslassite","Feraligite","Skarmorite","Raichunite X","Raichunite Y","Greninjite","Delphoxite","Chesnaughtite","Malamarite","Hawluchanite","Victreebelite","Dragoninite","Gyaradosite","Venusaurite","Charizardite X","Charizardite Y","Abomasite","Absolite","Aerodactylite","Aggronite","Alakazite","Altarianite","Ampharosite","Audinite","Banettite","Beedrillite","Blastoisinite","Blazikenite","Camerupite","Diancite","Galladite","Garchompite","Gardevoirite","Gengarite","Glalitite","Heracronite","Houndoominite","Kangaskhanite","Latiasite","Latiosite","Lopunnite","Lucarionite","Manectite","Mawilite","Medichamite","Metagrossite","Mewtwonite X","Mewtwonite Y","Pidgeotite","Pinsirite","Sablenite","Salamencite","Sceptilite","Scizorite","Sharpedonite","Slowbronite","Steelixite","Seampertite","Tyranitarite")
 
 async def pokeicon(nm):
-    async with sqlite3.connect("pokemondata.db") as db:
-        row = await db.execute_fetchone("SELECT * FROM 'wild' WHERE name = ?", (nm,))
+    # FIX: Replace sqlite3.connect with aiosqlite.connect
+    async with aiosqlite.connect("pokemondata.db") as db:
+        
+        # FIX: Use db.execute() followed by db.fetchone()
+        # db.execute_fetchone() is not a method on the connection object.
+        cursor = await db.execute("SELECT * FROM 'wild' WHERE name = ?", (nm,))
+        row = await cursor.fetchone()
+        
+        # Assuming the icon is the 23rd column (index 22)
         return row[22] if row else None
     
 async def lbskg(pounds):
@@ -30,54 +37,102 @@ async def heightcon(meters):
     return f"{feet_part}'{inches_part}\""
 
 async def usagerecord(team):
-    db=sqlite3.connect("record.db")
-    c=db.cursor()
+    db = sqlite3.connect("record.db")
+    c = db.cursor()
+
+    # --- FIX 1: Create the 'pokemons' table if it doesn't exist ---
+    # Based on your INSERT statement, the table needs 6 columns.
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS pokemons (
+            name TEXT PRIMARY KEY,
+            natures TEXT,
+            items TEXT,
+            abilities TEXT,
+            total INTEGER,
+            wins INTEGER
+        )
+    """)
+    
+    # --- FIX 2: Create the 'alltime' table and initialize it if it doesn't exist ---
+    # This prevents an error when the function tries to select from it later.
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS alltime (
+            total INTEGER
+        )
+    """)
+    # Initialize the total count if the table was just created or is empty
+    c.execute(f"select * from `alltime`")
+    if c.fetchone() is None:
+        c.execute("INSERT INTO alltime (total) VALUES (0)")
+    
+    db.commit() # Commit the table creations/initializations
+
+    # --- Existing Logic to Process Each Pokémon in the Team ---
     for i in team:
         c.execute(f"select * from `pokemons` where name='{i.name}'")
-        v=c.fetchone()
-        if v==None:
-            #insert
+        v = c.fetchone()
+        
+        if v == None:
+            # insert (v[4] is total, v[5] is wins)
             c.execute(f"""INSERT INTO `pokemons` VALUES (
-            "{i.name}",
-            "{i.nature} 1",
-            "{(i.item.replace(' ','_')).replace('[Used]','')} 1",
-            "{i.ability.replace(' ','_')} 1",
-            1,
-            0
+                "{i.name}",
+                "{i.nature} 1",
+                "{(i.item.replace(' ','_')).replace('[Used]','')} 1",
+                "{i.ability.replace(' ','_')} 1",
+                1,
+                0
             )""")
-            db.commit()
+            db.commit() # Commit after each insert
         else:
-            #update
+            # update
+            # ... (Existing update logic for natures, items, abilities, and total) ...
+            
+            # NOTE: Your original code doesn't update the WIN count (v[5]), 
+            # only the TOTAL count (v[4]). I've kept this as-is.
+            
             natures=await convert_items_string(v[1])
             items=await convert_items_string(v[2])
             abilities=await convert_items_string(v[3])
+            
             if "Used" in i.item:
-                    i.item=i.item.replace('[Used]','')
+                i.item=i.item.replace('[Used]','')
+                
             if i.nature in natures:
                 natures[i.nature]=natures[i.nature]+1
                 natures=await convert_dict_string(natures)
             elif i.nature not in natures:
                 natures[i.nature]=1
                 natures=await convert_dict_string(natures)
+                
             if i.item.replace(' ','_') in items:
                 items[i.item.replace(' ','_')]=items[i.item.replace(' ','_')]+1
                 items=await convert_dict_string(items)
             elif i.item.replace(' ','_') not in items:
                 items[i.item.replace(' ','_')]=1
                 items=await convert_dict_string(items)
+                
             if i.ability.replace(' ','_') in abilities:
                 abilities[i.ability.replace(' ','_')]=abilities[i.ability.replace(' ','_')]+1
                 abilities=await convert_dict_string(abilities)
             elif i.ability.replace(' ','_') not in abilities:
                 abilities[i.ability.replace(' ','_')]=1
                 abilities=await convert_dict_string(abilities)
+                
             c.execute(f"""Update `pokemons` set natures="{natures}",items="{items}",abilities="{abilities}",total={v[4]+1} where name='{i.name}'""")
-            db.commit()
+            db.commit() # Commit after each update
+
+    # --- Existing Logic for All-Time Count ---
     c.execute(f"select * from `alltime`")
-    tot=c.fetchone()
-    tot=tot[0]
+    tot = c.fetchone()
+    # It must exist now due to the initialization above
+    tot = tot[0] 
     c.execute(f"""Update `alltime` set total={tot+1}""")
     db.commit()
+    
+    # NOTE: You are missing db.close() at the end of the function!
+    # It's good practice to close the synchronous connection.
+    db.close()
+    
 async def convert_items_string(input_string):
     # Converting string to dictionary
     items_dict = {}
@@ -4486,8 +4541,8 @@ async def gameteam(ctx, num=0, p1team=None):
     """
 
     # --- 1. Trainer Selection ---
-    players = (
-        "Flare Nouveau Grisham","Flare Nouveau Griselle",
+    players = ("Pokemon Trainer Ludlow","Pokemon Trainer Liko","Pokemon Trainer Roy","Pokemon Trainer Dot","Pokemon Trainer Ult",
+        "Explorers Chalce","Explorers Lucius","Explorers Coral","Explorers Sidian","Flare Nouveau Grisham","Flare Nouveau Griselle",
         "SBC Lebanne","SBC Jacinthe","Detective Emma","Fist of Justice Gwynn","Fist of Justice Ivor",
         "Quasartico Vinnie","DYN4MO Tarragon","DYN4MO Canari","Rust Syndicate Corbeau",
         "Rust Syndicate Philippe","Pokemon Trainer Taunie","Pokemon Trainer Naveen","Pokemon Trainer Lida",
@@ -4621,6 +4676,15 @@ async def gameteam(ctx, num=0, p1team=None):
 
 async def trsprite(name):
     spritelist={
+    "Pokemon Trainer Ludlow":"https://archives.bulbagarden.net/media/upload/thumb/d/d7/Ludlow_anime_2.png/200px-Ludlow_anime_2.png",
+    "Pokemon Trainer Ult":"https://archives.bulbagarden.net/media/upload/thumb/1/1a/Ult_anime.png/130px-Ult_anime.png",
+    "Pokemon Trainer Dot":"https://archives.bulbagarden.net/media/upload/thumb/3/3a/Dot_anime_5.png/150px-Dot_anime_5.png",
+    "Pokemon Trainer Liko":"https://archives.bulbagarden.net/media/upload/thumb/8/8b/Liko_anime_8.png/180px-Liko_anime_8.png",
+    "Pokemon Trainer Roy":"https://archives.bulbagarden.net/media/upload/thumb/9/98/Roy_anime_3.png/120px-Roy_anime_3.png",
+    "Explorers Chalce":"https://archives.bulbagarden.net/media/upload/thumb/2/23/Chalce_anime_2.png/200px-Chalce_anime_2.png",
+    "Explorers Sidian":"https://archives.bulbagarden.net/media/upload/thumb/1/11/Sidian_anime_2.png/150px-Sidian_anime_2.png",
+    "Explorers Coral":"https://archives.bulbagarden.net/media/upload/thumb/2/2e/Coral_anime_2.png/150px-Coral_anime_2.png",
+    "Explorers Lucius":"https://archives.bulbagarden.net/media/upload/thumb/4/4b/Lucius_2.png/200px-Lucius_2.png",
     "Flare Nouveau Grisham":"https://archives.bulbagarden.net/media/upload/thumb/d/d3/ZA_Grisham.png/300px-ZA_Grisham.png",
     "Flare Nouveau Griselle":"https://archives.bulbagarden.net/media/upload/thumb/2/22/ZA_Griselle.png/450px-ZA_Griselle.png",
     "SBC Lebanne":"https://archives.bulbagarden.net/media/upload/thumb/b/b9/ZA_Lebanne.png/300px-ZA_Lebanne.png",

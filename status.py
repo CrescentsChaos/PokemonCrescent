@@ -17,7 +17,7 @@ async def berry(em,y,x,xhp,yhp,turn):
       if y.item=="Ganlon Berry" and x.ability not in ["Unnerve","As One"]:
           if y.ability=="Cheek Pouch" and y.hp<y.maxhp:
               y.hp+=(y.maxhp/3)
-          em.add_field(name=f"{y.icon} {y.name}'s {await itemicon(y.item)} {y.item}!",value=f"{y.item} raised {y.icon} {y.name}'s Special Defense!")
+          em.add_field(name=f"{y.icon} {y.name}'s {await itemicon(y.item)} {y.item}!",value=f"{y.item} raised {y.icon} {y.name}'s Defense!")
           n=1
           if y.ability=="Ripen":
               n=2

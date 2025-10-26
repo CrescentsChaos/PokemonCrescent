@@ -1092,7 +1092,7 @@ class PokeInfoView(discord.ui.View):
 @bot.tree.command(name="pokeinfo", description="Shows infos about particular pokémon.")
 async def pokeinfo(ctx: discord.Interaction, num: int = None):
     "Shows infos about your captured pokémons."
-    
+    await ctx.response.defer()
     # Use aiosqlite to open the connection asynchronously
     async with aiosqlite.connect("owned.db") as db:
         
@@ -1113,7 +1113,7 @@ async def pokeinfo(ctx: discord.Interaction, num: int = None):
         # 2. Determine the Pokémon Index to Display (1-based)
         if num is not None:
             if not (1 <= num <= total_pokemon):
-                await ctx.response.send_message(
+                await ctx.followup.send(
                     f"Invalid Pokémon number. You only have {total_pokemon} Pokémon (1 to {total_pokemon}).", 
                     ephemeral=True
                 )
@@ -1129,7 +1129,7 @@ async def pokeinfo(ctx: discord.Interaction, num: int = None):
         
         # This check should ideally not fail if total_pokemon > 0, but is a safety
         if p is None:
-            await ctx.response.send_message("Could not retrieve Pokémon data.", ephemeral=True)
+            await ctx.edit_original_response("Could not retrieve Pokémon data.", ephemeral=True)
             return
 
         # --- 4. Build the Embed (UNCHANGED LOGIC) ---
@@ -1161,7 +1161,7 @@ async def pokeinfo(ctx: discord.Interaction, num: int = None):
         # 5. Send Message with View
         view = PokeInfoView(ctx, current_index, total_pokemon)
         
-        await ctx.response.send_message(embed=infos, view=view)
+        await ctx.edit_original_response(embed=infos, view=view)
 
 @bot.tree.command(name="marketlists",description="Shows pokémons in market.")
 async def marketlists(ctx:discord.Interaction,num:int=1):   
@@ -1500,40 +1500,57 @@ async def moveset(ctx:discord.Interaction,num:int=1):
     now.set_footer(text="/teach 'num' 'move name' to update moveset.")
     now.set_image(url=spc[12])
     await ctx.response.send_message(embed=now)
+    
 @bot.tree.command(name="nickname",description="Change the pokémons nickname.")
-async def nickname(ctx:discord.Interaction,num:int=1,select:str="None"):
-    if select!="None":
-        dt=sqlite3.connect("pokemondata.db")
-        db=sqlite3.connect("owned.db")
-        cx=dt.cursor()
-        c=db.cursor()
-        num=await row(ctx,num,c)       
-        c.execute(f"select * from `{ctx.user.id}` where rowid={num}")
-        mon=c.fetchone()
-        if "<:traded:1127340280966828042>" in mon[1]:
-            select=select+" <:traded:1127340280966828042>"
-        if "<:shiny:1127157664665837598>" in mon[1]:
-            select=select+" <:shiny:1127157664665837598>"
-        elif "<:alpha:1127167307198758923>" in mon[1]:
-            select=select+" <:alpha:1127167307198758923>"
-        elif "<:hatched:1134745434506666085>" in mon[1]:
-            select=select+" <:hatched:1134745434506666085>"            
-        c.execute(f"""Update `{ctx.user.id}` set nickname="{select}" where rowid={num}""") 
-        db.commit()
-        await ctx.response.send_message(f"Nickname updated!")
-async def convert_items_string(data_string: str) -> dict:
-    """Mock: Converts a string like 'Adamant:100,Jolly:50' into a dictionary."""
-    # In a real scenario, this would deserialize the string data from the database.
-    if not data_string: return {}
-    try:
-        parts = data_string.split(',')
-        return {k: int(v) for k, v in (part.split(':') for part in parts)}
-    except:
-        return {}
+async def nickname(ctx: discord.Interaction, num: int = 1, select: str = "None"):
+    # Always defer the interaction since we're doing database lookups
+    await ctx.response.defer()
 
-async def itemicon(item_name: str) -> str:
-    """Mock: Returns an emoji for a given item."""
-    return "💊" if item_name.lower() in ("choice scarf", "choice band") else "❓"
+    if select != "None":
+        # 1. Use aiosqlite.connect with async context managers
+        async with aiosqlite.connect("pokemondata.db") as dt, aiosqlite.connect("owned.db") as db:
+            
+            # Get asynchronous cursors
+            cx = await dt.cursor()
+            c = await db.cursor()
+            
+            # 2. Call the (now fixed) asynchronous 'row' function
+            # NOTE: You MUST ensure the 'row' function is also updated to use 'await c.execute'
+            num = await row(ctx, num, c)  
+
+            # 3. Use await for all cursor operations
+            await c.execute(f"select * from `{ctx.user.id}` where rowid=?", (num,))
+            mon = await c.fetchone()
+            
+            if not mon:
+                await ctx.edit_original_response(content="Could not find that Pokémon.", ephemeral=True)
+                return
+
+            # Append icons to the new nickname string 'select'
+            # Note: mon[1] is the nickname column
+            if "<:traded:1127340280966828042>" in mon[1]:
+                select = select + " <:traded:1127340280966828042>"
+            if "<:shiny:1127157664665837598>" in mon[1]:
+                select = select + " <:shiny:1127157664665837598>"
+            elif "<:alpha:1127167307198758923>" in mon[1]:
+                select = select + " <:alpha:1127167307198758923>"
+            elif "<:hatched:1134745434506666085>" in mon[1]:
+                select = select + " <:hatched:1134745434506666085>"      
+            
+            # Update the nickname (using '?' placeholder for security)
+            await c.execute(f"""UPDATE `{ctx.user.id}` SET nickname=? WHERE rowid=?""", (select, num))
+            
+            # Commit the change
+            await db.commit()
+            
+            # 4. Use edit_original_response to send the final message
+            await ctx.edit_original_response(content=f"Nickname updated to **{select}**!")
+    else:
+        # If no nickname is provided
+        await ctx.edit_original_response(
+            content="Please provide a nickname. Example: `/nickname num:1 select:Pikachu`", 
+            ephemeral=True
+        )
 
 @bot.tree.command(name="data", description="Shows competitive usage statistics for a Pokémon.")
 @app_commands.describe(pokemon_name="The name of the Pokémon to look up (e.g., 'Garchomp').")
