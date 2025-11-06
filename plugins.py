@@ -13,7 +13,7 @@ from typing import Optional,List, Tuple,TYPE_CHECKING,Set, Dict
 from typematchup import *
 from AI import *
 from hiddenpower import *
-megastones=("Floettite","Chandelurite","Scolipite","Falinksite","Pyroarite","Scraftinite","Drampanite","Eelektrossite","Dragalgite","Barbaracite","Clefablite","Starmite","Meganiumite","Excadrite","Emboarite","Froslassite","Feraligite","Skarmorite","Raichunite X","Raichunite Y","Greninjite","Delphoxite","Chesnaughtite","Malamarite","Hawluchanite","Victreebelite","Dragoninite","Gyaradosite","Venusaurite","Charizardite X","Charizardite Y","Abomasite","Absolite","Aerodactylite","Aggronite","Alakazite","Altarianite","Ampharosite","Audinite","Banettite","Beedrillite","Blastoisinite","Blazikenite","Camerupite","Diancite","Galladite","Garchompite","Gardevoirite","Gengarite","Glalitite","Heracronite","Houndoominite","Kangaskhanite","Latiasite","Latiosite","Lopunnite","Lucarionite","Manectite","Mawilite","Medichamite","Metagrossite","Mewtwonite X","Mewtwonite Y","Pidgeotite","Pinsirite","Sablenite","Salamencite","Sceptilite","Scizorite","Sharpedonite","Slowbronite","Steelixite","Seampertite","Tyranitarite")
+megastones=("Heatranite","Zeraorite","Darkranite","Chimecite","Baxcaliburite","Floettite","Chandelurite","Scolipite","Falinksite","Pyroarite","Scraftinite","Drampanite","Eelektrossite","Dragalgite","Barbaracite","Clefablite","Starminite","Meganiumite","Excadrite","Emboarite","Froslassite","Feraligite","Skarmorite","Raichunite X","Raichunite Y","Greninjite","Delphoxite","Chesnaughtite","Malamarite","Hawluchanite","Victreebelite","Dragoninite","Gyaradosite","Venusaurite","Charizardite X","Charizardite Y","Abomasite","Absolite","Aerodactylite","Aggronite","Alakazite","Altarianite","Ampharosite","Audinite","Banettite","Beedrillite","Blastoisinite","Blazikenite","Camerupite","Diancite","Galladite","Garchompite","Gardevoirite","Gengarite","Glalitite","Heracronite","Houndoominite","Kangaskhanite","Latiasite","Latiosite","Lopunnite","Lucarionite","Manectite","Mawilite","Medichamite","Metagrossite","Mewtwonite X","Mewtwonite Y","Pidgeotite","Pinsirite","Sablenite","Salamencite","Sceptilite","Scizorite","Sharpedonite","Slowbronite","Steelixite","Seampertite","Tyranitarite")
 
 async def pokeicon(nm):
     # FIX: Replace sqlite3.connect with aiosqlite.connect
@@ -1990,6 +1990,67 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             x.speed=100
             calcst(x)
             x.sprite="https://archives.bulbagarden.net/media/upload/thumb/2/2e/Mega_Zygarde_aiming_its_cannon.jpg/214px-Mega_Zygarde_aiming_its_cannon.jpg"
+            x.hp=x.maxhp*per
+        if x.item=="Heatranite" and "Heatran" in x.name:
+            per=x.hp/x.maxhp
+            x.weight=4300
+            x.hp=91
+            x.atk=120
+            x.defense=106
+            x.spatk=175
+            x.spdef=141
+            x.speed=67
+            calcst(x)
+            x.sprite="https://i.postimg.cc/9fM83CX8/Mega-Heatran.png"
+            x.hp=x.maxhp*per    
+        if x.item=="Zeraorite" and "Zeraora" in x.name:
+            per=x.hp/x.maxhp
+            x.weight=445
+            x.hp=88
+            x.atk=157
+            x.defense=75
+            x.spatk=147
+            x.spdef=80
+            x.speed=153
+            calcst(x)
+            x.sprite="https://i.postimg.cc/7L6svwPt/Mega-Zeraora.png"
+            x.hp=x.maxhp*per
+        if x.item=="Darkranite" and "Darkrai" in x.name:
+            per=x.hp/x.maxhp
+            x.weight=505
+            x.hp=70
+            x.atk=120
+            x.defense=130
+            x.spatk=165
+            x.spdef=130
+            x.speed=85
+            calcst(x)
+            x.sprite="https://i.postimg.cc/N0MJhBGN/Mega-Darkrai.png"
+            x.hp=x.maxhp*per
+        if x.item=="Baxcaliburite" and "Baxcalibur" in x.name:
+            per=x.hp/x.maxhp
+            x.weight=445
+            x.hp=115
+            x.atk=185
+            x.defense=112
+            x.spatk=65
+            x.spdef=96
+            x.speed=102
+            calcst(x)
+            x.sprite="https://i.postimg.cc/pV8WjtQ8/Mega-Baxcalibur.png"
+            x.hp=x.maxhp*per
+        if x.item=="Chimecite" and "Chimecho" in x.name:
+            x.secondaryType="Steel"
+            per=x.hp/x.maxhp
+            x.weight=445
+            x.hp=75
+            x.atk=60
+            x.defense=100
+            x.spatk=145
+            x.spdef=120
+            x.speed=95
+            calcst(x)
+            x.sprite="https://i.postimg.cc/h4xDmq8T/Mega-Chingling.png"
             x.hp=x.maxhp*per
         if x.item=="Feraligite" and "Feraligatr" in x.name:
             x.ability="Strong Jaw"
