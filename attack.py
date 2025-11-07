@@ -84,7 +84,7 @@ async def preattack(ctx, x, y, tr1, tr2, used, choice2, field, turn):
     if y.ability == "Stench":
         if x.ability != "Long Reach" and random.randint(1, 100) > 90:
             x.flinched = True 
-            await ctx.send(f"{x.icon} {x.name} was pushed back by {y.name}'s Stench!")
+            await ctx.followup.send(f"{x.icon} {x.name} was pushed back by {y.name}'s Stench!")
             return
     is_charging = used in typemoves.premove and not x.precharge
     
@@ -96,7 +96,7 @@ async def preattack(ctx, x, y, tr1, tr2, used, choice2, field, turn):
                 y.flinched = True
                 
             if y.flinched:
-                 await ctx.send(f"{y.icon} {y.name} flinched!")
+                 await ctx.followup.send(f"{y.icon} {y.name} flinched!")
                 
 async def accheck(x,y,used,field,em):
     if x.use!="Assist":
@@ -452,6 +452,8 @@ async def attack(ctx,bot,x,y,tr1,tr2,used,choice2,field,turn):
             if used!="None" and used not in typemoves.soundmoves and used in typemoves.statusmove and (used not in typemoves.buffmove and used not in typemoves.bypass):
                 used="None"        
                 em.add_field(name="Substitute:",value="Substitute is immune to statusmoves!")
+        else:
+            y=subr
     if used in typemoves.physicalmoves:
         x.atkcat="Physical"
     elif used not in (typemoves.statusmove+typemoves.physicalmoves):
@@ -462,7 +464,7 @@ async def attack(ctx,bot,x,y,tr1,tr2,used,choice2,field,turn):
         pp=2
     x.use=used
     if len(x.moves)==0:
-        await ctx.send(f" {x.name} has no move left!")
+        await ctx.followup.send(f" {x.name} has no move left!")
         used="Struggle"
     if x.item=="Custap Berry[Used]" and x.priority==True and used not in typemoves.prioritymove:    
         em.add_field(name=f"{await itemicon(x.item.replace('[Used]',''))} {x.name}'s {x.item}:",value=f"{x.item.replace('[Used]','')} will let {x.name} move first!") 
@@ -722,6 +724,8 @@ async def attack(ctx,bot,x,y,tr1,tr2,used,choice2,field,turn):
     "Geomancy":geomancy,
     "Mortal Spin":mortalspin,
     "G-Max Centiferno":gmaxcentiferno,
+    "G-Max Tartness":gmaxtartness,
+    "G-Max Sweetness":gmaxsweetness,
     "Tidy Up":tidyup,
     "Judgment":judgment,
     "Flail": flail,
@@ -732,6 +736,7 @@ async def attack(ctx,bot,x,y,tr1,tr2,used,choice2,field,turn):
     "Aura Wheel":aurawheel,
     "Shadow Bone":shadowbone,
     "Sky Uppercut":skyuppercut,
+    "Power-up Punch":poweruppunch,
     "Steel Beam":steelbeam,
     "Core Enforcer":coreenforcer,
     "Thousand Waves":thousandwaves,
@@ -1411,9 +1416,8 @@ async def attack(ctx,bot,x,y,tr1,tr2,used,choice2,field,turn):
         await moveeff(em, ctx, bot, x, y, tr1, tr2, used, choice2, field, turn, yhp, me, they)
         
         # Teleport and successful U-turn/etc. trigger a switch
-        if used == "Teleport" or y.hp > 0: # U-turn/Flip Turn/etc. only pivot if target isn't KO'd
-             if len(tr1.pokemons) > 1:
-                x = await switch_if_needed(ctx, bot, x, y, tr1, tr2, field, turn)
+        if len(tr1.pokemons) > 1:
+            x = await switch_if_needed(ctx, bot, x, y, tr1, tr2, field, turn)
 
     # --- 7. Beat Up (Custom Multi-Hit) ---
     elif used == "Beat Up":
@@ -1696,7 +1700,7 @@ async def attack(ctx,bot,x,y,tr1,tr2,used,choice2,field,turn):
         await spatkchange(em,x,x,1)
         em.add_field(name=f"{x.icon} {x.name}'s {await itemicon(x.item)} {x.item}!",value=f"The Throat Spray raised {x.name}'s Special Attack!")
         x.item+="[Used]"           
-    await ctx.send(embed=em)
+    await ctx.followup.send(embed=em)
     return x,y
     
         

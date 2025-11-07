@@ -65,7 +65,7 @@ class Moves:
         self.pivotingmoves=self.defboost+self.spdefboost+["Chilly Reception"]
         self.everymove=self.firemoves+self.watermoves+self.electricmoves+self.grassmoves+self.normalmoves+self.darkmoves+self.ghostmoves+self.psychicmoves+self.poisonmoves+self.steelmoves+self.fairymoves+self.bugmoves+self.fightingmoves+self.flyingmoves+self.icemoves+self.rockmoves+self.groundmoves+self.dragonmoves+self.statusmove+["Struggle","None"]
         self.allmove=tuple(set(self.everymove)-set(self.maxmovelist+self.zmoves))
-
+        self.sleepmoves=["Hypnosis","Sleep Powder","Spore","Lovely Kiss","Sing","Yawn","Grass Whistle"]
 typemoves=Moves()
 def remove_common(a, b):
     for i in a:

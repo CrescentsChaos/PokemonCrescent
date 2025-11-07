@@ -114,9 +114,9 @@ async def ranking(ctx:discord.Interaction,page:int=1):
                 icon=mon[22]
                 x.add_field(name=f"#{k} {icon} {name}",value=f"Total Matches: {i[4]} ; Wins: {i[5]} ; Winrate: {round(((i[5]/i[4])*100),2)}%")
             x.set_footer(text=f"Showing {page} out of {len(list_of_lists)} pages.")
-            await ctx.response.send_message(embed=x)
+            await ctx.followup.send(embed=x)
     else:
-        await ctx.response.send_message("Unfortunately not many pokémons are ranked. ")        
+        await ctx.followup.send("Unfortunately not many pokémons are ranked. ")        
             
 class TradeOffer:
     def __init__(self):
@@ -666,7 +666,7 @@ async def trade_slash(interaction: discord.Interaction, member: discord.Member):
 #   tr1="None"
 #   tr2="None"
 #   while (tr1=="None" and tr2=="None"):
-#     await ctx.send(f"{ctx.author.mention} what you wanna trade? (pokemon/money/free)")
+#     await ctx.followup.send(f"{ctx.author.mention} what you wanna trade? (pokemon/money/free)")
 #     response=await bot.wait_for('message',check=lambda message:message.author==ctx.author)
 #     if response.content.lower() in ["p","poke","pokemon","pk"]:
 #       tr1="Pokemon"
@@ -676,7 +676,7 @@ async def trade_slash(interaction: discord.Interaction, member: discord.Member):
 #       tr1="Free"            
 #     elif response.content.lower() in ["cn","cancel","end","en"]:
 #       tr1="Cancel"      
-#     await ctx.send(f"{member.mention} what you wanna trade? (pokemon/money/free)")   
+#     await ctx.followup.send(f"{member.mention} what you wanna trade? (pokemon/money/free)")   
 #     res1=await bot.wait_for('message',check=lambda message:message.author==member)
 #     if res1.content.lower() in ["p","poke","pokemon","pk"]:
 #       tr2="Pokemon"
@@ -687,7 +687,7 @@ async def trade_slash(interaction: discord.Interaction, member: discord.Member):
 #     elif res1.content.lower() in ["cn","cancel","end","en"]:
 #       tr2="Cancel"    
 #   if "Cancel" in (tr1,tr2):
-#     await ctx.send("Trade cancelled.")
+#     await ctx.followup.send("Trade cancelled.")
 #   elif tr1=="Money" and tr2=="Free":
 #     db=sqlite3.connect("playerdata.db")
 #     c=db.cursor()
@@ -695,7 +695,7 @@ async def trade_slash(interaction: discord.Interaction, member: discord.Member):
 #     m=c.fetchone()
 #     money=m[0]
 #     while True:
-#       await ctx.send(f"{ctx.author.mention} how much money you wanna give?")
+#       await ctx.followup.send(f"{ctx.author.mention} how much money you wanna give?")
 #       response=await bot.wait_for('message',check=lambda message:message.author==ctx.author)
 #       try:
 #         if int(response.content)<=money:
@@ -704,7 +704,7 @@ async def trade_slash(interaction: discord.Interaction, member: discord.Member):
 #           await addmoney(ctx,ctx.author,-new)
 #           break
 #       except:
-#         await ctx.send(f"{ctx.author.mention},you don't have enough money!")
+#         await ctx.followup.send(f"{ctx.author.mention},you don't have enough money!")
 #         break
 #   elif tr2=="Money" and tr1=="Free":
 #     db=sqlite3.connect("playerdata.db")
@@ -713,7 +713,7 @@ async def trade_slash(interaction: discord.Interaction, member: discord.Member):
 #     m=c.fetchone()
 #     money=m[0]
 #     while True:
-#       await ctx.send(f"{member.mention} how much money you wanna give?")
+#       await ctx.followup.send(f"{member.mention} how much money you wanna give?")
 #       response=await bot.wait_for('message',check=lambda message:message.author==member)
 #       try:
 #         if int(response.content)<=money:
@@ -722,10 +722,10 @@ async def trade_slash(interaction: discord.Interaction, member: discord.Member):
 #           await addmoney(ctx,member,-new)
 #           break
 #       except:
-#         await ctx.send(f"{member.mention},you don't have enough money!")
+#         await ctx.followup.send(f"{member.mention},you don't have enough money!")
 #         break          
 #   elif tr1=="Pokemon" and tr2=="Free":
-#     await ctx.send(f"{ctx.author.mention} which pokemon you wanna trade for free?")
+#     await ctx.followup.send(f"{ctx.author.mention} which pokemon you wanna trade for free?")
 #     while True:
 #       response=await bot.wait_for('message',check=lambda message:message.author==ctx.author)
 #       db=sqlite3.connect("owned.db")
@@ -743,7 +743,7 @@ async def trade_slash(interaction: discord.Interaction, member: discord.Member):
 #           types=f"{await typeicon(p.primaryType)}{await typeicon(p.secondaryType)}"
 #         infos=discord.Embed(title=f"{p.icon} {p.nickname} Lv.{p.level} will be traded to {member.mention}!",description=f"""**Types:** {types}{await teraicon(p.tera)}\n**Ability:** {p.ability}\n**Nature:** {p.nature}\n**Gender:** {p.gender}\n**Held Item:** {p.item}\n**Total IV %:** {p.totaliv}%""",color=clr)
 #         infos.set_image(url=p.sprite)
-#         await ctx.send(embed=infos)
+#         await ctx.followup.send(embed=infos)
 #         while True:
 #           response=await bot.wait_for('message',check=lambda message:message.author==ctx.author)
 #           if (response.content).lower() in ["yes","y","confirm","cm"]:
@@ -780,13 +780,13 @@ async def trade_slash(interaction: discord.Interaction, member: discord.Member):
 #             db.commit()
 #             c.execute(f"delete from '{ctx.author.id}' where rowid={nm}")
 #             db.commit()
-#             await ctx.send("Traded successfully.")  
+#             await ctx.followup.send("Traded successfully.")  
 #           else:
 #             break
 #       else:       
 #         break     
 #   elif tr2=="Pokemon" and tr1=="Free":
-#     await ctx.send(f"{member.mention} which pokemon you wanna trade for free?")
+#     await ctx.followup.send(f"{member.mention} which pokemon you wanna trade for free?")
 #     while True:
 #       response=await bot.wait_for('message',check=lambda message:message.author==member)
 #       db=sqlite3.connect("owned.db")
@@ -804,7 +804,7 @@ async def trade_slash(interaction: discord.Interaction, member: discord.Member):
 #           types=f"{await typeicon(p.primaryType)}{await typeicon(p.secondaryType)}"
 #         infos=discord.Embed(title=f"{p.icon} {p.nickname} Lv.{p.level} will be traded to {member.mention}!",description=f"""**Types:** {types}{await teraicon(p.tera)}\n**Ability:** {p.ability}\n**Nature:** {p.nature}\n**Gender:** {p.gender}\n**Held Item:** {p.item}\n**Total IV %:** {p.totaliv}%""",color=clr)
 #         infos.set_image(url=p.sprite)
-#         await ctx.send(embed=infos)
+#         await ctx.followup.send(embed=infos)
 #         while True:
 #           response=await bot.wait_for('message',check=lambda message:message.author==member)
 #           if (response.content).lower() in ["yes","y","confirm","cm"]:
@@ -841,7 +841,7 @@ async def trade_slash(interaction: discord.Interaction, member: discord.Member):
 #             db.commit()
 #             c.execute(f"delete from '{member.id}' where rowid={nm}")
 #             db.commit()
-#             await ctx.send("Traded successfully.")  
+#             await ctx.followup.send("Traded successfully.")  
 #           else:
 #             break        
 #       else:       
@@ -853,14 +853,14 @@ async def trade_slash(interaction: discord.Interaction, member: discord.Member):
 #     m=c.fetchone()
 #     money=m[0]
 #     while True:
-#       await ctx.send(f"{member.mention} how much money you wanna give?")
+#       await ctx.followup.send(f"{member.mention} how much money you wanna give?")
 #       response=await bot.wait_for('message',check=lambda message:message.author==member)
 #       if int(response.content)<=money:
 #         new=int(response.content)
 #         break
 #       else:
 #         break
-#     await ctx.send(f"{ctx.author.mention} which pokemon you wanna trade for {new}<:pokecoin:1134595078892044369>?")
+#     await ctx.followup.send(f"{ctx.author.mention} which pokemon you wanna trade for {new}<:pokecoin:1134595078892044369>?")
 #     while True:
 #       response=await bot.wait_for('message',check=lambda message:message.author==ctx.author)
 #       db=sqlite3.connect("owned.db")
@@ -878,7 +878,7 @@ async def trade_slash(interaction: discord.Interaction, member: discord.Member):
 #           types=f"{await typeicon(p.primaryType)}{await typeicon(p.secondaryType)}"
 #         infos=discord.Embed(title=f"{p.icon} {p.nickname} Lv.{p.level} will be traded to {member.mention} for {new}<:pokecoin:1134595078892044369>. {ctx.author.mention},Do you confirm?",description=f"""**Types:** {types}{await teraicon(p.tera)}\n**Ability:** {p.ability}\n**Nature:** {p.nature}\n**Gender:** {p.gender}\n**Held Item:** {p.item}\n**Total IV %:** {p.totaliv}%""",color=clr)
 #         infos.set_image(url=p.sprite)
-#         await ctx.send(embed=infos)  
+#         await ctx.followup.send(embed=infos)  
 #         p1=""  
 #         p2=""
 #         while True:
@@ -890,7 +890,7 @@ async def trade_slash(interaction: discord.Interaction, member: discord.Member):
 #             break
 #         if p1=="Confirmed":
 #           while True:
-#             await ctx.send(f"{member.mention} do you want to confirm the trade?")
+#             await ctx.followup.send(f"{member.mention} do you want to confirm the trade?")
 #             response=await bot.wait_for('message',check=lambda message:message.author==member)
 #             if (response.content).lower() in ["yes","y","confirm","cm"]:
 #               p2="Confirmed"
@@ -929,31 +929,75 @@ async def trade_slash(interaction: discord.Interaction, member: discord.Member):
 #               db.commit()
 #               await addmoney(ctx,ctx.author,new)
 #               await addmoney(ctx,member,-new)
-#               await ctx.send("Traded successfully.")
+#               await ctx.followup.send("Traded successfully.")
 #               break
 #             else:
 #               break
 #   else:
-#     await ctx.send("Trade cancelled.")  
+#     await ctx.followup.send("Trade cancelled.")  
           
-@bot.command(aliases=["bt"])
-async def battle(ctx,member:discord.Member):
-    await ctx.send(f"{member.mention} do you want to battle?")
-    while True:
-        response=await bot.wait_for('message',check=lambda message:message.author==member)
-        if response.content.lower() in ["y","yes"]:
-            await ctx.send(f"Battle starting between {ctx.author.display_name} and {member.display_name}!")
-            await multiplayer(ctx,ctx.author,member)
-            break
-        else:
-            break
-@bot.command(aliases=["rnk"])
-async def ranked(ctx):
-    await multiplayer(ctx,ctx.author,"ranked")            
-@bot.command(aliases=["gm"])
-async def game(ctx,num=0):
-    await multiplayer(ctx,ctx.author,num)
+@bot.tree.command(name="battle", description="Challenge another member to a Pokémon battle.")
+@app_commands.describe(member="The member you want to challenge.")
+async def battle_slash(interaction: discord.Interaction, member: discord.Member):
+    # 1. Defer the interaction since we will wait for user input (response)
+    await interaction.response.defer() 
     
+    # 2. Prevent challenging oneself or a bot (optional but recommended)
+    if member.bot or member == interaction.user:
+        return await interaction.followup.send("❌ You cannot challenge yourself or a bot!", ephemeral=True)
+    
+    # 3. Send the challenge message (using followup.send)
+    challenge_message = await interaction.followup.send(
+        f"{member.mention}, **{interaction.user.display_name}** has challenged you to a battle! "
+        f"Reply with **'y'** or **'yes'** to accept within 60 seconds."
+    )
+    
+    # 4. Define the check for the response
+    def check(message):
+        return message.author == member and \
+               message.channel == interaction.channel and \
+               message.content.lower() in ["y", "yes", "n", "no"]
+
+    try:
+        # 5. Wait for the response
+        response = await interaction.client.wait_for('message', check=check, timeout=60.0)
+        
+        if response.content.lower() in ["y", "yes"]:
+            await interaction.followup.send(
+                f"⚔️ **{member.display_name}** accepted! Battle starting between **{interaction.user.display_name}** and **{member.display_name}**!"
+            )
+            # You'll need to update 'multiplayer' to accept interaction instead of context
+            # await multiplayer(interaction, interaction.user, member) 
+            
+        else: # "n" or "no"
+            await interaction.followup.send(f"❌ **{member.display_name}** declined the battle.")
+            
+    except asyncio.TimeoutError:
+        await interaction.followup.send(f"💤 **{member.display_name}** didn't respond in time. Challenge timed out.")
+        
+@bot.tree.command(name="ranked", description="Start a ranked battle against a random opponent.")
+async def ranked_slash(interaction: discord.Interaction):
+    await interaction.response.send_message(
+        f"⚔️ **{interaction.user.display_name}** is queuing for a Ranked Battle! Finding opponent..."
+    )
+    
+    await multiplayer(interaction, interaction.user, "ranked")
+              
+@bot.tree.command(name="game", description="Start a multiplayer game")
+@app_commands.describe(num="Game number (optional)")
+async def game(interaction: discord.Interaction, num: int = 0):
+    # Change to ephemeral deferral
+    await interaction.response.send_message(
+        f"⚔️ **{interaction.user.display_name}** is queuing for a Battle! Finding opponent..."
+    )
+    await multiplayer(interaction, interaction.user, num)
+
+@bot.tree.command(name="doublebattle", description="Start a double battle")
+@app_commands.describe(num="Game number (optional)")
+async def doublebattle(interaction: discord.Interaction, num: int = 0):
+    await interaction.response.defer(ephemeral=True) 
+    await double_battle(interaction, interaction.user, num, interaction.client)
+        
 @bot.tree.command(name="view", description="View a Pokémon's stats from your team.")
 @app_commands.describe(num="The slot number of the Pokémon you want to view (1-6).")
 async def view(interaction: discord.Interaction, num: app_commands.Range[int, 1, 6] = 1):
@@ -1036,84 +1080,203 @@ async def addfavorite(ctx:discord.Interaction,num:int):
     if "<:favorite:1144122202942357534>" not in v[1]:
         ct.execute(f"""update '{ctx.user.id}' set nickname="{v[1]+' <:favorite:1144122202942357534>'}" where rowid={num}""")
         dt.commit()
-        await ctx.response.send_message("Favorite added.")
+        await ctx.followup.send("Favorite added.")
         
-@bot.tree.command(name="teambuild",description="Build a team for battling.")
-async def teambuild(ctx: discord.Interaction, mon1: int = 1, mon2: int = 2, mon3: int = 3, mon4: int = 4, mon5: int = 5, mon6: int = 6):
-    
-    # 1. Use aiosqlite for both database connections
+@bot.tree.command(name="teambuild", description="Build or edit a team for battling.")
+@discord.app_commands.describe(
+    mon1="The number of the Pokémon to put in slot 1 (Optional)",
+    mon2="The number of the Pokémon to put in slot 2 (Optional)",
+    mon3="The number of the Pokémon to put in slot 3 (Optional)",
+    mon4="The number of the Pokémon to put in slot 4 (Optional)",
+    mon5="The number of the Pokémon to put in slot 5 (Optional)",
+    mon6="The number of the Pokémon to put in slot 6 (Optional)"
+)
+async def teambuild(
+    ctx: discord.Interaction,
+    mon1: typing.Optional[int] = None,
+    mon2: typing.Optional[int] = None,
+    mon3: typing.Optional[int] = None,
+    mon4: typing.Optional[int] = None,
+    mon5: typing.Optional[int] = None,
+    mon6: typing.Optional[int] = None
+):
+    await ctx.response.defer(ephemeral=True)
+    # Map the arguments to their respective slot indices (0 to 5)
+    new_mons_input = [mon1, mon2, mon3, mon4, mon5, mon6]
+    user_id_str = str(ctx.user.id)
+
     async with aiosqlite.connect("playerdata.db") as db, \
                aiosqlite.connect("owned.db") as dt:
         
-        # We don't need to manually create cursors (cx, ct) here, 
-        # but we need one for the 'row' function call.
-        
-        tm = [mon1, mon2, mon3, mon4, mon5, mon6] 
-        new_rowids = []
-        
-        # Use an active aiosqlite cursor to call the asynchronous 'row' function
-        async with dt.cursor() as ct:
-            for i in tm:
-                # 2. Await the 'row' function call
-                n = await row(ctx, i, ct)
+        # 1. Fetch the user's current squad
+        current_squad_rowids = []
+        try:
+            async with db.execute(f"""SELECT squad FROM '{user_id_str}'""") as cursor:
+                # The result is (squad_string,), so fetchone()[0] gives the string
+                result = await cursor.fetchone()
+                squad_str = result[0] if result and result[0] else None
                 
-                # Check if the row_id was successfully retrieved
-                if n is None:
-                    # If any Pokémon index is invalid, stop and notify the user
-                    return await ctx.response.send_message(
-                        f"Error: Could not find Pokémon at position #{i}. Please ensure all numbers are valid.",
-                        ephemeral=True
-                    )
-                new_rowids.append(n)
+                if squad_str:
+                    # Safely convert the string representation of the list to a list
+                    current_squad_rowids = ast.literal_eval(squad_str)
+                else:
+                    # Default team if none exists (e.g., [100, 200, 300, 400, 500, 600] for rowids)
+                    # Use placeholders that are likely not valid Pokémon IDs if you want to force a full setup first
+                    # For now, initialize with 6 placeholders or assume they must fill all 6 slots on first run.
+                    # We'll initialize with 6 zeros or a default if not found.
+                    # It's safer to ensure they have a squad of 6 if they exist.
+                    if any(mon is not None for mon in new_mons_input):
+                         # If they are trying to update an empty squad, initialize it
+                         # A default empty list of 6 slots
+                        current_squad_rowids = [0] * 6 # 0 as a placeholder for an empty slot/invalid rowid
+                    else:
+                        return await ctx.followup.send(
+                            "Your team is not set up. Please use a command to get your first Pokémon or specify 6 Pokémon to start your team.",
+                            ephemeral=True
+                        )
+
+
+        except aiosqlite.OperationalError as e:
+            if "no such table" in str(e):
+                # Handle case where the user's table doesn't exist yet
+                return await ctx.followup.send(
+                    "You don't have a player data entry yet. Please run a command that initializes your player data first!",
+                    ephemeral=True
+                )
+            raise # Re-raise other errors
+
+        # Ensure the current_squad_rowids list has exactly 6 elements
+        if len(current_squad_rowids) != 6:
+            # This should ideally not happen if playerdata is consistent, but is a safeguard
+            current_squad_rowids = [0] * 6 # Reset or pad to 6 slots
+
+        # 2. Process and Validate new Pokémon
+        final_team_rowids = list(current_squad_rowids) # Copy the existing team
         
-        # Note: mx = max(new) is unused for the team update, so we can ignore it.
+        async with dt.cursor() as ct:
+            for i, mon_id in enumerate(new_mons_input):
+                if mon_id is not None:
+                    # Check if the Pokémon index (mon_id) is valid and owned, get its unique row_id
+                    new_rowid = await row(ctx, mon_id, ct)
+                    
+                    if new_rowid is None:
+                        return await ctx.followup.send(
+                            f"Error: Could not find Pokémon with ID **{mon_id}**. Please ensure it's a valid number for an owned Pokémon.",
+                            ephemeral=True
+                        )
+                    
+                    # Update the corresponding slot (i is 0 to 5)
+                    final_team_rowids[i] = new_rowid
+                
+        # 3. Validation: No duplicates in the final team (excluding placeholder 0)
+        actual_team_rowids = [r for r in final_team_rowids if r != 0]
+        if len(actual_team_rowids) != len(set(actual_team_rowids)):
+            return await ctx.followup.send(
+                "Error: Your final team contains **duplicate Pokémon**. Each Pokémon in your team must be unique.",
+                ephemeral=True
+            )
         
-        team_squad_string = f"{new_rowids}" # Storing the list of rowids as a string
+        # 4. Final Validation: Must have exactly 6 Pokémon
+        if len(actual_team_rowids) != 6:
+            return await ctx.followup.send(
+                f"Your team must have exactly 6 Pokémon. You currently have {len(actual_team_rowids)} unique Pokémon set. Please fill all 6 slots.",
+                ephemeral=True
+            )
+
+        # 5. Save the new team (list of rowids)
+        team_squad_string = f"{final_team_rowids}" # Store the list back as a string
         
-        # 3. Use the asynchronous execute method on the 'db' connection
-        if len(new_rowids) == 6:
-            user_id_str = str(ctx.user.id)
-            
-            # Use parameterized query for safety, even for table/column names if possible,
-            # but table name f-string is necessary for your current structure.
-            await db.execute(f"""UPDATE '{user_id_str}' SET squad = ?""", (team_squad_string,))
-            
-            # 4. Use the asynchronous commit method
-            await db.commit()
-            
-            await ctx.response.send_message("Team updated successful! The team is now: " + ", ".join(map(str, new_rowids)))
-        else:
-            await ctx.response.send_message("Team build failed. Please provide exactly 6 valid Pokémon numbers.")
+        await db.execute(f"""UPDATE '{user_id_str}' SET squad = ?""", (team_squad_string,))
+        await db.commit()
         
-@bot.tree.command(name="profile",description="Shows profile.")     
-async def profile(ctx:discord.Interaction):
-    db=sqlite3.connect("playerdata.db")
-    dt=sqlite3.connect("owned.db")
-    c=db.cursor()
-    ct=dt.cursor()
-    c.execute(f"select * from '{ctx.user.id}'")
-    ct.execute(f"select * from '{ctx.user.id}'")
-    det=c.fetchone()
-    allmon=ct.fetchall()
-    ct.execute(f"select * from '{ctx.user.id}' where shiny='Yes'")
-    shinies=ct.fetchall()
-    dy=(datetime.datetime.today()-datetime.datetime.strptime(det[3],"%Y-%m-%d %H:%M:%S")).days
-    ttl=""
-    if ctx.user.id==1084473178400755772:
-        ttl="<:owner:1133682173413699714>"
-    data=discord.Embed(title=f"{ctx.user.display_name}{ttl}'s Profile:",description=f"**<:pokecoin:1134595078892044369> Balance:** {await numberify(det[0])}\n**<:ball:1127196564948009052> Pokémons Caught:** {len(allmon)}\n**<:shiny:1127157664665837598> Shinies Caught:** {len(shinies)}\n**<:currentwin:1140763688668766249> Winstreak:** {det[4]}\n**<:winstreak:1140763720683880478> Highest Winstreak:** {det[5]}")
+        # Convert row IDs back to a readable format for the confirmation message
+        # You might want to use a function to get the Pokémon NAME/ID from the rowid for better display
+        # For simplicity, we'll just show the row IDs for now.
+        display_message = ", ".join(map(str, actual_team_rowids))
+        
+        await ctx.followup.send(
+            f"✅ **Team updated successfully!**\nYour new team (by unique ID) is: **{display_message}**"
+        )
+                
+def _fetch_profile_data(user_id):
+    # This entire block runs in a separate thread
+    db = sqlite3.connect("playerdata.db")
+    dt = sqlite3.connect("owned.db")
+    c = db.cursor()
+    ct = dt.cursor()
+    
+    # All synchronous blocking database calls are contained here
+    c.execute(f"select * from '{user_id}'")
+    ct.execute(f"select * from '{user_id}'")
+    det = c.fetchone()
+    allmon = ct.fetchall()
+    ct.execute(f"select * from '{user_id}' where shiny='Yes'")
+    shinies = ct.fetchall()
+    
+    # Close connections
+    c.close()
+    ct.close()
+    db.close()
+    dt.close()
+
+    # Return all necessary raw data
+    return det, allmon, shinies
+
+@bot.tree.command(name="profile", description="Shows profile.")
+async def profile(ctx: discord.Interaction):
+    # 1. CRITICAL: Defer immediately to keep the interaction token alive (up to 15 mins)
+    await ctx.response.defer() 
+
+    # 2. Delegate Blocking Database work to a separate thread
+    # This line runs the _fetch_profile_data function synchronously in a separate thread,
+    # preventing the main thread from blocking.
+    try:
+        det, allmon, shinies = await asyncio.to_thread(_fetch_profile_data, ctx.user.id)
+    except Exception as e:
+        # Handle case where user ID table doesn't exist (e.g., new player)
+        print(f"Database error for user {ctx.user.id}: {e}")
+        return await ctx.followup.send("Could not load profile. Have you registered yet?", ephemeral=True)
+
+    # 3. Resume Asynchronous/Embed building work
+    
+    # Recalculate days
+    dy = (datetime.datetime.today() - datetime.datetime.strptime(det[3], "%Y-%m-%d %H:%M:%S")).days
+    
+    # Build Title/Embed as before
+    ttl = "<:owner:1133682173413699714>" if ctx.user.id == 1084473178400755772 else ""
+    
+    # Assuming 'numberify' is defined and safe
+    data = discord.Embed(
+        title=f"{ctx.user.display_name}{ttl}'s Profile:",
+        description=(
+            f"**<:pokecoin:1134595078892044369> Balance:** {await numberify(det[0])}\n"
+            f"**<:ball:1127196564948009052> Pokémons Caught:** {len(allmon)}\n"
+            f"**<:shiny:1127157664665837598> Shinies Caught:** {len(shinies)}\n"
+            f"**<:currentwin:1140763688668766249> Winstreak:** {det[4]}\n"
+            f"**<:winstreak:1140763720683880478> Highest Winstreak:** {det[5]}"
+        )
+    )
     data.set_footer(text=f"Creation Date: {det[3]} ({dy} days ago)")
-    sq=eval(det[1])
-    if True:
-        team=await teamconvert(ctx,ctx.user,ctx.user.id)
-        ll=0
-        for i in team:
-            ll+=1
-            data.add_field(name=f"#{await findnum(ctx,sq[ll-1])} {i.icon} {i.nickname} {await teraicon(i.tera)}",value=f"**Ability:** {i.ability}\n**Item:** {await itemicon(i.item)} {i.item}",inline=False)
-    else:
-        data.add_field(name="Current Team:",value="Not available")
     data.set_thumbnail(url=ctx.user.avatar)
-    await ctx.response.send_message(embed=data)
+    
+    # Team display logic
+    sq = eval(det[1])
+    if True: # The original 'if True' is redundant, but keeping the block structure
+        team = await teamconvert(ctx, ctx.user, ctx.user.id)
+        ll = 0
+        for i in team:
+            ll += 1
+            # Assuming findnum, teraicon, itemicon are defined and safe
+            data.add_field(
+                name=f"#{await findnum(ctx, sq[ll-1])} {i.icon} {i.nickname} {await teraicon(i.tera)}",
+                value=f"**Ability:** {i.ability}\n**Item:** {await itemicon(i.item)} {i.item}",
+                inline=False
+            )
+    else:
+        data.add_field(name="Current Team:", value="Not available")
+        
+    # 4. Final step: Send the message using followup (since we deferred)
+    await ctx.followup.send(embed=data)
              
      
 async def teamconvert(ctx,p,id):
@@ -1129,25 +1292,47 @@ async def teamconvert(ctx,p,id):
         team.append(mi)
     return team
 class LeadSelectionView(discord.ui.View):
-    def __init__(self, trainer: 'Trainer', timeout: float = 60.0):
+    """
+    View for selecting lead Pokémon. Supports single (1 choice) and double (2 choices) battles.
+    """
+    def __init__(self, trainer: 'Trainer', is_double_battle: bool = False, timeout: float = 60.0):
         super().__init__(timeout=timeout)
         self.trainer = trainer
-        self.chosen_pokemon: Optional['Pokemon'] = None
+        self.is_double_battle = is_double_battle
+        # List to store the chosen Pokémon (1 for single, 2 for double)
+        self.chosen_pokemons: List['Pokemon'] = []
+        
+        # Determine the number of required selections
+        self.required_choices = 2 if is_double_battle else 1
         
         # Create a button for each Pokémon in the team
         for i, mon in enumerate(trainer.pokemons):
-            # Ensure we don't exceed the 25 component limit (max 5 rows of 5)
+            # Limit to 6 buttons for practical layout reasons (or your previous limit)
             if i >= 6: 
                 break 
                 
             button = discord.ui.Button(
                 style=discord.ButtonStyle.secondary,
                 label=f"{mon.name}",
-                emoji=getattr(mon, 'icon', None), # Use mon.icon if available
-                custom_id=str(i) # Store the index as the custom_id
+                emoji=getattr(mon, 'icon', None),
+                custom_id=str(i)
             )
             button.callback = self.create_callback(mon)
             self.add_item(button)
+
+    def update_button_styles(self):
+        """Updates the style of the buttons based on current selection."""
+        for item in self.children:
+            if isinstance(item, discord.ui.Button):
+                # Find the Pokémon object corresponding to the button
+                # This relies on the button label matching the Pokémon name (or custom_id logic)
+                poke_name = item.label
+                mon = next((p for p in self.trainer.pokemons if p.name == poke_name), None)
+                
+                if mon in self.chosen_pokemons:
+                    item.style = discord.ButtonStyle.success
+                else:
+                    item.style = discord.ButtonStyle.secondary
 
     def create_callback(self, pokemon: 'Pokemon'):
         # Creates a unique async function for each button
@@ -1156,13 +1341,38 @@ class LeadSelectionView(discord.ui.View):
             if interaction.user != self.trainer.member:
                 return await interaction.response.send_message("This selection isn't for you!", ephemeral=True)
                 
-            # 2. Store selection and confirm
-            self.chosen_pokemon = pokemon
-            await interaction.response.send_message(f"You chose **{pokemon.name}** as your lead Pokémon. Getting ready for battle!", ephemeral=True)
+            # 2. Selection Logic
+            if pokemon in self.chosen_pokemons:
+                # Deselect: Remove the Pokémon if it's already in the list
+                self.chosen_pokemons.remove(pokemon)
+                message = f"Deselected **{pokemon.name}**. Choose {self.required_choices - len(self.chosen_pokemons)} more."
+            elif len(self.chosen_pokemons) < self.required_choices:
+                # Select: Add the Pokémon if we haven't reached the limit
+                self.chosen_pokemons.append(pokemon)
+                
+                remaining = self.required_choices - len(self.chosen_pokemons)
+                if remaining > 0:
+                    message = f"Selected **{pokemon.name}**. Choose {remaining} more."
+                else:
+                    message = f"You chose {self.chosen_pokemons[0].name}"
+                    if self.is_double_battle:
+                        message += f" and {self.chosen_pokemons[1].name}"
+                    message += ". Getting ready for battle!"
+            else:
+                # Already hit the max limit, so force deselection for better UI flow
+                message = f"You must first deselect one of your {self.required_choices} chosen Pokémon to pick another."
+                await interaction.response.send_message(message, ephemeral=True)
+                return
+
+            # 3. Update view and stop if selection is complete
+            self.update_button_styles()
             
-            # 3. Stop the view
-            self.stop()
-            
+            if len(self.chosen_pokemons) == self.required_choices:
+                await interaction.response.edit_message(content=interaction.message.content, view=self)
+                self.stop() # Stop the view now that selection is complete
+            else:
+                await interaction.response.send_message(message, ephemeral=True)
+
         return callback
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
@@ -1172,7 +1382,8 @@ class LeadSelectionView(discord.ui.View):
     async def on_timeout(self):
         # Disable all buttons on timeout
         for item in self.children:
-            item.disabled = True    
+            item.disabled = True
+                
 async def multiplayer(ctx, p1, p2):
     field = Field()
     
@@ -1205,19 +1416,25 @@ async def multiplayer(ctx, p1, p2):
     x, y = None, None # x = P1 lead, y = P2 lead
     
     # Helper to send the menu to the correct location
-    async def get_lead(trainer: Trainer, target_channel: discord.abc.Messageable):
-        lead_view = LeadSelectionView(trainer)
-        
-        # Build the simple embed for the view
+    async def get_lead(trainer: 'Trainer', target_channel: discord.abc.Messageable):
+        """
+        Retrieves the single lead Pokémon for a Single Battle using the unified LeadSelectionView.
+        """
+        # 1. Instantiate the unified view, ensuring is_double_battle is False (the default)
+        # The view needs the trainer object for validation and team display.
+        lead_view = LeadSelectionView(trainer=trainer, is_double_battle=False)
+
+        # 2. Create and send the initial message with the view (similar to get_double_lead)
         pklist = ""
         for i, p in enumerate(trainer.pokemons):
             pklist += f" {getattr(p, 'icon', '')} {p.name}\n"
             
-        em = discord.Embed(title="Choose your lead pokémon!", description=pklist)
+        em = discord.Embed(title="Choose your lead pokémon!", description=pklist, color=discord.Color.blue())
         em.set_footer(text="Select the button corresponding to your desired Pokémon.")
-        
-        # Send the message and wait for selection
+
         msg = await target_channel.send(embed=em, view=lead_view)
+        
+        # 3. Wait for the user to make a selection
         await lead_view.wait() 
         
         # Clean up the message after selection or timeout
@@ -1225,13 +1442,19 @@ async def multiplayer(ctx, p1, p2):
             await msg.edit(view=None)
         except:
             pass
-            
-        return lead_view.chosen_pokemon
+
+        # 4. FIX: Access the first element of the list, chosen_pokemons, instead of chosen_pokemon.
+        if lead_view.chosen_pokemons:
+            # Return the first (and only) selected Pokémon for a single battle
+            return lead_view.chosen_pokemons[0]
+        
+        # Return None if the selection timed out or failed
+        return None
 
     # --- 4. Human vs. AI (P1 chooses in channel, P2 is random) ---
     if tr2.ai:
         # Send the main intro message
-        await ctx.send(embed=intro)
+        await ctx.followup.send(embed=intro)
         
         # P1 chooses in the main channel
         x = await get_lead(tr1, ctx.channel)
@@ -1242,7 +1465,7 @@ async def multiplayer(ctx, p1, p2):
     # --- 5. Human vs. Human (Both choose in DM simultaneously) ---
     else:
         # Send the main intro message
-        await ctx.send(embed=intro)
+        await ctx.followup.send(embed=intro)
 
         # Simultaneously get leads from both players in DM
         p1_task = get_lead(tr1, p1)
@@ -1253,11 +1476,16 @@ async def multiplayer(ctx, p1, p2):
         
         # Send confirmation to the main channel
         if x and y:
-            await ctx.send(f"Both leads chosen! **{tr1.name}** chose **{x.name}** and **{tr2.name}** chose **{y.name}**!")
+            await ctx.followup.send(f"Both leads chosen! **{tr1.name}** chose **{x.name}** and **{tr2.name}** chose **{y.name}**!")
         else:
-            await ctx.send("Lead selection failed due to timeout or cancellation. Ending match.")
+            await ctx.followup.send("Lead selection failed due to timeout or cancellation. Ending match.")
             return # Exit the game     
-    turn=0        
+    turn=0 
+    if x is None or y is None:
+        print("Error: A combatant (x or y) is None. Skipping speed check.")
+        print(tr1.pokemons)
+        print(tr2.pokemons)
+        return       
     if x.speed>=y.speed:
         await entryeff(ctx,x,y,tr1,tr2,field,turn)
         await entryeff(ctx,y,x,tr2,tr1,field,turn)        
@@ -1271,11 +1499,11 @@ async def multiplayer(ctx, p1, p2):
     lead2.set_image(url=y.sprite)
     lead2.set_thumbnail(url=tr2.sprite)     
     if x.speed>=y.speed:
-        await ctx.send(embed=lead1)
-        await ctx.send(embed=lead2)
+        await ctx.followup.send(embed=lead1)
+        await ctx.followup.send(embed=lead2)
     if y.speed>x.speed:
-        await ctx.send(embed=lead2)
-        await ctx.send(embed=lead1)    
+        await ctx.followup.send(embed=lead2)
+        await ctx.followup.send(embed=lead1)    
     while True:
         if None not in (x,y):
             tr1.party=await partyup(tr1,x)
@@ -1338,7 +1566,7 @@ async def multiplayer(ctx, p1, p2):
         if field.trickroom==True:
             trm=f"**Dimension:** <:trickroom:1142045158200840313> Trick Room ({field.troomendturn-turn+1} turns left)"
         turnem=discord.Embed(title=f"Turn: {turn}",description=f"**Location:** {field.location}\n**Weather:** {wt}\n**Terrain:** {ts}\n{trm}",color=bg)
-        await ctx.send(embed=turnem)
+        await ctx.followup.send(embed=turnem)
         if x.protect==True and x.use in ["Protect","Spiky Shield","King's Shield","Baneful Bunker","Obstruct","Silk Trap"]:
             x.protect = "Pending"
         elif x.protect==True and x.use=="Max Guard":
@@ -1416,9 +1644,9 @@ async def multiplayer(ctx, p1, p2):
             action2 = 1
 
         if em1:
-            await ctx.send(embed=em1)
+            await ctx.followup.send(embed=em1)
         if em2:
-            await ctx.send(embed=em2)
+            await ctx.followup.send(embed=em2)
 
         if action1==1 and action2==1:
             if tr2.ai==True:
@@ -1477,7 +1705,7 @@ async def multiplayer(ctx, p1, p2):
 ):
                 if x.priority==True and x.item=="Quick Claw":
                     qc=discord.Embed(title=f"{x.nickname}'s Quick Claw!",description=f"{x.nickname} can act faster than normal,thanks to its Quick Claw")
-                    await ctx.send(embed=qc)
+                    await ctx.followup.send(embed=qc)
                 await weather(ctx,field,bg)   
                 x,y=await attack(ctx,bot,x,y,tr1,tr2,choice1,choice2,field,turn)
                 await prebuff(ctx,x,y,tr1,tr2,turn,field)
@@ -1534,7 +1762,7 @@ async def multiplayer(ctx, p1, p2):
 ):
                 if y.priority==True and y.item=="Quick Claw":
                     qc=discord.Embed(title=f"{y.nickname}'s Quick Claw!",description=f"{y.nickname} can act faster than normal,thanks to its Quick Claw")
-                    await ctx.send(embed=qc)
+                    await ctx.followup.send(embed=qc)
                 await weather(ctx,field,bg)   
                 y,x=await attack(ctx,bot,y,x,tr2,tr1,choice2,choice1,field,turn)
                 await prebuff(ctx,y,x,tr2,tr1,turn,field)
@@ -1823,6 +2051,296 @@ async def multiplayer(ctx, p1, p2):
                 x=await faint(ctx,bot,x,y,tr1,tr2,field,turn)
                 if len(tr1.pokemons)==0:
                    await winner(ctx,tr2,tr1)
-                   break            
+                   break  
+def get_effective_speed(poke, field):
+    """Calculates effective speed considering Trick Room and possibly abilities/items."""
+    speed = poke.speed
+    # In a real game, this would apply effects like Paralysis, Sticky Web, items, etc.
+    return speed if not field.trickroom else (1000 - speed)
+def get_move_priority(poke):
+    """MOCK: Gets the priority of the chosen move from its action_data."""
+    # Assuming action_data is (1, move, target)
+    if poke.action_data and poke.action_data[0] == 1:
+        move_name = poke.action_data[1]
+        if move_name in ["Fake Out", "Extremespeed"]: return 2
+        if move_name in ["Protect", "Detect"]: return 4 # Protect moves are highest priority
+    return 0
+
+
+    
+async def get_double_lead(trainer: Trainer, target_channel: discord.abc.Messageable):
+    """MOCK: Modified lead function to select two Pokémon for a Double Battle."""
+    lead_view = LeadSelectionView(trainer, is_double_battle=True)
+    
+    pklist = ""
+    for i, p in enumerate(trainer.pokemons):
+        pklist += f" {getattr(p, 'icon', '')} {p.name}\n"
+        
+    em = discord.Embed(title="Choose your TWO lead pokémon!", description=pklist, color=discord.Color.purple())
+    em.set_footer(text="Select the buttons corresponding to your two desired Pokémon.")
+    
+    # Send the message and wait for selection
+    msg = await target_channel.send(embed=em, view=lead_view)
+    await lead_view.wait() 
+    
+    try:
+        await msg.edit(view=None)
+    except:
+        pass
+        
+    if len(lead_view.chosen_pokemons) == 2:
+        return lead_view.chosen_pokemons[0], lead_view.chosen_pokemons[1]
+    
+    return None, None # Failure case
+def sort_actions(active_pokes, field):
+    """
+    CRITICAL: Sorts the four active Pokémon's chosen actions for execution.
+    Order is:
+    1. Switch (executed first)
+    2. Move (Sorted by Priority (desc) > Effective Speed (desc))
+    """
+    
+    # 1. Separate actions by type
+    switches = [p for p in active_pokes if p.is_active and p.action_data and p.action_data[0] == 2]
+    moves = [p for p in active_pokes if p.is_active and p.action_data and p.action_data[0] == 1]
+    
+    # 2. Sort Moves by Priority then Effective Speed
+    moves.sort(key=lambda p: (
+        get_move_priority(p), 
+        get_effective_speed(p, field)
+    ), reverse=True)
+    
+    # 3. Combine to form the turn's execution order
+    return switches + moves
+async def double_battle(ctx, p1, p2, bot):
+    """
+    Initializes and runs a turn-based Double Battle for two trainers.
+    p1: discord.Member (Player 1)
+    p2: discord.Member, "ranked", or int (Opponent)
+    bot: discord.Client or equivalent
+    """
+    field = Field()
+    
+    # --- 1. Team Setup ---
+    p1_member = p1
+    p1team = await teamconvert(ctx, p1_member, p1_member.id)
+    tr1 = Trainer(p1_member.display_name, p1team, "Earth", sprite=p1_member.avatar.url, member=p1_member, ai=False) 
+
+    if p2 == "ranked":
+        tr2 = await rankedteam(ctx)
+    elif isinstance(p2, int):
+        tr2 = await gameteam(ctx, p2, p1team)
+    else:
+        p2_member = p2
+        p2team = await teamconvert(ctx, p2_member, p2_member.id)
+        tr2 = Trainer(p2_member.display_name, p2team, "Earth", sprite=p2_member.avatar.url, member=p2_member, ai=False) 
+        
+    # --- 2. Intro Embed ---
+    intro = discord.Embed(title=f"⚔️ DOUBLE BATTLE: {tr1.name} vs {tr2.name} ⚔️")
+    intro.set_thumbnail(url="https://cdn.discordapp.com/attachments/1102579499989745764/1103853991760248924/VS.png")
+    
+    if tr2.ai == False:
+        intro.add_field(name="Task:", value="Check your DMs! You both need to choose your **two** lead Pokémon!")
+    else:
+        intro.add_field(name="Task:", value="Choose your **two** lead Pokémon using the buttons below!")
+
+    intro.set_image(url=tr2.sprite or "https://placehold.co/150/000000/FFFFFF?text=AI")
+    intro.set_footer(text=f"Location: {field.location} | Weather: {field.weather} | Terrain: {field.terrain}")
+    
+    initial_message = await ctx.followup.send(embed=intro)
+    
+    # --- 3. Lead Selection ---
+    x1, x2, y1, y2 = None, None, None, None # P1-A, P1-B, P2-A, P2-B
+
+    if tr2.ai:
+        x1, x2 = await get_double_lead(tr1, ctx.channel) # P1 chooses in channel
+        if len(tr2.pokemons) >= 2:
+            y1, y2 = random.sample(tr2.pokemons, 2) # AI chooses randomly
+    else:
+        # Human vs. Human: Both choose in DM
+        p1_task = get_double_lead(tr1, tr1.member) 
+        p2_task = get_double_lead(tr2, tr2.member) 
+        
+        try:
+            results = await asyncio.gather(p1_task, p2_task, return_exceptions=True)
+            x1, x2 = results[0]
+            y1, y2 = results[1]
+        except Exception as e:
+            await ctx.channel.send(f"An error occurred during lead selection: {e}. Ending match.")
+            return
+
+    if not (x1 and x2 and y1 and y2):
+        await ctx.channel.send("Lead selection failed. Ending match.")
+        return
+        
+    # Initial status check
+    active_pokes = [x1, x2, y1, y2]
+    
+    # --- 4. Initial Entry Effects and Lead Embeds ---
+    turn = 0 
+    
+    # Sort by Speed for entry effects
+    active_pokes.sort(key=lambda p: get_effective_speed(p, field), reverse=True)
+    for poke in active_pokes:
+        # await entryeff(ctx, poke, tr1, tr2, field, turn) # PLACEHOLDER: Must be implemented
+        pass 
+    
+    lead_em = discord.Embed(
+        title="BATTLE START!", 
+        description=f"**{tr1.name}** sends out **{x1.name}** and **{x2.name}**!\n**{tr2.name}** sends out **{y1.name}** and **{y2.name}**!",
+        color=discord.Color.blue()
+    )
+    await ctx.channel.send(embed=lead_em)
+
+    # --- 5. Turn Loop ---
+    while True:
+        # A. Update party lists
+        tr1.party = await partyup(tr1, x1, x2)
+        tr2.party = await partyup(tr2, y1, y2) 
+        
+        turn+=1
+        
+        # B. Turn Display Embed
+        color_map = {"None": discord.Color.default(), "Sun": discord.Color.red()} # Mock map
+        wt = field.weather
+        ts = field.terrain
+        trm = "Active" if field.trickroom else "Inactive"
+        turnem = discord.Embed(
+            title=f"**Turn {turn}**", 
+            description=f"**{wt}** | **{ts}** | Trick Room: **{trm}**", 
+            color=color_map.get(wt, discord.Color.default())
+        )
+        
+        turnem.add_field(name=f"**{tr1.name}'s Side**", value=f"1: {x1.name} ({x1.hp}/{x1.max_hp}) - {x1.status or 'OK'}\n2: {x2.name} ({x2.hp}/{x2.max_hp}) - {x2.status or 'OK'}", inline=True)
+        turnem.add_field(name=f"**{tr2.name}'s Side**", value=f"1: {y1.name} ({y1.hp}/{y1.max_hp}) - {y1.status or 'OK'}\n2: {y2.name} ({y2.hp}/{y2.max_hp}) - {y2.status or 'OK'}", inline=True)
+        await ctx.channel.send(embed=turnem)
+        
+        # C. Reset Protect and Pre-turn effects
+        active_pokes = [p for p in [x1, x2, y1, y2] if p is not None]
+
+        for poke in active_pokes:
+            poke.protect = False # Reset status protection at turn start
+
+            # Execute prebuff (e.g., status damage, weather damage)
+            opponent_pokes = [p for p in active_pokes if p != poke]
+            trainer = tr1 if poke in (x1, x2) else tr2
+            # await prebuff(ctx, poke, opponent_pokes, trainer, None, turn, field) # PLACEHOLDER
+
+        # D. Action Gathering for 4 Pokémon
+        action_map = {} 
+        
+        while len(action_map) < len(active_pokes):
+            unchosen_pokes = [p for p in active_pokes if p.is_active and p.hp > 0 and p not in action_map]
+            
+            for poke in unchosen_pokes:
+                is_p1 = poke in (x1, x2)
+                trainer = tr1 if is_p1 else tr2
+                opponent_trainer = tr2 if is_p1 else tr1
+                
+                # Targets are all other active Pokémon
+                targets = [p for p in active_pokes if p != poke and p.is_active and p.hp > 0] 
+                
+                action_type = await action(bot, ctx, trainer, opponent_trainer, poke, targets)
+                if action_type: action_map[poke] = action_type
+            
+            await asyncio.sleep(0.5)
+
+        # E. Forfeit Check
+        if 3 in action_map.values(): 
+            if any(action_map.get(p) == 3 for p in [x1, x2] if p):
+                await winner(ctx, tr2, tr1)
+            else:
+                await winner(ctx, tr1, tr2)
+            return
+            
+        # F. Send "Executing turn..." to DMs
+        if tr2.ai == False:
+            await tr1.member.send("Executing turn...")
+            await tr2.member.send("Executing turn...")
+
+        # G. Action Resolution - Sorting and Execution
+        
+        # 1. Get the sorted execution order
+        execution_order = sort_actions(active_pokes, field)
+        
+        # 2. Execute actions one by one
+        for attacker in execution_order:
+            
+            # Check if the attacker fainted, was switched out, or is otherwise inactive
+            if not attacker.is_active or attacker.hp <= 0:
+                continue 
+
+            action_type = action_map.get(attacker)
+            trainer = tr1 if attacker in (x1, x2) else tr2
+            
+            # --- Move Action (1) ---
+            if action_type == 1: 
+                move = attacker.action_data[1]
+                target = attacker.action_data[2]
+                
+                # Check for protection/inability to move (Simplified)
+                if attacker.status == "Sleep":
+                    await ctx.channel.send(f"**{attacker.name}** is fast asleep!")
+                    continue
+                
+                if target and target.protect:
+                    await ctx.channel.send(f"**{target.name}** protected itself!")
+                else:
+                    target = await attack(ctx, bot, attacker, target, trainer, None, move, field, turn) 
+                    # Target is updated after the attack
+
+            # --- Switch Action (2) ---
+            elif action_type == 2: 
+                new_poke = attacker.action_data[1]
+                
+                if attacker == x1: x1 = await switch(ctx, bot, attacker, new_poke, tr1, tr2, field, turn)
+                elif attacker == x2: x2 = await switch(ctx, bot, attacker, new_poke, tr1, tr2, field, turn)
+                elif attacker == y1: y1 = await switch(ctx, bot, attacker, new_poke, tr2, tr1, field, turn)
+                elif attacker == y2: y2 = await switch(ctx, bot, attacker, new_poke, tr2, tr1, field, turn)
+                
+                # Update list for subsequent actions this turn
+                active_pokes = [p for p in [x1, x2, y1, y2] if p is not None]
+
+            # --- Post-Action Faint Check and Switch-in ---
+            fainted_this_check = [p for p in active_pokes if p.hp <= 0 and not p.fainted]
+            for fainted_poke in fainted_this_check:
+                fainted_trainer = tr1 if fainted_poke in (x1, x2) else tr2
+                
+                new_poke = await faint(ctx, bot, fainted_poke, fainted_trainer, field, turn)
+                
+                # Update the active field variables with the new Pokémon
+                if fainted_poke == x1: x1 = new_poke
+                elif fainted_poke == x2: x2 = new_poke
+                elif fainted_poke == y1: y1 = new_poke
+                elif fainted_poke == y2: y2 = new_poke
+
+                # Update active pokes list
+                active_pokes = [p for p in [x1, x2, y1, y2] if p is not None]
+                
+            # H. Game Over Check (After every major action)
+            # A trainer loses if both active spots are empty (None) AND their party is empty
+            tr1_out = (x1 is None or x1.fainted) and (x2 is None or x2.fainted) and not tr1.party
+            tr2_out = (y1 is None or y1.fainted) and (y2 is None or y2.fainted) and not tr2.party
+
+            if tr1_out and not tr2_out: await winner(ctx, tr2, tr1); return
+            if tr2_out and not tr1_out: await winner(ctx, tr1, tr2); return
+            if tr1_out and tr2_out: await ctx.channel.send("It's a tie!"); return
+
+
+        # I. End-of-Turn Effects (Status, Weather, etc.)
+        active_pokes_final = [p for p in [x1, x2, y1, y2] if p is not None]
+        for poke in active_pokes_final:
+            if poke and poke.hp > 0:
+                opponent_pokes = [p for p in active_pokes_final if p != poke and p is not None]
+                trainer = tr1 if poke in (x1, x2) else tr2
+                # await effects(ctx, poke, opponent_pokes, trainer, field, turn) # PLACEHOLDER
+
+        # J. Final Game Over Check
+        tr1_out = (x1 is None or x1.fainted) and (x2 is None or x2.fainted) and not tr1.party
+        tr2_out = (y1 is None or y1.fainted) and (y2 is None or y2.fainted) and not tr2.party
+
+        if tr1_out and not tr2_out: await winner(ctx, tr2, tr1); return
+        if tr2_out and not tr1_out: await winner(ctx, tr1, tr2); return
+        if tr1_out and tr2_out: await ctx.channel.send("It's a tie!"); return          
 keep_alive()
 bot.run(token)    

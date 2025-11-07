@@ -198,16 +198,72 @@ def maxmovemaker(self, typem):
     return maxmove
 
 def moveset(moves):
-    moves=eval(moves)
-    result=[]
-    if len(moves)>4:
-        while len(result)<4:
-            x=random.choice(moves)
-            if x not in result:
-                result.append(x)
-        return result          
-    else:
-        return moves          
+    # To use the information in your file, we must instantiate the Moves class.
+    # This instance gives us access to all the move lists you defined (e.g., M.recoverymoves).
+    M = Moves()
+    
+    try:
+        moves = eval(moves)
+    except:
+        return []
+
+    result = []
+    
+    if len(moves) <= 4:
+        return moves
+
+    # --- Diversity Logic: Max 1 of each major category, fill remaining with damage ---
+    
+    # 1. Select 1 Recovery Move (e.g., Roost, Recover)
+    # We use a list comprehension to filter the available moves against the category list.
+    recovery_moves_in_set = [m for m in moves if m in M.recoverymoves]
+    if recovery_moves_in_set:
+        result.append(random.choice(recovery_moves_in_set))
+
+    # 2. Select 1 Setup/Boosting Move (e.g., Swords Dance, Calm Mind)
+    boost_pool = M.atkboost + M.spatkboost
+    boost_moves_in_set = [m for m in moves if m in boost_pool and m not in result]
+    if boost_moves_in_set and len(result) < 4:
+        # Prioritize powerful, double-boosting moves like Shell Smash if available
+        shell_smash = [m for m in boost_moves_in_set if m == "Shell Smash"]
+        if shell_smash:
+            result.append(random.choice(shell_smash))
+        else:
+            result.append(random.choice(boost_moves_in_set))
+
+    # 3. Select 0-1 Additional Utility Move (e.g., Hazards, Status)
+    utility_pool = M.hazards + M.statuschangemoves
+    utility_moves_in_set = [m for m in moves if m in utility_pool and m not in result]
+    
+    if utility_moves_in_set and len(result) < 3: # Must have at least 1 slot remaining for damage
+        result.append(random.choice(utility_moves_in_set))
+
+    # 4. Fill remaining slots with the rest of the pool (mostly damage moves)
+    moves_pool = [m for m in moves if m not in result]
+    slots_needed = 4 - len(result)
+    
+    if slots_needed > 0 and moves_pool:
+        # Use random.sample for efficient, non-repeating selection
+        moves_to_add = random.sample(moves_pool, min(slots_needed, len(moves_pool)))
+        result.extend(moves_to_add)
+
+    # The 'x' variable is no longer needed but kept for context awareness
+    x = None
+
+    return result
+
+# def moveset(moves):
+#     moves=eval(moves)
+#     result=[]
+#     if len(moves)>4:
+#         while len(result)<4:
+#             x=random.choice(moves)
+#             if x not in result:
+#                 result.append(x)
+#         return result          
+#     else:
+#         return moves 
+             
 class Pokemon:
     def __init__(self,name="MissingNo.",primaryType="???",nickname="No",secondaryType="???",teraType="???",level=100,nature="None",happiness=255,hp=0,atk=0,defense=0,spatk=0,spdef=0,speed=0,hpiv=0,atkiv=0,defiv=0,spatkiv=0,spdefiv=0,speediv=0,hpev=0,atkev=0,defev=0,spatkev=0,spdefev=0,speedev=0,ability="Unknown,Known",moves="Moves,M,N,P,U",maxiv="No",shiny="No",sprite="url",backsprite="url",item="None",gender="None",tera="???",catchdate="Unknown",weight=100,icon="<:000:1127112083792728074>",m1pp=32,m2pp=32,m3pp=32,m4pp=32,mx1pp=32,mx2pp=32,mx3pp=32,mx4pp=32,height=1.5):
         self.name=name

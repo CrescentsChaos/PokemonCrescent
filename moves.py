@@ -7157,8 +7157,10 @@ async def dynamicpunch(ctx,x,y,tr1,em,field,turn):
     c=await isCrit(em,tr1,x,y)
     ab=await weakness(ctx,x,y,field,em)
     a=ab[0]
-    b=ab[1]   
-    dmg=await physical(x,x.level,x.atk,y.defense,100,a,b,c,r,al)     
+    b=ab[1] 
+    base=100  
+    dmg=await physical(x,x.level,x.atk,y.defense,100,a,b,c,r,al)  
+    y.hp-=await physical(x,x.level,x.atk,y.defense,base,a,b,c,r,al)   
     await confuse(em,x,y,100)
 #Drain Punch
 async def drainpunch(ctx,x,y,tr1,em,field,turn):

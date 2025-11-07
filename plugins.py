@@ -9,12 +9,19 @@ from pokemon import *
 from movelist import *
 from trainers import *
 from pokemon import calcst
+import typing
 from typing import Optional,List, Tuple,TYPE_CHECKING,Set, Dict
 from typematchup import *
 from AI import *
 from hiddenpower import *
 megastones=("Heatranite","Zeraorite","Darkranite","Chimecite","Baxcaliburite","Floettite","Chandelurite","Scolipite","Falinksite","Pyroarite","Scraftinite","Drampanite","Eelektrossite","Dragalgite","Barbaracite","Clefablite","Starminite","Meganiumite","Excadrite","Emboarite","Froslassite","Feraligite","Skarmorite","Raichunite X","Raichunite Y","Greninjite","Delphoxite","Chesnaughtite","Malamarite","Hawluchanite","Victreebelite","Dragoninite","Gyaradosite","Venusaurite","Charizardite X","Charizardite Y","Abomasite","Absolite","Aerodactylite","Aggronite","Alakazite","Altarianite","Ampharosite","Audinite","Banettite","Beedrillite","Blastoisinite","Blazikenite","Camerupite","Diancite","Galladite","Garchompite","Gardevoirite","Gengarite","Glalitite","Heracronite","Houndoominite","Kangaskhanite","Latiasite","Latiosite","Lopunnite","Lucarionite","Manectite","Mawilite","Medichamite","Metagrossite","Mewtwonite X","Mewtwonite Y","Pidgeotite","Pinsirite","Sablenite","Salamencite","Sceptilite","Scizorite","Sharpedonite","Slowbronite","Steelixite","Seampertite","Tyranitarite")
-
+if TYPE_CHECKING:
+    class Trainer:
+        pokemons: List['Pokemon'] # List of Pokémon objects (used in Double Battle)
+        party: List[str]          # List of icon strings (used in Single Battle)
+    class Pokemon:
+        name: str
+        icon: Optional[str] = None
 async def pokeicon(nm):
     # FIX: Replace sqlite3.connect with aiosqlite.connect
     async with aiosqlite.connect("pokemondata.db") as db:
@@ -171,7 +178,7 @@ async def sortbadge(normal_list):
 async def findnum(ctx,row):
     mem=0
     try:
-        mem=ctx.author.id
+        mem=ctx.user.id
     except:    
         mem=ctx.user.id
     db=sqlite3.connect("owned.db")
@@ -207,7 +214,7 @@ async def row(ctx, index_num, c):
     'c' must be an aiosqlite.Cursor object.
     """
     try:
-        user = ctx.author
+        user = ctx.user
     except:
         user = ctx.user
         
@@ -450,30 +457,35 @@ async def movetypeicon(x,move,field="Normal"):
     return typedic[res]
 
 async def typeicon(type):
-    typedic={
-    "Normal":"<:normal:1127146220880674878>",
-    "Bug":"<:bug:1127145792654802944>",
-    "Dark":"<:dark:1127147091655938068>",
-    "Dragon":"<:dragon:1127147065215029298>",
-    "Electric":"<:electric:1127146987423289395>",
-    "Fairy":"<:fairy:1127147120160411688>",
-    "Fighting":"<:fighting:1127145305066971256>",
-    "Fire":"<:fire:1127146792065183784>",
-    "Flying":"<:flying:1127145341385457725>",
-    "Ghost":"<:ghost:1127145829505966110>",
-    "Grass":"<:grass:1127146939587235910>",
-    "Ground":"<:ground:1127145407613517885>",
-    "Ice":"<:ice:1127147039772381305>",
-    "Poison":"<:poison:1127145374457536532>",
-    "Psychic":"<:psychic:1127147015760007238>",
-    "Rock":"<:rock:1127145761390473306>",
-    "Steel":"<:steel:1127145866868830279>",
-    "Water":"<:water:1127146821635027037>"
+    typedic = {
+        "Normal": "<:normal:1127146220880674878>",
+        "Bug": "<:bug:1127145792654802944>",
+        "Dark": "<:dark:1127147091655938068>",
+        "Dragon": "<:dragon:1127147065215029298>",
+        "Electric": "<:electric:1127146987423289395>",
+        "Fairy": "<:fairy:1127147120160411688>",
+        "Fighting": "<:fighting:1127145305066971256>",
+        "Fire": "<:fire:1127146792065183784>",
+        "Flying": "<:flying:1127145341385457725>",
+        "Ghost": "<:ghost:1127145829505966110>",
+        "Grass": "<:grass:1127146939587235910>",
+        "Ground": "<:ground:1127145407613517885>",
+        "Ice": "<:ice:1127147039772381305>",
+        "Poison": "<:poison:1127145374457536532>",
+        "Psychic": "<:psychic:1127147015760007238>",
+        "Rock": "<:rock:1127145761390473306>",
+        "Steel": "<:steel:1127145866868830279>",
+        "Water": "<:water:1127146821635027037>"
     }
-    if type is None:
-        return "<:normal:1127146220880674878>"
-    else:
-        return typedic[type]
+    
+    # Check for missing, empty, or 'None' values (case-insensitive)
+    if type is None or str(type).strip().lower() in ["none", ""]:
+        # Return an empty string instead of the Normal icon to avoid misrepresentation
+        return ""
+    
+    # Use .get() for safe dictionary lookup (in case an unexpected type name slips through)
+    # The dictionary keys are capitalized, so we capitalize the input type first.
+    return typedic.get(type.title(), "")
 
 async def teraicon(type):
     teradic={
@@ -781,12 +793,11 @@ async def entryeff(ctx, x, y, tr1, tr2, field, turn):
 
         if is_poison_type:
             # Poison-types absorb the hazard
-            tr1.hazard.remove("Toxic Spikes")
+            tr1.hazard=[x for x in tr1.hazard if x != 'Toxic Spikes']
             entry.add_field(name=f"{x.name} is a part Poison-type!",value=f"️{x.name} absorbed the Toxic Spikes!")
         else:
             # Non-Poison/Steel types get status
             ts_count = tr1.hazard.count("Toxic Spikes")
-            
             entry.add_field(name=f"Toxic Spikes!",value=f"️{x.name} was {'badly ' if ts_count >= 2 else ''}poisoned by toxic spikes!")
 
             # Apply status: Badly Poisoned for 2+ layers, Poisoned for 1 layer
@@ -818,7 +829,7 @@ async def entryeff(ctx, x, y, tr1, tr2, field, turn):
         entry.add_field(name=f"Steel Spikes!",value=f"️Pointed steel spikes dug into {x.name}!")     
     await prebuff(ctx,x,y,tr1,tr2,turn,field)
     if len(entry.fields)!=0:
-        await ctx.send(embed=entry)    
+        await ctx.followup.send(embed=entry)    
         
 async def maxendturn(x,turn):
     if x.dmax is True:
@@ -843,7 +854,7 @@ async def ulttrans(ctx, x, y, tr1, tr2, field, turn):
         description=f"{x.name} regained its true power through Ultra Burst!"
     )
     em.set_image(url=x.sprite)
-    await ctx.send(embed=em)
+    await ctx.followup.send(embed=em)
     await entryeff(ctx, x, y, tr1, tr2, field, turn)
     
 async def maxtrans(ctx,x,tr1,turn):
@@ -853,7 +864,45 @@ async def maxtrans(ctx,x,tr1,turn):
     tr1.sub="None"
     x.choicedmove="None"
     x.nickname+=" <:dynamax:1104646304904257647>"
-    em=discord.Embed(title=f"{tr1.name} dynamaxed {x.name}!")   
+    gigantamax_species = [
+    "Venusaur",
+    "Charizard",
+    "Blastoise",
+    "Butterfree",
+    "Pikachu",
+    "Meowth",
+    "Machamp",
+    "Gengar",
+    "Kingler",
+    "Lapras",
+    "Eevee",
+    "Snorlax",
+    "Garbodor",
+    "Melmetal",
+    "Rillaboom",
+    "Cinderace",
+    "Inteleon",
+    "Corviknight",
+    "Orbeetle",
+    "Drednaw",
+    "Coalossal",
+    "Flapple",
+    "Appletun",
+    "Sandaconda",
+    "Toxtricity",
+    "Centiskorch",
+    "Hatterene",
+    "Grimmsnarl",
+    "Alcremie",
+    "Copperajah",
+    "Duraludon",
+    "Single Strike Urshifu",
+    "Rapid Strike Urshifu"
+]
+    if x.name not in gigantamax_species:
+        em=discord.Embed(title=f"{tr1.name} dynamaxed {x.name}!")
+    if x.name in gigantamax_species:
+        em=discord.Embed(title=f"{tr1.name} gigantamaxed {x.name}!")  
     em.set_thumbnail(url="https://cdn.discordapp.com/attachments/1102579499989745764/1106824399983751248/Dynamax.png")
     if x.name in ("Charizard","Pikachu","Butterfree","Snorlax","Machamp","Gengar","Kingler","Lapras","Garbodor","Melmetal","Corviknight","Orbeetle","Drednaw","Coalossal","Copperajah","Flapple","Appletun","Sandaconda","Grimmsnarl","Hatterene","Toxtricity","Centiskorch","Alcremie","Duraludon","Single Strike Urshifu","Centiskorch","Meowth"):
         x.gsprite=x.sprite.replace(".gif","-gmax.gif")
@@ -1041,7 +1090,7 @@ async def prebuff(ctx, x, y, tr1, tr2, turn, field):
         pre_embed.add_field(name=f"{x.icon} {x.name}'s Tera Shift!", value="Terapagos transformed!")
         _apply_stats_and_hp(x, "Terapagos-Shell")
         x.ability = "Tera Shell" # Update ability after stat application
-
+        x.sprite = "https://i.postimg.cc/2yg7s2N4/terapagos.png"
     # Darmanitan (Zen Mode)
     if x.ability == "Zen Mode":
         if "Zen" not in x.name:
@@ -1224,7 +1273,7 @@ async def prebuff(ctx, x, y, tr1, tr2, turn, field):
     
     # Send embed if any field was added
     if pre_embed.fields:
-        await ctx.send(embed=pre_embed)
+        await ctx.followup.send(embed=pre_embed)
 
     return x, y, tr1, tr2, field    
     
@@ -1419,7 +1468,7 @@ async def action(bot, ctx, tr1, tr2, x, y):
         # 4. Dynamax/Gigantamax
         elif x.item not in megastones and tr1.canmax and x.teraType == "???" and "m-Z" not in x.item:
             # Check for the Max form on a team member (from the original logic)
-            new = [i.tera for i in tr1.pokemons]
+            new = [i.tera for i in tr1.pokemons if i is not None]
             if x.tera == "Max" or "Max" not in new:
                 # 1/6 chance to Dynamax
                 max_choice = random.randint(1, 6)
@@ -1639,7 +1688,7 @@ async def score(ctx, x, y, tr1, tr2, turn, bg):
         em.set_image(url="https://play.pokemonshowdown.com/sprites/substitutes/gen5/substitute.png")
     if x.gsprite != "None":
         em.set_image(url=x.gsprite)
-    await ctx.send(embed=em)
+    await ctx.followup.send(embed=em)
     
 async def statusicon(s):
     di={
@@ -1745,7 +1794,7 @@ async def advscore(ctx, x, y, tr1, tr2, turn, field, bg):
         await tr1.member.send(embed=em)
         
     if tr2.ai == True:
-        await ctx.send(embed=em)
+        await ctx.followup.send(embed=em)
 async def bufficon(s,base=0):
     if s==base:
         return "<:base:1140755497323081789>"
@@ -1979,6 +2028,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
     em.set_thumbnail(url="https://cdn.discordapp.com/attachments/1102579499989745764/1108284098641940521/Mega.png")
     tr1.canmega=False
     if True:
+        print(x.name,x.item)
         if x.item=="Zygardite" and "Zygarde" in x.name and x.hp<=x.maxhp:
             per=x.hp/x.maxhp
             x.weight=1344.82
@@ -1991,7 +2041,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             calcst(x)
             x.sprite="https://archives.bulbagarden.net/media/upload/thumb/2/2e/Mega_Zygarde_aiming_its_cannon.jpg/214px-Mega_Zygarde_aiming_its_cannon.jpg"
             x.hp=x.maxhp*per
-        if x.item=="Heatranite" and "Heatran" in x.name:
+        elif x.item=="Heatranite" and "Heatran" in x.name:
             per=x.hp/x.maxhp
             x.weight=4300
             x.hp=91
@@ -2003,7 +2053,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             calcst(x)
             x.sprite="https://i.postimg.cc/9fM83CX8/Mega-Heatran.png"
             x.hp=x.maxhp*per    
-        if x.item=="Zeraorite" and "Zeraora" in x.name:
+        elif x.item=="Zeraorite" and "Zeraora" in x.name:
             per=x.hp/x.maxhp
             x.weight=445
             x.hp=88
@@ -2015,7 +2065,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             calcst(x)
             x.sprite="https://i.postimg.cc/7L6svwPt/Mega-Zeraora.png"
             x.hp=x.maxhp*per
-        if x.item=="Darkranite" and "Darkrai" in x.name:
+        elif x.item=="Darkranite" and "Darkrai" in x.name:
             per=x.hp/x.maxhp
             x.weight=505
             x.hp=70
@@ -2027,7 +2077,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             calcst(x)
             x.sprite="https://i.postimg.cc/N0MJhBGN/Mega-Darkrai.png"
             x.hp=x.maxhp*per
-        if x.item=="Baxcaliburite" and "Baxcalibur" in x.name:
+        elif x.item=="Baxcaliburite" and "Baxcalibur" in x.name:
             per=x.hp/x.maxhp
             x.weight=445
             x.hp=115
@@ -2039,7 +2089,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             calcst(x)
             x.sprite="https://i.postimg.cc/pV8WjtQ8/Mega-Baxcalibur.png"
             x.hp=x.maxhp*per
-        if x.item=="Chimecite" and "Chimecho" in x.name:
+        elif x.item=="Chimecite" and "Chimecho" in x.name:
             x.secondaryType="Steel"
             per=x.hp/x.maxhp
             x.weight=445
@@ -2052,7 +2102,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             calcst(x)
             x.sprite="https://i.postimg.cc/h4xDmq8T/Mega-Chingling.png"
             x.hp=x.maxhp*per
-        if x.item=="Feraligite" and "Feraligatr" in x.name:
+        elif x.item=="Feraligite" and "Feraligatr" in x.name:
             x.ability="Strong Jaw"
             x.secondaryType="Dragon"
             per=x.hp/x.maxhp
@@ -2066,7 +2116,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             calcst(x)
             x.sprite="https://i.postimg.cc/SNB9LFtP/mega-fetaligatr.png"
             x.hp=x.maxhp*per
-        if x.item=="Chandelurite" and "Chandelure" in x.name:
+        elif x.item=="Chandelurite" and "Chandelure" in x.name:
             per=x.hp/x.maxhp
             x.weight=153.41
             x.hp=60
@@ -2168,7 +2218,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             x.sprite="https://i.postimg.cc/VkZSNyPZ/mega-pyroar.png"
             calcst(x)
             x.hp=x.maxhp*per
-        elif x.item=="Starmite" and "Starmie" in x.name:
+        elif x.item=="Starminite" and "Starmie" in x.name:
             per=x.hp/x.maxhp
             x.weight=153.41
             x.hp=60
@@ -2369,7 +2419,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             x.sprite="https://i.postimg.cc/5ymd2MTt/mega-hawlucha.png"
             calcst(x)
             x.hp=x.maxhp*per
-        elif x.item=="Barbaracite" and "Barabaracle" in x.name:
+        elif x.item=="Barbaracite" and "Barbaracle" in x.name:
             x.secondaryType="Fighting"
             per=x.hp/x.maxhp
             x.weight=72.41
@@ -2600,7 +2650,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             x.speed=140
             calcst(x)
             x.hp=x.maxhp*per     
-        elif x.item=="Ampharosite":
+        elif x.item=="Ampharosite" and "Ampharos" in x.name:
             x.ability="Transistor"
             x.secondaryType="Dragon"
             x.weight=135.58
@@ -2613,7 +2663,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             x.speed=45
             calcst(x)
             x.hp=x.maxhp*per
-        elif x.item=="Steelixite":
+        elif x.item=="Steelixite" and "Steelix" in x.name:
             x.ability="Primal Armor"
             x.weight=1631.42
             per=x.hp/x.maxhp
@@ -2625,7 +2675,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             x.speed=20
             calcst(x)
             x.hp=x.maxhp*per   
-        elif x.item=="Scizorite":
+        elif x.item=="Scizorite" and "Scizor" in x.name:
             x.ability="Technician"
             x.weight=275.58
             per=x.hp/x.maxhp
@@ -2637,7 +2687,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             x.speed=75
             calcst(x)
             x.hp=x.maxhp*per  
-        elif x.item=="Heracronite":
+        elif x.item=="Heracronite" and "Heracross" in x.name:
             x.ability="Skill Link"
             x.weight=137.79
             per=x.hp/x.maxhp
@@ -2649,7 +2699,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             x.speed=75
             calcst(x)
             x.hp=x.maxhp*per
-        elif x.item=="Houndoominite":
+        elif x.item=="Houndoominite"and "Houndoom" in x.name:
             x.ability="Solar Power"
             x.weight=109.13
             per=x.hp/x.maxhp
@@ -2661,7 +2711,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             x.speed=115
             calcst(x)
             x.hp=x.maxhp*per
-        elif x.item=="Tyranitarite":
+        elif x.item=="Tyranitarite"and "Tyranitar" in x.name:
             x.ability="Primal Armor"
             x.weight=562.18
             per=x.hp/x.maxhp
@@ -2673,7 +2723,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             x.speed=71
             calcst(x)
             x.hp=x.maxhp*per    
-        elif x.item=="Sceptilite":
+        elif x.item=="Sceptilite"and "Sceptile" in x.name:
             x.ability="Technician"
             x.secondaryType="Dragon"
             x.weight=121.7
@@ -2686,7 +2736,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             x.speed=145
             calcst(x)
             x.hp=x.maxhp*per
-        elif x.item=="Blazikenite":
+        elif x.item=="Blazikenite"and "Blaziken" in x.name:
             x.ability="Speed Boost"
             x.weight=114.64
             per=x.hp/x.maxhp
@@ -2698,7 +2748,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             x.speed=100
             calcst(x)
             x.hp=x.maxhp*per
-        elif x.item=="Swampertite":
+        elif x.item=="Swampertite"and "Swampert" in x.name:
             x.ability="Swift Swim"
             x.weight=224.87
             per=x.hp/x.maxhp
@@ -2710,7 +2760,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             x.speed=70
             calcst(x)
             x.hp=x.maxhp*per
-        elif x.item=="Gardevoirite":
+        elif x.item=="Gardevoirite"and "Gardevoir" in x.name:
             x.ability="Pixilate"
             x.weight=106.7
             per=x.hp/x.maxhp
@@ -2722,7 +2772,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             x.speed=100
             calcst(x)
             x.hp=x.maxhp*per
-        elif x.item=="Sablenite":
+        elif x.item=="Sablenite"and "Sableye" in x.name:
             x.ability="Magic Bounce"
             x.weight=354.94
             per=x.hp/x.maxhp
@@ -2734,7 +2784,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             x.speed=20
             calcst(x)
             x.hp=x.maxhp*per
-        elif x.item=="Mawilite":
+        elif x.item=="Mawilite"and "Mawile" in x.name:
             x.ability="Huge Power"
             x.weight=51.81
             per=x.hp/x.maxhp
@@ -2746,7 +2796,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             x.speed=50
             calcst(x)
             x.hp=x.maxhp*per
-        elif x.item=="Aggronite":
+        elif x.item=="Aggronite"and "Aggron" in x.name:
             x.ability="Primal Armor"
             x.secondaryType="None"
             x.weight=870.83
@@ -2759,7 +2809,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             x.speed=50
             calcst(x)
             x.hp=x.maxhp*per    
-        elif x.item=="Medichamite":
+        elif x.item=="Medichamite"and "Medicham" in x.name:
             x.ability="Pure Power"
             x.weight=69.45
             per=x.hp/x.maxhp
@@ -2771,7 +2821,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             x.speed=100
             calcst(x)
             x.hp=x.maxhp*per
-        elif x.item=="Manectite":
+        elif x.item=="Manectite"and "Manectric" in x.name:
             x.ability="Intimidate"
             x.weight=97
             per=x.hp/x.maxhp
@@ -2783,7 +2833,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             x.speed=135
             calcst(x)
             x.hp=x.maxhp*per
-        elif x.item=="Sharpedonite":
+        elif x.item=="Sharpedonite"and "Sharpedo" in x.name:
             x.ability="Strong Jaw"
             x.weight=287.26
             per=x.hp/x.maxhp
@@ -2795,7 +2845,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             x.speed=115
             calcst(x)
             x.hp=x.maxhp*per
-        elif x.item=="Camerupite":
+        elif x.item=="Camerupite"and "Camerupt" in x.name:
             x.ability="Drought"
             x.weight=706.58
             per=x.hp/x.maxhp
@@ -2807,7 +2857,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             x.speed=20
             calcst(x)
             x.hp=x.maxhp*per
-        elif x.item=="Altarianite":
+        elif x.item=="Altarianite"and "Altaria" in x.name:
             x.ability="Pixilate"
             x.secondaryType="Fairy"
             x.weight=45.42
@@ -2820,7 +2870,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             x.speed=100
             calcst(x)
             x.hp=x.maxhp*per
-        elif x.item=="Banettite":
+        elif x.item=="Banettite"and "Banette" in x.name:
             x.ability="Prankster"
             x.secondaryType="Normal"
             x.weight=28.66
@@ -2833,7 +2883,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             x.speed=103
             calcst(x)
             x.hp=x.maxhp*per
-        elif x.item=="Absolite":
+        elif x.item=="Absolite"and "Absol" in x.name:
             x.ability="Dark Aura"
             x.secondaryType="Fairy"
             x.weight=108.03
@@ -2846,7 +2896,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             x.speed=115
             calcst(x)
             x.hp=x.maxhp*per
-        elif x.item=="Glalitite":
+        elif x.item=="Glalitite"and "Glalie" in x.name:
             x.ability="Refrigerate"
             x.weight=772.06
             per=x.hp/x.maxhp
@@ -2858,7 +2908,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             x.speed=110
             calcst(x)
             x.hp=x.maxhp*per
-        elif x.item=="Salamencite":
+        elif x.item=="Salamencite"and "Salamence" in x.name:
             x.ability="Aerilate"
             x.weight=248.24
             per=x.hp/x.maxhp
@@ -2870,7 +2920,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             x.speed=120
             calcst(x)
             x.hp=x.maxhp*per
-        elif x.item=="Metagrossite":
+        elif x.item=="Metagrossite"and "Metagross" in x.name:
             x.ability="Tough Claws"
             x.weight=2078.74
             per=x.hp/x.maxhp
@@ -2882,7 +2932,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             x.speed=110
             calcst(x)
             x.hp=x.maxhp*per
-        elif x.item=="Latiasite":
+        elif x.item=="Latiasite"and "Latias" in x.name:
             per=x.hp/x.maxhp
             x.weight=114.64
             x.hp=80
@@ -2893,7 +2943,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             x.speed=110
             calcst(x)
             x.hp=x.maxhp*per
-        elif x.item=="Latiosite":
+        elif x.item=="Latiosite"and "Latios" in x.name:
             per=x.hp/x.maxhp
             x.weight=154.32
             x.hp=80
@@ -2904,7 +2954,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             x.speed=110
             calcst(x)
             x.hp=x.maxhp*per
-        elif "Dragon Ascent" in x.moves:
+        elif "Dragon Ascent" in x.moves and "Rayquaza" in x.name:
             x.ability="Delta Stream"
             per=x.hp/x.maxhp
             x.weight=864.21
@@ -2916,7 +2966,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             x.speed=115
             calcst(x)
             x.hp=x.maxhp*per
-        elif x.item=="Garchompite":
+        elif x.item=="Garchompite"and "Garchomp" in x.name:
             x.ability="Sand Force"
             x.weight=209.44
             per=x.hp/x.maxhp
@@ -2928,7 +2978,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             x.speed=102
             calcst(x)
             x.hp=x.maxhp*per
-        elif x.item=="Lucarionite":
+        elif x.item=="Lucarionite"and "Lucario" in x.name:
             x.ability="Adaptability"
             x.weight=126.77
             per=x.hp/x.maxhp
@@ -2940,7 +2990,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             x.speed=112
             calcst(x)
             x.hp=x.maxhp*per
-        elif x.item=="Abomasite":
+        elif x.item=="Abomasite"and "Abomasnow" in x.name:
             x.ability="Slush Rush"
             x.weight=407.86
             per=x.hp/x.maxhp
@@ -2952,7 +3002,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             x.speed=60
             calcst(x)
             x.hp=x.maxhp*per
-        elif x.item=="Lopunnite":
+        elif x.item=="Lopunnite" and "Lopunnite" in x.name:
             x.ability="Scrappy"
             per=x.hp/x.maxhp
             x.weight=62.9
@@ -2964,7 +3014,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             x.speed=135
             calcst(x)
             x.hp=x.maxhp*per
-        elif x.item=="Galladite":
+        elif x.item=="Galladite" and "Gallade" in x.name:
             x.ability="Sharpness"
             x.weight=124.34
             per=x.hp/x.maxhp
@@ -2976,7 +3026,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             x.speed=115
             calcst(x)
             x.hp=x.maxhp*per
-        elif x.item=="Audinite":
+        elif x.item=="Audinite" and "Audino" in x.name:
             x.ability="Regenerator"
             x.secondaryType="Fairy"
             color="yellow"
@@ -2990,7 +3040,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             x.speed=50
             calcst(x)
             x.hp=x.maxhp*per
-        elif x.item=="Diancite":
+        elif x.item=="Diancite" and "Diancie" in x.name:
             x.ability="Magic Bounce"
             x.weight=61.29
             per=x.hp/x.maxhp
@@ -3002,7 +3052,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             x.speed=110
             calcst(x)
             x.hp=x.maxhp*per
-        elif x.item=="Poliwrathite":
+        elif x.item=="Poliwrathite" and "Poliwrath" in x.name:
             x.ability="No Guard"
             x.weight=61.29
             per=x.hp/x.maxhp
@@ -3015,6 +3065,8 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             calcst(x)
             x.hp=x.maxhp*per      
             x.sprite="https://cdn.discordapp.com/attachments/1102579499989745764/1148175796431753216/20230904_144035.png"
+        else:
+            print("sad")
         em.set_image(url=x.sprite)            
         await entryeff(ctx,x,y,tr1,tr2,field,turn)
     return x,em                                           
@@ -3064,7 +3116,7 @@ async def faint(ctx, bot, x, y, tr1, tr2, field, turn):
         em_eternamax = discord.Embed(title="Eternatus's Eternamax!", description="Eternamax Eternamaxed itself and regained its true form.", color=0x8fd5f7)
         em_eternamax.set_thumbnail(url="https://cdn.discordapp.com/attachments/1102579499989745764/1106824399983751248/Dynamax.png")
         em_eternamax.set_image(url="https://cdn.discordapp.com/attachments/1102579499989745764/1142037751101915207/image0.gif")
-        await ctx.send(embed=em_eternamax)
+        await ctx.followup.send(embed=em_eternamax)
         return x # Pokemon revived, exit faint check
 
     # 3. Therian Reincarnation (Thundurus)
@@ -3090,7 +3142,7 @@ async def faint(ctx, bot, x, y, tr1, tr2, field, turn):
         await spdefchange(em_therian, x, x, 1)
         await speedchange(em_therian, x, x, 1)
         em_therian.set_image(url=x.sprite)
-        await ctx.send(embed=em_therian)
+        await ctx.followup.send(embed=em_therian)
         return x # Pokemon revived, exit faint check
 
     # 4. Therian Reincarnation (Enamorus)
@@ -3116,7 +3168,7 @@ async def faint(ctx, bot, x, y, tr1, tr2, field, turn):
         await spdefchange(em_therian, x, x, 1)
         await speedchange(em_therian, x, x, 1)
         em_therian.set_image(url=x.sprite)
-        await ctx.send(embed=em_therian) 
+        await ctx.followup.send(embed=em_therian) 
         return x # Pokemon revived, exit faint check
     
     # 5. Therian Reincarnation (Tornadus)
@@ -3142,7 +3194,7 @@ async def faint(ctx, bot, x, y, tr1, tr2, field, turn):
         await spdefchange(em_therian, x, x, 1)
         await speedchange(em_therian, x, x, 1)
         em_therian.set_image(url=x.sprite)
-        await ctx.send(embed=em_therian) 
+        await ctx.followup.send(embed=em_therian) 
         return x # Pokemon revived, exit faint check
         
     # 6. Therian Reincarnation (Landorus)
@@ -3168,7 +3220,7 @@ async def faint(ctx, bot, x, y, tr1, tr2, field, turn):
         await spdefchange(em_therian, x, x, 1)
         await speedchange(em_therian, x, x, 1)
         em_therian.set_image(url=x.sprite)
-        await ctx.send(embed=em_therian)
+        await ctx.followup.send(embed=em_therian)
         return x # Pokemon revived, exit faint check
         
     # 7. Mirage Metamorphosis (Hoopa)
@@ -3194,7 +3246,7 @@ async def faint(ctx, bot, x, y, tr1, tr2, field, turn):
         await spdefchange(em_hoopa, x, x, 1)
         await speedchange(em_hoopa, x, x, 1)
         em_hoopa.set_image(url=x.sprite)
-        await ctx.send(embed=em_hoopa)
+        await ctx.followup.send(embed=em_hoopa)
         return x # Pokemon revived, exit faint check
         
     # 8. Distorted Resurgence (Giratina)
@@ -3220,7 +3272,7 @@ async def faint(ctx, bot, x, y, tr1, tr2, field, turn):
         await spdefchange(em_giratina, x, x, 1)
         await speedchange(em_giratina, x, x, 1)
         em_giratina.set_image(url=x.sprite)
-        await ctx.send(embed=em_giratina)
+        await ctx.followup.send(embed=em_giratina)
         return x # Pokemon revived, exit faint check
         
     # 9. Standard Faint Logic
@@ -3297,7 +3349,7 @@ async def faint(ctx, bot, x, y, tr1, tr2, field, turn):
             
             bb = discord.Embed(title=f"{y.icon} {y.name}'s Battle Bond!", description=f"{y.name} transformed into Ash-Greninja!")
             bb.set_image(url="https://cdn.discordapp.com/attachments/1102579499989745764/1125023366278029402/image0.gif")
-            await ctx.send(embed=bb)
+            await ctx.followup.send(embed=bb)
             
         # Fainting Ability Damage/Heal
         if x.ability == "Aftermath":
@@ -3316,9 +3368,9 @@ async def faint(ctx, bot, x, y, tr1, tr2, field, turn):
             
         # Send faint message and handle switch
         if len(tr1.pokemons) == 0:
-            await ctx.send(embed=em)
+            await ctx.followup.send(embed=em)
         if len(tr1.pokemons) != 0 and len(tr2.pokemons) != 0:
-            await ctx.send(embed=em)
+            await ctx.followup.send(embed=em)
             x = await switch(ctx, bot, x, y, tr1, tr2, field, turn)
             
             # Loop check for immediate successive faints (e.g., from entry hazards on switch-in)
@@ -3332,215 +3384,725 @@ async def faint(ctx, bot, x, y, tr1, tr2, field, turn):
             return x
             
     # Final return for cases where the loop finished or if only Dynamax End occurred
-    return x               
-async def addmoney(ctx,member,price):
-    db=sqlite3.connect("playerdata.db")
-    c=db.cursor()
-    c.execute(f"select * from '{member.id}'")
-    m=c.fetchone()
-    money=m[0]+price
+    return x  
+ 
+async def addmoney(ctx, member: discord.User, price: int, db: typing.Optional[aiosqlite.Connection] = None):
+    """
+    Adds or subtracts money from a user's balance and handles central bank transactions.
+    
+    Args:
+        ctx: The Discord Context or Interaction (used only for sending a public message). 
+        member: The user (discord.User or discord.Member) whose balance is modified.
+        price: The amount of money to add (can be negative for deduction).
+        db: Optional. An existing aiosqlite connection to playerdata.db. 
+            If provided, the function will not commit the transaction.
+    """
+    user_id_str = str(member.id)
+    central_bank_id = "1084473178400755772" # The ID of the central bank/owner account
+    
+    # 1. Determine connection source and create a context manager
+    _db_is_internal = False
+    if db is None:
+        db = await aiosqlite.connect("playerdata.db")
+        _db_is_internal = True
+
+    # Use a try/finally block to ensure connection is handled correctly if created internally
     try:
-        if price<0 and member.id!=1084473178400755772:
-            c.execute(f"select * from '1084473178400755772'")
-            mow=c.fetchone()
-            moey=mow[0]-price
-            c.execute(f"update '1084473178400755772' set balance={moey}")
-            db.commit()
-    except:
-        pass           
-    c.execute(f"update '{member.id}' set balance={money}")
-    db.commit()
-    if price>0:
-        pass
-        #await ctx.send(f"{member.display_name} {await numberify(price)} <:pokecoin:1134595078892044369> added to your balance!")
-    if price<0:
-        price=-price
-        #await ctx.send(f"{member.display_name} {await numberify(price)} <:pokecoin:1134595078892044369> was deducted from your balance!")
-    await ctx.channel.send(f"{member.display_name}'s New Balance: {await numberify(money)}<:pokecoin:1134595078892044369>")
-#freeze
-async def freeze(em,x,y,ch):
-    miss=100-ch
-    if x.ability=="Serene Grace":
-        miss/=2
-    chance=random.randint(1,100)
-    if y.name!="Substitute" and chance>=miss and "Ice" not in (y.secondaryType,y.primaryType,y.teraType) and y.ability not in ["Ice Body","Magic Bounce","Leaf Guard","Comatose","Ice Scales","Snow Cloak","Snow Warning"] and y.status=="Alive" and x.ability!="Sheer Force" and y.hp>0:
-        if y.item!="Covert Cloak" or y.ability not in ["Shield Dust"]:
-            y.status="Frozen"
-            em.add_field(name="Status:",value=f"{y.name} is frozen solid!")
-    if chance>=miss and y.status=="Frozen" and y.ability in ["Synchronize"] and x.status=="Alive":
-        x.status="Frozen"
-        em.add_field(name=f"{y.icon} {y.name}'s {y.ability}!",value=f"{x.name} is frozen solid!")
-    if chance>=miss and y.ability in ["Magic Bounce"] and x.status=="Alive" and y.status!="Frozen":
-        x.status="Frozen"
-        em.add_field(name=f"{y.icon} {y.name}'s {y.ability}!",value=f"{x.name} is frozen solid!")
-#burn
-async def burn(em,x,y,ch):
-    if x.ability=="Serene Grace":
-        ch*=2
-    elif x.ability=="Pyromancy":
-        ch*=5
-    miss=100-ch
-    chance=random.randint(1,100)
-    if y.name!="Substitute" and chance>=miss and "Fire" not in (y.secondaryType,y.primaryType,y.teraType) and y.ability not in ["Flash Fire","Magic Bounce","Leaf Guard","Comatose","Thermal Exchange","Magma Armor","Water Veil"] and y.status=="Alive" and x.ability!="Sheer Force" and y.hp>0:
-        if y.item!="Covert Cloak" or y.ability not in ["Shield Dust"]:
-            y.status="Burned"
-            em.add_field(name="Status:",value=f"{y.name} was burned.")
-    if chance>=miss and y.status=="Burned" and y.ability in ["Synchronize"] and x.status=="Alive":
-        x.status="Burned"
-        em.add_field(name=f"{y.icon} {y.name}'s {y.ability}!",value=f"{x.name} was burned.")     
-    if chance>=miss and y.ability in ["Magic Bounce"] and x.status=="Alive" and y.status!="Burned":
-        x.status="Burned"
-        em.add_field(name=f"{y.icon} {y.name}'s {y.ability}!",value=f"{x.name} was burned.")            
-#paralyze
-async def paralyze(em,x,y,ch):
-    miss=100-ch
-    if x.ability=="Serene Grace":
-        miss/=2
-    chance=random.randint(1,100)
-    if y.name!="Substitute" and chance>=miss and (((("Electric" not in (y.secondaryType,y.primaryType,y.teraType) and "Ground" not in (y.secondaryType,y.primaryType,y.teraType) or y.use in ["Body Slam","Force Plam","Glare","Lightning Rod","Volt Absorb","Juggernaut"] and y.ability not in ["Limber","Leaf Guard","Comatose","Magic Bounce"])) and y.status=="Alive" and x.ability!="Sheer Force") and y.hp>0):
-        if y.item!="Covert Cloak" or y.ability not in ["Shield Dust"]:
-            y.status="Paralyzed"
-            em.add_field(name="Status:",value=f"{y.name} was paralyzed!")
-    if chance>=miss and y.status=="Paralyzed" and y.ability in ["Synchronize"] and x.status=="Alive":
-        x.status="Paralyzed"
-        em.add_field(name=f"{y.icon} {y.name}'s {y.ability}!",value=f"{x.name} was paralayzed.")     
-    if chance>=miss and y.ability in ["Magic Bounce"] and x.status=="Alive" and y.status!="Paralyzed":
-        x.status="Paralyzed"
-        em.add_field(name=f"{y.icon} {y.name}'s {y.ability}!",value=f"{x.name} was paralayzed.")       
-#poison
-async def poison(em,x,y,ch):
-    miss=100-ch
-    if x.ability=="Serene Grace":
-        miss/=2
-    chance=random.randint(1,100)
-    if y.name!="Substitute" and (chance>=miss and ("Steel" not in (y.secondaryType,y.primaryType,y.teraType) and "Poison"  not in (y.secondaryType,y.primaryType,y.teraType) or x.ability=="Corrosion") and y.ability not in ["Immunity","Magic Bounce","Leaf Guard","Comatose","Pastel Veil"] and y.status=="Alive" and x.ability!="Sheer Force") and y.hp>0:
-        if y.item!="Covert Cloak" or y.ability not in ["Shield Dust"]:
-            y.status="Badly Poisoned"
-            em.add_field(name="Status:",value=f"{y.name} was badly poisoned.")
-    if chance>=miss and y.status=="Badly Poisoned" and y.ability in ["Synchronize"] and x.status=="Alive":
-        x.status="Badly Poisoned"
-        em.add_field(name=f"{y.icon} {y.name}'s {y.ability}!",value=f"{x.name} was badly poisoned!")
-    if chance>=miss and y.ability in ["Magic Bounce"] and x.status=="Alive" and y.status!="Badly Poisoned":
-        x.status="Badly Poisoned"      
-        em.add_field(name=f"{y.icon} {y.name}'s {y.ability}!",value=f"{x.name} was badly poisoned!") 
-#sleep
-async def sleep(em,x,y,ch):
-    miss=100-ch
-    if x.ability=="Serene Grace":
-        miss/=2
-    chance=random.randint(1,100)
-    if y.name!="Substitute" and chance>=miss and y.ability not in ["Magic Bounce","Leaf Guard","Comatose","Vital Spirit","Insomnia"] and y.status=="Alive" and x.ability!="Sheer Force" and y.hp>0:
-        if y.item!="Covert Cloak" or y.ability not in ["Shield Dust"]:
-            y.status="Sleep"
-            em.add_field(name="Status:",value=f"{y.name} fell asleep!")
-            if y.ability=="Early Bird":
-                y.sleepturn=random.randint(2,3)
-            elif y.ability!="Early Bird":
-                y.sleepturn=random.randint(2,5)
-    if chance>=miss and y.status=="Sleep" and y.ability in ["Synchronize"] and x.status=="Alive":
-        x.status="Sleep"
-        em.add_field(name=f"{y.icon} {y.name}'s {y.ability}!",value=f"{x.name} fell asleep!")
-        if x.ability=="Early Bird":
-            x.sleepturn=random.randint(2,3)
-        elif x.ability!="Early Bird":
-            x.sleepturn=random.randint(2,5)   
-    if chance>=miss and y.ability in ["Magic Bounce"] and x.status=="Alive" and y.status!="Sleep":
-        x.status="Sleep"
-        em.add_field(name=f"{y.icon} {y.name}'s {y.ability}!",value=f"{x.name} fell asleep!")
-        if x.ability=="Early Bird":
-            x.sleependturn=random.randint(2,3)
-        elif x.ability!="Early Bird":
-            x.sleependturn=random.randint(2,5)
-#confusion
-async def confuse(em,x,y,ch):
-    miss=100-ch
-    if x.ability=="Serene Grace":
-        miss/=2
-    chance=random.randint(1,100)
-    if y.name!="Substitute" and chance>=miss and y.confused is False and x.ability!="Sheer Force" and y.ability not in ["Own Tempo"] and y.status!="Sleep":
-        em.add_field(name="Status:",value=f"{y.name} became confused!")
-        y.confused=True
-        y.confuseendturn=random.randint(2,5)            
-#flinch
-async def flinch(em, x, y, ch):
-    # Pokémon with Substitute cannot flinch, nor can a fainted Pokémon.
-    if y.name == "Substitute" or y.hp <= 0:
+        # 2. Fetch current balance
+        async with db.execute(f"SELECT balance FROM '{user_id_str}'") as cursor:
+            m = await cursor.fetchone()
+            
+        if m is None:
+            print(f"Error: Player profile table '{user_id_str}' not found in addmoney.")
+            return 
+
+        current_money = m[0]
+        new_money = current_money + price
+            
+        # 3. Handle Central Bank Transaction (if money is being deducted or added)
+        if user_id_str != central_bank_id:
+            try:
+                # Check bank balance
+                async with db.execute(f"SELECT balance FROM '{central_bank_id}'") as bank_cursor:
+                    mow = await bank_cursor.fetchone()
+                    
+                if mow:
+                    bank_money = mow[0]
+                    # If price is positive (reward), bank loses money. If price is negative (cost), bank gains money.
+                    new_bank_money = bank_money - price 
+                    
+                    await db.execute(f"UPDATE '{central_bank_id}' SET balance=?", (new_bank_money,))
+                
+            except aiosqlite.Error as e:
+                print(f"Database error updating central bank balance: {e}")
+            except Exception:
+                pass 
+                
+        # 4. Update User's Balance
+        await db.execute(f"UPDATE '{user_id_str}' SET balance=?", (new_money,))
+        
+        # 5. Commit if connection was opened internally
+        if _db_is_internal:
+            await db.commit()
+
+    except aiosqlite.Error as e:
+        print(f"Database error in addmoney: {e}")
         return
-    # Calculate the flinch miss chance, accounting for Serene Grace.
-    miss_chance = 100 - ch
-    if x.ability == "Serene Grace":
-        miss_chance /= 2
-    # Check for abilities that prevent flinching.
-    if y.ability in ["Inner Focus", "Shield Dust"]:
-        return
-    # Check for items that prevent flinching.
-    if y.item == "Covert Cloak":
-        return
-    # A Pokémon with the Sheer Force ability cannot cause flinching.
+        
+    finally:
+        # Close the connection only if it was opened internally
+        if _db_is_internal:
+            await db.close()
+
+    # 6. Send Confirmation Message (Safely check if ctx is provided)
+    if ctx is not None and hasattr(ctx, 'channel'):
+        # NOTE: You need to ensure 'numberify' is accessible/defined
+        await ctx.channel.send(f"✅ {member.display_name}'s balance updated. New Balance: **{await numberify(new_money)}**<:pokecoin:1134595078892044369>")            
+
+        
+async def burn(em: discord.Embed, x, y, ch: int):
+    """
+    Attempts to apply the Burn status condition from Pokemon x to Pokemon y.
+
+    Args:
+        em: The Discord Embed object to add status updates to.
+        x: The attacking/inflicting Pokemon object.
+        y: The defending/target Pokemon object.
+        ch: The base chance (out of 100) for the status to apply.
+    """
+    
+    # 1. Pre-Check for Sheer Force and Status Quo
+    
+    # Sheer Force prevents secondary effects (like burn chance)
     if x.ability == "Sheer Force":
         return
-    # Roll the dice to see if the flinch succeeds.
-    if random.randint(1, 100) > miss_chance:
-        y.flinched = True  
-                   
-async def winner(ctx,tr1,tr2):
-    if tr2.ai==False:
+
+    # Check if target is already afflicted or fainted
+    if y.status != "Alive" or y.hp <= 0:
+        return
+
+    # 2. Calculate effective chance and perform roll
+
+    ch_effective = ch
+    
+    # 2a. Serene Grace check (Doubles the chance)
+    if x.ability == "Serene Grace":
+        # Multiplies the base chance by 2, capped at 100%
+        ch_effective = min(100, ch * 2)
+        
+    chance_roll = random.randint(1, 100)
+    
+    # 2b. Check if the status attempt failed
+    # The status succeeds if the random roll is less than or equal to the effective chance.
+    if chance_roll > ch_effective:
+        return # Chance roll failed
+        
+    # 3. Check for Prevention/Immunity Conditions & Reflection
+
+    # Get all types (including Tera Type)
+    y_types = [t.title() for t in (y.primaryType, y.secondaryType, y.teraType) if t]
+    
+    is_immune = (
+        y.name == "Substitute" or # Cannot apply status through Substitute
+        "Fire" in y_types or # Fire types are immune to Burn
+        # Abilities that prevent status:
+        y.ability in ["Water Veil", "Magic Bounce", "Comatose", "Leaf Guard"] 
+        # Note: Heatproof halves damage, but doesn't grant immunity to the status.
+    )
+    
+    if is_immune:
+        # Check if Magic Bounce reflects the effect before returning
+        if y.ability == "Magic Bounce" and x.status == "Alive":
+            x.status = "Burned"
+            em.add_field(name=f"🔥 Status Reflected!",
+                         value=f"{y.icon} **{y.name}'s Magic Bounce** reflected the effect! **{x.name}** was burned!")
+            return
+            
+        return # Status attempt failed due to immunity
+
+    # 4. Apply Status to Target (y)
+    
+    # If all checks pass, apply the status
+    y.status = "Burned"
+    em.add_field(name="🔥 Status Applied:", value=f"**{y.name}** was burned!")
+
+    # 5. Check for Status Recoil/Synchronize
+    if y.ability == "Synchronize" and x.status == "Alive" and y.status == "Burned":
+        # Synchronize copies the status back to the inflictor
+        x.status = "Burned"
+        em.add_field(name=f"🔥 Status Copied:",
+                     value=f"{y.icon} **{y.name}'s Synchronize** copied the status! **{x.name}** was burned!")        
+async def freeze(em: discord.Embed, x, y, ch: int):
+    """
+    Attempts to apply the Frozen status condition from Pokemon x to Pokemon y.
+    """
+    
+    # 1. Pre-Check for Sheer Force and Status Quo
+    
+    # Sheer Force prevents secondary effects (like freeze chance)
+    if x.ability == "Sheer Force":
+        return
+
+    # Check if target is already afflicted or fainted
+    if y.status != "Alive" or y.hp <= 0:
+        return
+
+    # 2. Calculate effective chance and perform roll
+
+    ch_effective = ch
+    
+    # 2a. Serene Grace check (Doubles the chance)
+    if x.ability == "Serene Grace":
+        # Multiplies the base chance by 2, capped at 100%
+        ch_effective = min(100, ch * 2)
+        
+    chance_roll = random.randint(1, 100)
+    
+    # 2b. Check if the status attempt failed
+    # The status succeeds if the random roll is less than or equal to the effective chance.
+    if chance_roll > ch_effective:
+        return # Chance roll failed
+        
+    # 3. Check for Prevention/Immunity Conditions & Reflection
+
+    # Get all types (including Tera Type)
+    y_types = [t.title() for t in (y.primaryType, y.secondaryType, y.teraType) if t]
+    
+    is_immune = (
+        y.name == "Substitute" or # Cannot apply status through Substitute
+        "Ice" in y_types or # Ice types are immune to Freeze
+        # Abilities that prevent status:
+        y.ability in ["Magic Bounce", "Comatose", "Leaf Guard"] # Leaf Guard only works in Sun
+    )
+    
+    if is_immune:
+        # Check if Magic Bounce reflects the effect before returning
+        if y.ability == "Magic Bounce" and x.status == "Alive":
+            x.status = "Frozen"
+            em.add_field(name=f"❄️ Status Reflected!",
+                         value=f"{y.icon} **{y.name}'s Magic Bounce** reflected the effect! **{x.name}** is frozen solid!")
+            return
+            
+        return # Status attempt failed due to immunity
+
+    # 4. Apply Status to Target (y)
+    
+    # If all checks pass, apply the status
+    y.status = "Frozen"
+    em.add_field(name="❄️ Status Applied:", value=f"**{y.name}** is frozen solid!")
+
+    # 5. Check for Status Recoil/Synchronize
+    # Synchronize check is fine, though typically only applies to Poison/Burn/Paralyze.
+    if y.ability == "Synchronize" and x.status == "Alive" and y.status == "Frozen":
+        x.status = "Frozen"
+        em.add_field(name=f"🧊 Status Copied:",
+                     value=f"{y.icon} **{y.name}'s Synchronize** copied the status! **{x.name}** is frozen solid!")
+async def paralyze(em: discord.Embed, x, y, ch: int):
+    """
+    Attempts to apply the Paralyzed status condition from Pokemon x to Pokemon y.
+    
+    NOTE: This helper should be called only after checking the move type if the 
+    Paralysis source is an Electric-type move (e.g., Thunderbolt).
+    """
+    
+    # 1. Calculate effective chance (Only done if Paralysis is a secondary effect)
+    
+    # Check for Sheer Force if this is a secondary effect (ch < 100)
+    if ch < 100 and x.ability == "Sheer Force":
+        return
+        
+    ch_effective = ch
+    
+    # 2a. Serene Grace check (Doubles the chance)
+    if x.ability == "Serene Grace":
+        # Multiplies the base chance by 2, capped at 100%
+        ch_effective = min(100, ch * 2)
+        
+    chance_roll = random.randint(1, 100)
+    
+    # 2b. Check if the status attempt failed
+    # The status succeeds if the random roll is less than or equal to the effective chance.
+    if chance_roll > ch_effective:
+        return
+        
+    # 2. Check for General Prevention/Immunity Conditions
+
+    # Get all types (including Tera Type)
+    y_types = [t.title() for t in (y.primaryType, y.secondaryType, y.teraType) if t]
+    
+    # The only type immunity to Paralysis is Electric-type (only against Electric-type moves).
+    # Since this function is generic, we only check for general immunities:
+    
+    # NOTE: If the move that called 'paralyze' was an Electric-type move, 
+    # the Electric check should have occurred before calling this, but we'll include the 
+    # type check for complete coverage assuming the move type is passed or implied.
+    
+    is_immune = (
+        y.name == "Substitute" or  # Cannot apply status through Substitute
+        y.status != "Alive" or # Already has a major status (Sleep, Burn, Freeze, Poison)
+        y.hp <= 0 or # Fainted
+        # Abilities that grant immunity:
+        y.ability in ["Limber", "Leaf Guard", "Comatose", "Magic Bounce"] 
+        # Note: Lightning Rod/Volt Absorb block damage, not status from non-Electric moves.
+    )
+    
+    # Apply type immunity only if the move is NOT Glare, Body Slam, or Force Palm, etc.
+    # Since we don't have the move type/name, we rely on the calling function for complex type checks.
+    if "Electric" in y_types and not hasattr(x, 'move_is_non_electric_paralysis'):
+        # This is a safe guard. Ideally, the move check is done earlier.
+        is_immune = True
+    
+    if is_immune:
+        # Check if Magic Bounce reflects the effect before returning (Status moves only)
+        # We assume Paralysis source is not a bouncing effect unless it's a dedicated status move.
+        if y.ability == "Magic Bounce" and x.status == "Alive":
+            x.status = "Paralyzed"
+            em.add_field(name=f"⚡ Status Reflected!",
+                         value=f"{y.icon} **{y.name}'s Magic Bounce** reflected the effect! **{x.name}** was paralyzed.")
+            return
+        
+        return # Status attempt failed due to immunity
+
+    # 3. Check Item and specific ability prevention (Removed Covert Cloak/Shield Dust)
+    # They do not block major status conditions like Paralysis.
+    
+    # 4. Apply Status to Target (y)
+    
+    y.status = "Paralyzed"
+    em.add_field(name="⚡ Status Applied:", value=f"**{y.name}** was paralyzed!")
+
+    # 5. Check for Status Recoil/Synchronize
+    if y.ability == "Synchronize" and x.status == "Alive" and y.status == "Paralyzed":
+        # Synchronize copies the status back to the inflictor
+        x.status = "Paralyzed"
+        em.add_field(name=f"⚡ Status Copied:",
+                     value=f"{y.icon} **{y.name}'s Synchronize** copied the status! **{x.name}** was paralyzed.")       
+       
+async def poison(em: discord.Embed, x, y, ch: int):
+    """
+    Attempts to apply the Badly Poisoned status condition from Pokemon x to Pokemon y.
+    """
+    
+    # 1. Calculate effective chance & Check if the status attempt succeeds
+    
+    # If the chance is 100, we skip all chance rolls (guaranteed status application if not immune)
+    ch_effective = ch
+    
+    # 2a. Serene Grace check (Doubles the chance)
+    if x.ability == "Serene Grace":
+        # Multiplies the base chance by 2, capped at 100%
+        ch_effective = min(100, ch * 2)
+        
+    chance_roll = random.randint(1, 100)
+    
+    # 2b. Check if the status attempt failed
+    # The status succeeds if the random roll is less than or equal to the effective chance.
+    if chance_roll > ch_effective:
+        return # Chance roll failed
+        
+    if x.ability == "Sheer Force": 
+        # Sheer Force cancels secondary effects (only check if ch wasn't 100)
+        return 
+        
+    # --- The rest of the logic remains the same (Immunity Checks) ---
+    
+    # 2. Check for General Prevention/Immunity Conditions
+
+    y_types = [t.title() for t in (y.primaryType, y.secondaryType, y.teraType) if t]
+    
+    # Type Immunity Check: Only bypassed by Corrosion
+    type_immune = ("Poison" in y_types or "Steel" in y_types) and x.ability != "Corrosion"
+    
+    is_immune = (
+        y.name == "Substitute" or  # Cannot apply status through Substitute
+        type_immune or
+        y.status != "Alive" or # Already has a major status
+        y.hp <= 0 or # Fainted
+        y.ability in ["Immunity", "Magic Bounce", "Leaf Guard", "Comatose", "Pastel Veil"] 
+    )
+    
+    if is_immune:
+        return # Status attempt failed due to immunity
+
+    # 3. Check Item and specific ability prevention
+    is_protected = (
+        y.item == "Covert Cloak" or 
+        y.ability == "Shield Dust"
+    )
+    
+    if is_protected:
+        # If protected, check if Magic Bounce reflects the effect.
+        if y.ability == "Magic Bounce" and x.status == "Alive":
+            x.status = "Badly Poisoned"
+            em.add_field(name=f"🦠 Status Reflected!",
+                         value=f"{y.icon} **{y.name}'s Magic Bounce** reflected the effect! **{x.name}** was badly poisoned!")
+            return
+        
+        # Otherwise, the status attempt just fails silently due to protection
+        return 
+
+    # 4. Apply Status to Target (y)
+    
+    # If all checks pass, apply the status
+    y.status = "Badly Poisoned"
+    em.add_field(name="🦠 Status Applied:", value=f"**{y.name}** was badly poisoned.")
+
+    # 5. Check for Status Recoil/Synchronize
+    if y.ability == "Synchronize" and x.status == "Alive" and y.status == "Badly Poisoned":
+        # Synchronize copies the status back to the inflictor
+        x.status = "Badly Poisoned"
+        em.add_field(name=f"🦠 Status Copied:",
+                     value=f"{y.icon} **{y.name}'s Synchronize** copied the status! **{x.name}** was badly poisoned!")
+ 
+def get_sleep_turns(pokemon) -> int:
+    """Calculates the number of turns a Pokemon will sleep."""
+    if pokemon.ability == "Early Bird":
+        # Early Bird halves the sleep duration (2-3 turns)
+        return random.randint(2, 3) 
+    else:
+        # Standard sleep duration (2-5 turns)
+        return random.randint(2, 5)
+
+async def sleep(em: discord.Embed, x, y, ch: int):
+    """
+    Attempts to apply the Sleep status condition from Pokemon x to Pokemon y.
+    """
+    
+    # 1. Calculate effective chance
+    ch_effective = ch
+    
+    # 2a. Serene Grace check (Doubles the chance)
+    if x.ability == "Serene Grace":
+        # Multiplies the base chance by 2, capped at 100%
+        ch_effective = min(100, ch * 2)
+        
+    chance_roll = random.randint(1, 100)
+    
+    # 2b. Check if the status attempt failed
+    # The status succeeds if the random roll is less than or equal to the effective chance.
+    if chance_roll > ch_effective:
+        return # Chance roll failed
+        
+    # 2. Check for General Prevention/Immunity Conditions
+
+    is_immune = (
+        y.name == "Substitute" or  # Cannot apply status through Substitute
+        y.status != "Alive" or # Already has a major status (Burn, Freeze, etc.)
+        y.hp <= 0 or # Fainted
+        # Abilities that grant immunity:
+        y.ability in ["Magic Bounce", "Leaf Guard", "Comatose", "Vital Spirit", "Insomnia"] 
+    )
+    
+    if is_immune:
+        
+        # Special check for Magic Bounce on immunity before returning:
+        # If the target is immune, but has Magic Bounce, the effect should still be reflected 
+        # (unless immunity is based on ability like Vital Spirit/Insomnia).
+        if y.ability == "Magic Bounce" and x.status == "Alive":
+            x.status = "Sleep"
+            x.sleepturn = get_sleep_turns(x)
+            em.add_field(name=f"💤 Status Reflected!",
+                         value=f"{y.icon} **{y.name}'s Magic Bounce** reflected the effect! **{x.name}** fell asleep!")
+            return
+            
+        return # Status attempt failed due to general immunity
+
+    # 3. Handle Reflection (Magic Bounce) if the target is NOT immune.
+    # NOTE: Covert Cloak/Shield Dust check removed as they do not block major status.
+    
+    # Magic Bounce reflection for status moves (e.g., Sleep Powder)
+    if y.ability == "Magic Bounce" and x.status == "Alive":
+        x.status = "Sleep"
+        x.sleepturn = get_sleep_turns(x)
+        em.add_field(name=f"💤 Status Reflected!",
+                     value=f"{y.icon} **{y.name}'s Magic Bounce** reflected the effect! **{x.name}** fell asleep!")
+        return
+
+    # 4. Apply Status to Target (y)
+    
+    # If all checks pass, apply the status
+    y.status = "Sleep"
+    y.sleepturn = get_sleep_turns(y)
+    em.add_field(name="💤 Status Applied:", value=f"**{y.name}** fell asleep!")
+
+    # 5. Check for Status Recoil/Synchronize
+    if y.ability == "Synchronize" and x.status == "Alive" and y.status == "Sleep":
+        # Synchronize copies the status back to the inflictor
+        x.status = "Sleep"
+        x.sleepturn = get_sleep_turns(x)
+        em.add_field(name=f"💤 Status Copied:",
+                     value=f"{y.icon} **{y.name}'s Synchronize** copied the status! **{x.name}** fell asleep!")
+            
+async def confuse(em: discord.Embed, x, y, ch: int):
+    """
+    Attempts to apply the Confusion volatile status condition from Pokemon x to Pokemon y.
+    """
+    
+    # 1. Calculate effective chance
+    ch_effective = ch
+    
+    # 2a. Serene Grace check (Doubles the chance)
+    if x.ability == "Serene Grace":
+        # Multiplies the base chance by 2, capped at 100%
+        ch_effective = min(100, ch * 2)
+        
+    chance_roll = random.randint(1, 100)
+    
+    # 2b. Check if the status attempt failed
+    # The status succeeds if the random roll is less than or equal to the effective chance.
+    if chance_roll > ch_effective:
+        return# Chance roll failed
+
+    # 2. Check for General Prevention/Immunity Conditions & Reflection
+
+    # Check for reflection first, as it happens even if the move would otherwise fail.
+    if y.ability == "Magic Bounce" and x.confused is False:
+        x.confused = True
+        x.confuseendturn = random.randint(2, 5)
+        em.add_field(name=f"😵 Status Reflected!",
+                     value=f"**{y.name}'s Magic Bounce** reflected the effect! **{x.name}** became confused!")
+        return # Reflection overrides everything else
+        
+    is_immune = (
+        y.name == "Substitute" or# Cannot apply status through Substitute
+        y.confused is True or # Already confused
+        y.hp <= 0 or # Fainted
+        # Abilities that grant immunity:
+        y.ability == "Own Tempo" or
+        y.ability == "Comatose" or
+        # Items/Abilities that block secondary effects (Confusion is often a secondary effect)
+        y.item == "Covert Cloak" or 
+        y.ability == "Shield Dust"
+    )
+    
+    if is_immune:
+        return # Status attempt failed due to immunity
+
+    # 3. Apply Status to Target (y)
+    
+    # If all checks pass, apply the status
+    y.confused = True
+    y.confuseendturn = random.randint(2, 5)
+    em.add_field(name="😵 Status Applied:", value=f"**{y.name}** became confused!")
+                  
+async def flinch(em: discord.Embed, x, y, ch: int):
+    
+    # Pokémon with Substitute, Fainted, or already flinched cannot flinch.
+    if y.name == "Substitute" or y.hp <= 0 or y.flinched is True:
+        return
+    
+    # Check for attacker's ability that prevents secondary effects.
+    if x.ability == "Sheer Force":
+        return
+
+    # Check for abilities/items that grant immunity.
+    # NOTE: Steadfast prevents flinching since Gen 7, so it's a good addition.
+    if y.ability in ["Inner Focus", "Shield Dust", "Steadfast"]: 
+        return
+    if y.item == "Covert Cloak":
+        return
+
+    # 2. Calculate effective chance
+    
+    flinch_chance = ch
+    
+    if ch == 0 and x.item in ["King's Rock", "Razor Claw"]:
+        flinch_chance = 10 
+        
+    if x.ability == "Serene Grace":
+        # Serene Grace doubles the chance of the effect applying
+        flinch_chance *= 2
+        
+    # Ensure chance doesn't exceed 100
+    effective_chance = min(flinch_chance, 100)
+
+    # 3. Roll the dice to see if the flinch succeeds.
+    
+    chance_roll = random.randint(1, 100)
+    
+    # FIX: Flinch succeeds if the roll is less than or equal to the effective chance.
+    if chance_roll <= effective_chance:
+        # Flinch is applied
+        y.flinched = True
+        em.add_field(name="💢 Flinch!", 
+                     value=f"**{y.name}** flinched and couldn't move!", 
+                     inline=False) 
+async def awardgift(user_id_str: str, gift_name: str):
+    
+    inventory_table_name = f"Bag_Items_{user_id_str}"
+    
+    async with aiosqlite.connect("playerdata.db") as player_db:
+        try:
+            # 1. Check if the item already exists in the inventory
+            async with player_db.execute(f"SELECT Quantity FROM '{inventory_table_name}' WHERE Name=?", (gift_name,)) as cursor:
+                result = await cursor.fetchone()
+            
+            if result:
+                # 2. Item exists: Increment quantity
+                current_quantity = result[0]
+                new_quantity = current_quantity + 1
+                await player_db.execute(f"UPDATE '{inventory_table_name}' SET Quantity=? WHERE Name=?", (new_quantity, gift_name))
+                print(f"DEBUG: User {user_id_str} inventory updated. {gift_name} count: {new_quantity}")
+            else:
+                # 3. Item does not exist: Insert new row with Quantity = 1
+                await player_db.execute(f"INSERT INTO '{inventory_table_name}' (Name, Quantity) VALUES (?, 1)", (gift_name,))
+                print(f"DEBUG: User {user_id_str} inventory inserted. {gift_name} count: 1")
+
+            await player_db.commit()
+            
+        except aiosqlite.OperationalError as e:
+            # This often means the inventory table does not exist yet.
+            print(f"Error accessing inventory for {user_id_str}. Table might be missing: {e}")
+            # In a full game, you'd add logic here to CREATE the table.
+        except Exception as e:
+            print(f"Unexpected error awarding gift to user {user_id_str}: {e}")      
+async def winner(ctx: typing.Union[discord.Interaction, discord.ext.commands.Context], tr1, tr2):
+
+    is_interaction = isinstance(ctx, discord.Interaction)
+    user = ctx.user if is_interaction else ctx.author
+    player_id_str = str(user.id)
+    player_display_name = user.display_name
+    
+    # 1. Update Usage Records for Both Teams
+    # We only update records for human-controlled teams (tr.ai is False)
+    if tr2.ai is False:
+        # Assuming usagerecord is an async function
         await usagerecord(tr2.fullteam)
-    if tr1.ai==False:
-        db=sqlite3.connect("record.db")
-        c=db.cursor()
+    if tr1.ai is False:
         await usagerecord(tr1.fullteam)
-        for i in tr1.fullteam:
-            c.execute(f"select * from `pokemons` where name='{i.name}'")
-            v=c.fetchone()
-            c.execute(f"""Update `pokemons` set wins={v[5]+1} where name='{i.name}'""")
-            db.commit()
-    db=sqlite3.connect("playerdata.db")
-    c=db.cursor()
-    c.execute(f"select * from '{ctx.author.id}'")
-    pl=c.fetchone()
-    winner=tr1
-    em=discord.Embed(title=f"{winner.name} won the battle!")
-    em.set_image(url=tr1.sprite)
-    if tr1.name!=ctx.author.display_name:
-        c.execute(f"""Update `{ctx.author.id}` set winstreak=0""")
-        db.commit()
-    elif tr1.name==ctx.author.display_name:
-        am=0
-        streak=pl[4]+1
-        c.execute(f"""Update `{ctx.author.id}` set winstreak={streak}""")
-        db.commit()
-        dt=sqlite3.connect("pokemondata.db")
-        ct=dt.cursor()
-        nm=tr2.name.split("> ")[-1]
-        ct.execute(f"select * from 'Trainers' where name='{nm}'")
-        bdg=ct.fetchone()
-        if bdg!=None:
-            if pl[6]=="None":
-                c.execute(f"""Update `{ctx.author.id}`set badges='{bdg[1]}'""")
-                em.add_field(name="1st badge obtained!",value=f"{bdg[2]} Congratulations! You received a {bdg[1]} from {tr2.name}.")
-                db.commit()
-            elif pl[6]!="None":
-                if bdg[1] not in pl[6]:
-                    new=pl[6]+","+bdg[1]
-                    c.execute(f"""Update `{ctx.author.id}`set badges='{new}'""")
-                    em.add_field(name="New badge obtained!",value=f"{bdg[2]} Congratulations! You received a {bdg[1]} from {tr2.name}.")
-                    db.commit()
-        if pl[5]<streak:
-            c.execute(f"""Update `{ctx.author.id}` set highstreak={streak}""")
-            db.commit()
-        if "Pokemon Trainer" in tr2.name:
-            am=1000
-        elif "Gym Leader" in tr2.name:
-            am=2000
-        elif "Elite Four" in tr2.name:
-            am=5000
-        elif "Champion" in tr2.name:
-            am=10000
-        else:
-             am=1000
-        await addmoney(ctx,ctx.author,am)
-    await ctx.send(embed=em)        
+
+    # 2. Database Operations (Player Data & Pokémon Records)
+    # pokemondata.db is assumed to contain the 'Trainers' table for special NPCs
+    async with aiosqlite.connect("playerdata.db") as player_db, \
+               aiosqlite.connect("record.db") as record_db, \
+               aiosqlite.connect("pokemondata.db") as data_db:
+        
+        # A. Update Pokémon Win Counts (human winner's team)
+        if tr1.ai is False:
+            for i in tr1.fullteam:
+                async with record_db.execute("SELECT wins FROM pokemons WHERE name=?", (i.name,)) as cursor:
+                    v = await cursor.fetchone()
+                if v:
+                    new_wins = v[0] + 1
+                    await record_db.execute("UPDATE pokemons SET wins=? WHERE name=?", (new_wins, i.name))
+            await record_db.commit()
+
+        # B. Player Data Fetch
+        # NOTE: Assuming the columns map to indices: [0]:balance, [1]:highstreak, [2]:winstreak, [3]:badges
+        try:
+            async with player_db.execute(f"SELECT balance, highstreak, winstreak, badges FROM '{player_id_str}'") as cursor:
+                player_data = await cursor.fetchone()
+        except aiosqlite.OperationalError:
+            # Table for the player is missing (should be handled elsewhere, but safety net)
+            player_data = None
+        
+        # Handle profile missing
+        if player_data is None:
+            # Determine the appropriate send method (interaction followup or regular channel send)
+            send_method = ctx.followup.send if is_interaction and ctx.response.is_done() else ctx.send
+            return await send_method("❌ Error: Player profile data not found.")
+
+        current_streak = player_data[2]
+        high_streak = player_data[1]
+        # Ensure badges is a string, default to empty string if it's None or SQL 'None'
+        current_badges = str(player_data[3]) if player_data[3] else "" 
+        
+        em = discord.Embed(title=f"🎉 {tr1.name} won the battle!", color=discord.Color.gold())
+        
+
+        # 3. Handle Win/Loss Streaks and Rewards
+
+        # Player Loss (tr1 is the winner, if tr1's name is not the player's, the player lost)
+        if tr1.name != player_display_name:
+            await player_db.execute(f"UPDATE '{player_id_str}' SET winstreak=0")
+            em.title = f"😔 {tr1.name} won the battle..."
+            em.set_image(url=tr1.sprite) 
+            new_streak = 0
+            await player_db.execute(f"UPDATE '{player_id_str}' SET winstreak=?", (new_streak,))
+            # Note: No rewards or special trainer logic applied on player loss.
+            
+        # Player Win (tr1's name matches the player's display name)
+        elif tr1.name == player_display_name:
+            
+            # Update Streak and High Streak
+            new_streak = current_streak + 1
+            await player_db.execute(f"UPDATE '{player_id_str}' SET winstreak=?", (new_streak,))
+            
+            if new_streak > high_streak:
+                await player_db.execute(f"UPDATE '{player_id_str}' SET highstreak=?", (new_streak,))
+                em.add_field(name="🔥 New High Score!", value=f"Your highest win streak is now **{new_streak}**!", inline=False)
+            
+            # --- Trainer Data Update (Win/Symbol/Gift Logic) ---
+            opponent_name = tr2.name.split("> ")[-1].strip() # Get the clean trainer name
+            trainer_data = None
+            
+            # **Check if the opponent is a special, reward-giving trainer**
+            try:
+                # Assuming the 'Trainers' table has these five columns
+                # [0]:name, [1]:symbolname, [2]:symbolicon, [3]:win, [4]:gift
+                async with data_db.execute("SELECT name, symbolname, symbolicon, win, gift FROM Trainers WHERE name=?", (opponent_name,)) as cursor:
+                    trainer_data = await cursor.fetchone() 
+            except aiosqlite.OperationalError as e:
+                # Catches cases where the 'Trainers' table or the 'win' column is missing/incorrect.
+                print(f"Trainer Data Fetch Warning for {opponent_name}: {e}. Treating as generic opponent.")
+                trainer_data = None 
+                
+            # CORE FIX: Only process special rewards if the trainer record was found
+            if trainer_data:
+                trainer_name = trainer_data[0]
+                badge_name = trainer_data[1]
+                badge_icon = trainer_data[2]
+                current_wins = trainer_data[3]
+                gift_item = trainer_data[4]
+
+                # A. Update Trainer Wins (Increment win count for the defeated special trainer)
+                new_wins = current_wins + 1
+                await data_db.execute("UPDATE Trainers SET win=? WHERE name=?", (new_wins, opponent_name))
+                await data_db.commit() # Commit the Trainer data update
+
+                # B. Badge/Symbol Reward Logic
+                if badge_name and badge_name.lower() != "none" and badge_icon:
+                    
+                    # Check if the player already has this badge
+                    if badge_name not in current_badges:
+                        # Append the new badge. Ensure we handle empty/non-existent current_badges gracefully.
+                        new_badges = f"{current_badges},{badge_name}" if current_badges else badge_name
+                        
+                        await player_db.execute(f"UPDATE '{player_id_str}' SET badges=?", (new_badges,))
+                        
+                        em.add_field(
+                            name="🏅 New Symbol Obtained!",
+                            value=f"{badge_icon} Congratulations! You received the **{badge_name}** from {tr2.name}.",
+                            inline=False
+                        )
+                
+                # C. Gift Item Logic
+                if gift_item and gift_item.lower() != "none":
+                    # NOTE: Assuming 'awardgift' is defined and handles the item distribution
+                    await awardgift(ctx, user, gift_item)
+                    em.add_field(name="🎁 Item Received!", value=f"You received a **{gift_item}** from {tr2.name}!", inline=False)
+
+
+            # --- Money Reward Logic (Applies to ALL wins, determined by name category) ---
+            reward_amount = 1000 
+            if "Champion" in tr2.name: reward_amount = 10000
+            elif "Elite Four" in tr2.name: reward_amount = 5000
+            elif "Gym Leader" in tr2.name: reward_amount = 2000
+
+            # CHANGE: Pass the existing player_db connection to addmoney
+            await addmoney(ctx, user, reward_amount, player_db) 
+            em.add_field(name="💰 Prize Money", value=f"You earned **{await numberify(reward_amount)}** Pokécoins!", inline=False)
+
+            # 4. Final Commit (Player Data) - Keep this commit here!
+            await player_db.commit()
+
+    # 5. Send Final Embed (Handle Interaction vs. Context)
+    if is_interaction and ctx.response.is_done():
+        # This uses the followup for slash commands that were deferred
+        await ctx.followup.send(embed=em)
+    elif hasattr(ctx, 'send'):
+        # This handles regular prefix commands or if the interaction was never deferred/responded to
+        await ctx.send(embed=em)  
         
 #Effects    
 async def effects(ctx,x,y,tr1,field,turn):
@@ -3581,7 +4143,7 @@ async def effects(ctx,x,y,tr1,field,turn):
             em.add_field(name="Taunt:",value=f"{x.name} got rid of taunt.")
     if x.encore==True:
         x.encendturn-=1
-        if encendturn<=0:
+        if x.encendturn<=0:
             x.encore=False
             em.add_field(name="Encore:",value=f"{x.name} got rid of encore.")
     if field.trickroom is True:
@@ -3902,36 +4464,106 @@ async def effects(ctx,x,y,tr1,field,turn):
     if x.hp<0:
         x.hp=0
     if len(em.fields)!=0:
-        await ctx.send(embed=em)
-#Weather    
-async def weather(ctx, field, bg):
-    weather_messages = {
-        "Extreme Sunlight": "The sunlight is extremely harsh.",
-        "Heavy Rain": "Heavy rain continues to fall.",
-        "Snowstorm": "Snow continues to fall.",
-        "Rainy": "Rain continues to fall.",
-        "Sandstorm": "The sandstorm is raging!",
-        "Hail": "Hail continues to fall.",
-        "Sunny": "The sunlight is strong."
+        await ctx.followup.send(embed=em)
+async def weather(ctx: typing.Union[discord.Interaction, discord.ext.commands.Context], field, bg):
+    """
+    Sends an update embed detailing the current weather condition in the battle.
+    
+    Args:
+        ctx: The context object (Context or Interaction) for sending messages.
+        field: The battle field object containing the 'weather' attribute.
+        bg: The color for the Discord embed.
+    """
+    
+    # 1. Define Standard Weather Messages and Emojis
+    weather_info = {
+        "Extreme Sunlight": ("☀️", "The sunlight is extremely harsh! Water-type moves fail."),
+        "Heavy Rain": ("🌧️", "Heavy rain continues to fall! Fire-type moves fail."),
+        "Strong Winds": ("💨", "Strong winds are swirling! Flying-type Pokémon are protected."),
+        "Snowstorm": ("🌨️", "A fierce snowstorm rages! Rock-type Pokémon get a Sp. Def boost."), # Gen IX Snow
+        "Rainy": ("🌧️", "Rain continues to fall, boosting Water-type moves."),
+        "Sandstorm": ("🏜️", "The sandstorm is raging, damaging non-Rock/Ground/Steel types."),
+        "Hail": ("❄️", "Hail continues to fall, damaging non-Ice types."), # Pre-Gen IX Hail
+        "Sunny": ("☀️", "The sunlight is strong, boosting Fire-type moves."),
+        "Fog": ("🌫️", "Thick fog blankets the field, lowering accuracy.")
+        # NOTE: You can add custom weather effects here.
     }
     
-    em = discord.Embed(title="Weather Update!", color=bg)
-    if field.weather in weather_messages:
-        em.add_field(name="Weather:", value=weather_messages[field.weather])
-    elif field.weather not in ["Normal", "Cloudy", "Clear"]:
-        await ctx.send(embed=em)
+    # 2. Check and Retrieve Weather Data
+    current_weather_key = field.weather.title() # Normalize input to match keys
+    
+    if current_weather_key in weather_info:
+        emoji, message = weather_info[current_weather_key]
+        
+        em = discord.Embed(
+            title=f"{emoji} Weather Update: {current_weather_key}", 
+            description=message, 
+            color=bg
+        )
+        
+        # 3. Send the Embed
+        # Use appropriate send method based on context type (assuming ctx.followup.send or ctx.followup.send)
+        if isinstance(ctx, discord.Interaction):
+            # If called during an active interaction, use followup.send or edit_original_response
+            # Since this is a standalone update, we use followup.send if already deferred.
+            # If the interaction is NOT deferred, ctx.followup.send is safer. We default to ctx.followup.send.
+            await ctx.channel.send(embed=em) 
+        else:
+            await ctx.followup.send(embed=em)
+            
+    # 4. Handle Cases with No Significant Weather
+    # The original code's final 'elif' was flawed. If the weather is 'Normal', 'Cloudy', 
+    # or 'Clear', we should simply do nothing, as the function's goal is to announce weather.
+    
+    return
 
-async def partyup(tr1,new):
-    if new.icon not in tr1.party:
-        tr1.party[tr1.party.index("<:ball:1127196564948009052>")]=new.icon
-    return tr1.party
+async def partyup(trainer: 'Trainer', lead1: 'Pokemon', lead2: Optional['Pokemon'] = None):
+    """
+    Handles party status update for both Single (2 args) and Double (3 args) battles.
+
+    - If called with 2 arguments (lead2=None), it assumes single battle icon update.
+    - If called with 3 arguments (lead2 is not None), it calculates the remaining 
+      Pokémon objects for the double battle.
+    """
+    
+    # --- SINGLE BATTLE LOGIC (Fired when only 2 arguments are passed) ---
+    if lead2 is None:
+        # In this mode, 'lead1' is the 'new' Pokémon object whose icon needs to be added.
+        new = lead1 
+        
+        # Original logic: Update the icon string list (trainer.party)
+        if new.icon not in trainer.party:
+            # Assumes trainer.party is the list of icon strings like ["<:ball:...", "<:ball:...", ...]
+            try:
+                # Find the first 'ball' icon placeholder and replace it with the new Pokemon's icon
+                trainer.party[trainer.party.index("<:ball:1127196564948009052>")] = new.icon
+            except ValueError:
+                # Handle case where no ball icon is found (e.g., party is full)
+                pass 
+                
+        # Must return the icon list for the single battle code to update tr1.party
+        return trainer.party
+
+    # --- DOUBLE BATTLE LOGIC (Fired when 3 arguments are passed) ---
+    else:
+        # Here, 'lead1' and 'lead2' are the two active Pokémon objects.
+        
+        # 1. Identify the active Pokémon objects
+        active_pokes = [p for p in [lead1, lead2] if p is not None and not p.fainted]
+        
+        # 2. Get the names of the active Pokémon to exclude them
+        active_names = {p.name for p in active_pokes}
+        
+        # 3. Return the remaining Pokémon *objects* from the trainer's main list (trainer.pokemons)
+        # This list of objects is what the double_battle function expects tr1.party to be updated to.
+        return [p for p in trainer.pokemons if p.name not in active_names and not p.fainted]
 
 async def send_switch_message(ctx, tr1, new):
     """Handles the creation and sending of the 'sent out' embed."""
     em = discord.Embed(title=f"{tr1.name} sent out {new.name}!")
     em.set_thumbnail(url=tr1.sprite)
     em.set_image(url=new.sprite)
-    await ctx.send(embed=em)
+    await ctx.followup.send(embed=em)
 
 async def apply_illusion_effect(tr1, new):
     """Applies the Illusion ability's sprite and nickname change."""
@@ -4024,10 +4656,11 @@ class PokemonSwitchView(discord.ui.View):
         await self.send_target.send(embed=em, view=self)
 
     async def wait_for_switch(self) -> Optional['Pokemon']:
-        # Wait for the view to stop (either by selection or timeout)
-        await self.wait() 
-        
-        if self.switch_select.selected_index != -1:
+        try:
+            await self.wait() 
+        except asyncio.TimeoutError:
+            pass
+        if self.switch_select.selected_index != -1: # <--- ISSUE HERE: This assumes -1 is the only initial state
             # A selection was made
             return self.tr1.pokemons[self.switch_select.selected_index]
         return None
@@ -4082,10 +4715,13 @@ async def switch(ctx, bot, x, y, tr1, tr2, field, turn):
         
     # --- 2. AI Switch Logic ---
     if tr1.ai:
+        available_pokemons = [p for p in tr1.pokemons if p is not None and p.hp > 0]
+        if not available_pokemons:
+            return None 
+
         new = None
-        # Select a random Pokémon that is not currently in battle (x)
         while new is None or new == x:
-            new = random.choice(tr1.pokemons)
+            new = random.choice(available_pokemons)
 
         # Apply Withdrawal Effect and Illusion
         await withdraweff(ctx, x, tr1, y)
@@ -4104,7 +4740,7 @@ async def switch(ctx, bot, x, y, tr1, tr2, field, turn):
         # Determine where to send the switch menu (Channel vs. DM)
         if tr2.ai: # Human vs AI: input in main channel
             send_target = ctx.channel 
-            send_feedback = lambda msg: ctx.send(msg)
+            send_feedback = lambda msg: ctx.followup.send(msg)
         else: # Human vs Human: input in DM
             send_target = tr1.member 
             send_feedback = lambda msg: tr1.member.send(msg)
@@ -4240,7 +4876,7 @@ async def withdraweff(ctx, x, tr1, y):
         em = discord.Embed(title="Withdraw Effect:")
         for field in fields_to_add:
             em.add_field(name=field["name"], value=field["value"])
-        await ctx.send(embed=em)                  
+        await ctx.followup.send(embed=em)                  
 
 async def rankedbuild(team):
     new=[]
@@ -4403,17 +5039,17 @@ async def rankedmonvert(tr, m):
     NAME_INDEX = 0
     ITEM_LIST_INDEX = 24
     
-    pokemon_name = m[NAME_INDEX]
-    
-    # 1a. Determine Held Item
     item = "None"
     if m[ITEM_LIST_INDEX] is not None:
         item = random.choice(m[ITEM_LIST_INDEX].split(","))
         
+    pokemon_name = m[NAME_INDEX]
+    if m[20]!="None" and "Eviolite" not in item:
+        return
+        
     final_name = pokemon_name
     newname = pokemon_name
     ability = m[11]
-    
     # 1b. Conditional Name/Form Assignment based on Item
     if pokemon_name == "Zacian" and item == "Rusted Sword":
         final_name = "Crowned Zacian"
@@ -4495,8 +5131,10 @@ async def rankedmonvert(tr, m):
         hp=n[4], atk=n[5], defense=n[6], spatk=n[7], spdef=n[8], speed=n[9],
         sprite=n[12], icon=n[22], weight=n[13]
     )
-    
-    return p
+    if p!=None:
+        return p
+    else:
+        print("Error")
 
 async def checkname(name):
     # A dictionary mapping keywords to their corresponding Discord icon strings
@@ -4716,7 +5354,7 @@ async def gameteam(ctx, num=0, p1team=None):
         p = await gamemonvert(formatted_name, pokemon_data, max_level)
 
         # Apply specific sprite logic for certain trainers/Pokémon (e.g., Ash's Pikachu)
-        if p.name == "Pikachu":
+        if p is not None and p.name == "Pikachu":
             if formatted_name == "Kanto Champion Red":
                 p.sprite = "https://play.pokemonshowdown.com/sprites/ani/pikachu-starter.gif"
             elif formatted_name == "World Champion Ash":

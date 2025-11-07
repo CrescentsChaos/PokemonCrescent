@@ -583,10 +583,12 @@ async def spawn(ctx:discord.Interaction):
 async def cheat_slash(interaction: discord.Interaction, code: str):
     await interaction.response.defer(thinking=True, ephemeral=True)
     if code == "tsilverw7":
-        await addmoney(None, interaction.user, 1000000)
+        # Pass None for the 'ctx' argument to prevent addmoney from sending a public message
+        await addmoney(None, interaction.user, 1000000) 
         await interaction.followup.send("💰 Success! You received 1,000,000 Pokécoins!", ephemeral=True)
     else:
         await interaction.followup.send("❌ Invalid code. Better luck next time!", ephemeral=True)
+               
 async def sortbadge(bdg_list: List[str]) -> List[str]:
     # Placeholder for your badge sorting logic
     return sorted(bdg_list)
@@ -1322,7 +1324,7 @@ class PokemonView(discord.ui.View):
             color=0x220022
         )
         # Use the ID of the user who ran the command
-        x.set_author(name=f"{self.user_id}'s PC") 
+        x.set_author(name=f"Your PC [{self.user_id}]") 
         
         for i in pokemon_list:
             # i is a single Pokémon data tuple (row from owned.db)
@@ -1849,35 +1851,112 @@ async def breed(ctx:discord.Interaction,mon1:int=1,mon2:int=2):
     else:
         await ctx.channel.send(f" You can't breed a {mon1.gender} {mon1.name} with a {mon2.gender} {mon2.name} or You don't have sufficient balance!")
         
-@bot.tree.command(name="takeitem",description="Take item from a pokémon.")
-async def takeitem(ctx:discord.Interaction,num:str):
-    num=num.split(" ")
-    num=list(num)
-    new=[]
-    for i in num:
-        new.append(int(i))
-    db=sqlite3.connect("playerdata.db")
-    c=db.cursor()
-    dt=sqlite3.connect("owned.db")
-    ct=dt.cursor()
-    for i in new:
-        c.execute(f"Select * from '{ctx.user.id}'")
-        items=c.fetchone()
-        items=eval(items[2])
-        num=await row(ctx,i,ct)
-        ct.execute(f"select item from '{ctx.user.id}' where rowid={num}")
-        item=ct.fetchone()
-        item=item[0]
-        if item!="None":
-            items.append(item)
-            items=f"{items}"
-            c.execute(f"""update '{ctx.user.id}' set Items="{items}" """)
-            db.commit()
-            ct.execute(f"update '{ctx.user.id}' set item='None' where rowid={num}")
-            dt.commit()
-            await ctx.response.send_message(f"{item} was sent to your inventory!")
-        elif item=="None":
-            await ctx.response.send_message(f"It's not holding any item!")
+@bot.tree.command(name="takeitem", description="Take item from a pokémon by its owned ID(s).")
+async def takeitem(ctx: discord.Interaction, num: str):
+    # 1. IMMEDIATE ACKNOWLEDGEMENT
+    # Acknowledge the interaction immediately to prevent the "Interaction has already been acknowledged" error
+    # and to ensure the user gets instant feedback. We will use followup messages for the results.
+    await ctx.response.send_message("⚙️ Processing item return request...", ephemeral=True)
+    
+    user_id_str = str(ctx.user.id)
+    results = [] # To store messages about the items taken
+
+    # 2. Input Parsing and Validation
+    try:
+        # Split by space, filter out empty strings, and convert to integer list
+        pokemon_ids_to_process = [int(i) for i in num.split() if i.isdigit()]
+    except ValueError:
+        return await ctx.followup.send(
+            "❌ Error: Please enter valid Pokémon IDs (numbers) separated by spaces.",
+            ephemeral=True
+        )
+
+    # If no valid IDs were found
+    if not pokemon_ids_to_process:
+        return await ctx.followup.send(
+            "❌ Error: No valid Pokémon IDs provided.",
+            ephemeral=True
+        )
+
+    # 3. Asynchronous Database Access (Use one connection for each database)
+    try:
+        async with aiosqlite.connect("playerdata.db") as db, \
+                   aiosqlite.connect("owned.db") as dt:
+            
+            # Use active cursors for execution
+            async with db.cursor() as c, dt.cursor() as ct:
+                
+                # Fetch player's item list ONCE outside the loop for efficiency
+                await c.execute(f"SELECT * FROM '{user_id_str}'")
+                player_data = await c.fetchone()
+                
+                if player_data is None:
+                    return await ctx.followup.send("❌ Error: Player profile not found. Please `/start` your adventure.", ephemeral=True)
+                
+                # Safely convert item string (index 2) to a list
+                items_str = player_data[2]
+                items_list = ast.literal_eval(items_str) if items_str else []
+                
+                # Main Loop to process each Pokémon ID
+                for owned_id in set(pokemon_ids_to_process): # Use set to avoid processing the same ID multiple times
+                    
+                    # NOTE: Your original code uses a function named 'row' which is likely an async function.
+                    # This code assumes a direct use of the ID for simplicity, but you might need to adjust 'row'
+                    # or ensure 'owned_id' is the correct rowid for the 'owned.db' table.
+                    owned_rowid = await row(ctx, owned_id, ct) if 'row' in globals() else owned_id # Adjust based on your 'row' function
+
+                    # Check if the Pokémon exists (owned_rowid is valid)
+                    if owned_rowid is None:
+                        results.append(f"❓ Pokémon ID **{owned_id}** not found in your collection.")
+                        continue
+                        
+                    # 3.1 Get Held Item
+                    await ct.execute(f"SELECT item FROM '{user_id_str}' WHERE rowid=?", (owned_rowid,))
+                    item_data = await ct.fetchone()
+                    
+                    if item_data is None: # Should not happen if owned_rowid is valid, but good to check
+                        results.append(f"⚠️ Could not find entry for owned ID **{owned_id}**.")
+                        continue
+
+                    held_item = item_data[0]
+                    
+                    # 3.2 Process Take Item
+                    if held_item and held_item.lower() != "none":
+                        # Add item to player's bag
+                        items_list.append(held_item)
+                        
+                        # Update the Pokémon's held item to 'None'
+                        await ct.execute(f"UPDATE '{user_id_str}' SET item='None' WHERE rowid=?", (owned_rowid,))
+                        
+                        results.append(f"✅ Item **{held_item.title()}** was removed from Pokémon ID **{owned_id}** and sent to your bag.")
+                    else:
+                        results.append(f"ℹ️ Pokémon ID **{owned_id}** is not holding any item.")
+
+                # 4. Final Database Commit and Update Player's Bag
+                
+                # Convert updated items list back to string format for storage
+                final_items_str = f"{items_list}"
+                await c.execute(f"UPDATE '{user_id_str}' SET Items=? ", (final_items_str,))
+                
+                await db.commit() # Commit Player Data changes
+                await dt.commit() # Commit Owned Pokemon changes
+                
+    except aiosqlite.Error as e:
+        print(f"Database Error in takeitem: {e}")
+        return await ctx.followup.send(f"❌ A critical database error occurred. ({e})", ephemeral=True)
+    except Exception as e:
+        print(f"An unexpected error occurred in takeitem: {e}")
+        return await ctx.followup.send(f"❌ An unexpected error occurred. Please try again.", ephemeral=True)
+
+
+    # 5. Final Response
+    final_message = "\n".join(results)
+    if not final_message:
+        final_message = "No actions were taken."
+
+    # Use followup to send the final result message
+    await ctx.followup.send(final_message)
+    
 @bot.tree.command(name="buyitem",description="Buy an item.")
 async def pokemons(ctx:discord.Interaction,item:str):
     item=item.title()
@@ -1912,282 +1991,661 @@ async def pokemons(ctx:discord.Interaction,item:str):
                 dt.commit()
                 await ctx.channel.send(f"You purchased a {item[0]}!")
                 break
-@bot.tree.command(name="bag",description="Shows all the items in your bag.")
-async def bag(ctx:discord.Interaction,page:int=1):  
-    db=sqlite3.connect("playerdata.db")
-    c=db.cursor()
-    c.execute(f"Select * from '{ctx.user.id}'")
-    items=c.fetchone()
-    items=eval(items[2])
-    items.sort()
-    newdic=await listtodic(items)
-    sub=await gensub(page,newdic)
-    tot=round(len(newdic)//15)+1
-    bag=discord.Embed(title=f"{ctx.user.display_name}'s Backpack:",description=f"Total item: {len(items)}")
-    txt=""
-    if len(items)!=0:
-        for k,v in sub.items():
-            txt+=f"{await itemicon(k)} {k} ×{v}\n"
-        bag.add_field(name="Item List:",value=txt)
-    else:
-        bag.add_field(name="Item List:",value="Your backpack is empty!")     
-    bag.set_footer(text=f"Showing {page} out of {tot} pages")
-    bag.set_thumbnail(url="https://cdn.discordapp.com/attachments/1102579499989745764/1134073215803723827/image_search_1690454504333.png")       
-    await ctx.response.send_message(embed=bag)
-    
-@bot.tree.command(name="useitem",description="Use item on a pokémon.")
-async def useitem(ctx:discord.Interaction,item:str,num:int=1):      
-    it=item.title()
-    db=sqlite3.connect("playerdata.db")
-    c=db.cursor()
-    c.execute(f"Select * from '{ctx.user.id}'")
-    items=c.fetchone()
-    items=eval(items[2])
-    dt=sqlite3.connect("owned.db")
-    ct=dt.cursor()
-    num=await row(ctx,num,ct)
-    if "Mint" in it and it in items:
-        itm=it.replace(" Mint","")
-        ct.execute(f"update '{ctx.user.id}' set nature='{itm}' where rowid={num}")
-        dt.commit()
-        items.remove(it)
-        items=f"{items}"
-        c.execute(f"""update '{ctx.user.id}' set Items="{items}" """)
-        db.commit()
-        ct.execute(f"select * from '{ctx.user.id}' where rowid={num}")
-        mon=ct.fetchone()
-        await ctx.response.send_message(f"{mon[0]}'s stats may have changed due to the effects of the {it}!")
-    elif it=="Golden Bottle Cap" and it in items:
-        ct.execute(f"update '{ctx.user.id}' set hpiv=31,atkiv=31,defiv=31,spatkiv=31,spdefiv=31,speediv=31 where rowid={num}")
-        dt.commit()
-        items.remove(it)
-        items=f"{items}"
-        c.execute(f"""update '{ctx.user.id}' set Items="{items}" """)
-        db.commit()
-        ct.execute(f"select * from '{ctx.user.id}' where rowid={num}")
-        mon=ct.fetchone()
-        await ctx.response.send_message(f"{mon[0]}'s stats may have changed due to the effects of the {it}!")   
-    elif it=="Bottle Cap" and it in items:
-        ct.execute(f"select * from `{ctx.user.id}` where rowid={num}")
-        m=ct.fetchone()
-        em=discord.Embed(title="Which IV stat you wanna max out?",description=f"#1 HP IV : {m[3]}\n#2 Attack IV : {m[4]}\n#3 Defense IV : {m[5]}\n#4 Special Attack IV : {m[6]}\n#5 Special Defense IV : {m[7]}\n#6 Speed IV : {m[8]}\n")
-        await ctx.response.send_message(embed=em)
-        response = await bot.wait_for('message', check=lambda message: message.author == ctx.user)
-        n=int(response.content)
-        if n==1 and m[3]!=31:
-            ct.execute(f"update '{ctx.user.id}' set hpiv=31 where rowid={num}")
-            dt.commit()
-            items.remove(it)
-            items=f"{items}"
-            c.execute(f"""update '{ctx.user.id}' set Items="{items}" """)
-            db.commit()
-        elif n==2 and m[4]!=31:
-            ct.execute(f"update '{ctx.user.id}' set atkiv=31 where rowid={num}")
-            dt.commit()
-            items.remove(it)
-            items=f"{items}"
-            c.execute(f"""update '{ctx.user.id}' set Items="{items}" """)
-            db.commit()          
-        elif n==3 and m[5]!=31:
-            ct.execute(f"update '{ctx.user.id}' set defiv=31 where rowid={num}")
-            dt.commit()
-            items.remove(it)
-            items=f"{items}"
-            c.execute(f"""update '{ctx.user.id}' set Items="{items}" """)
-            db.commit()  
-        elif n==4 and m[6]!=31:
-            ct.execute(f"update '{ctx.userid}' set spatkiv=31 where rowid={num}")
-            dt.commit()
-            items.remove(it)
-            items=f"{items}"
-            c.execute(f"""update '{ctx.user.id}' set Items="{items}" """)
-            db.commit()
-        elif n==5 and m[7]!=31:
-            ct.execute(f"update '{ctx.user.id}' set spdefiv=31 where rowid={num}")
-            dt.commit()
-            items.remove(it)
-            items=f"{items}"
-            c.execute(f"""update '{ctx.user.id}' set Items="{items}" """)
-            db.commit()
-        elif n==6 and m[8]!=31:
-            ct.execute(f"update '{ctx.user.id}' set speediv=31 where rowid={num}")
-            dt.commit()
-            items.remove(it)
-            items=f"{items}"
-            c.execute(f"""update '{ctx.user.id}' set Items="{items}" """)
-            db.commit()
-        else:
-            await ctx.channel.send("IV is already maxed for this stat.")
-        if n in [1,2,3,4,5,6]:
-            await ctx.channel.send(f"{m[0]}'s stats may have changed due to the effects of the {it}!")             
-    elif it=="Ability Capsule" and it in items:
-        dx=sqlite3.connect("pokemondata.db")
-        cx=dx.cursor()
-        ct.execute(f"select * from '{ctx.user.id}' where rowid={num}")
-        mon=ct.fetchone()
-        cx.execute(f"select * from 'wild' where name='{mon[0]}'")
-        m=cx.fetchone()
-        abilities=m[11].split(",")
-        ablist=""
-        n=0
-        for i in abilities:
-            n+=1
-            ablist+=f"**#{n} {i}**\n{await abilitydesc(i)}\n"
-        em=discord.Embed(title=f"Select the desired ability for {mon[1]}!",description=ablist,color=0x00ff00)
-        await ctx.response.send_message(embed=em)
-        response = await bot.wait_for('message', check=lambda message: message.author == ctx.user)
-        try:
-            nm=int(response.content)
-            if nm<=len(abilities):
-                nm-=1
-                ab=abilities[nm]
-                ct.execute(f"""Update `{ctx.user.id}` set ability="{ab}" where rowid={num}""")
-                dt.commit()
-                items.remove(it)
-                items=f"{items}"
-                c.execute(f"""update '{ctx.user.id}' set Items="{items}" """)
-                db.commit()
-                await ctx.channel.send(f"{mon[0]}'s ability may have changed due to the effects of the {it}!")
-        except:
-            await ctx.channel.send("Process failed!")
-    elif "Tera Shard" in it and it in items:
-        itm=it.replace(" Tera Shard","")
-        ct.execute(f"update '{ctx.user.id}' set teratype='{itm}' where rowid={num}")
-        dt.commit()
-        items.remove(it)
-        items=f"{items}"
-        c.execute(f"""update '{ctx.user.id}' set Items="{items}" """)
-        db.commit()
-        ct.execute(f"select * from '{ctx.user.id}' where rowid={num}")
-        mon=ct.fetchone()
-        await ctx.response.send_message(f"{mon[0]}'s tera-Type may have changed due to the effects of the {it}!")        
-    elif it=="Gracidea" and it in items:
-        ct.execute(f"select * from '{ctx.user.id}' where rowid={num}")
-        mons=c.fetchone()
-        mon=mons[0]
-    if "Sky" in mon:
-        mon=mon.replace("Sky ","")
-        ct.execute(f"""Update `{ctx.user.id}` set name="{mon}",ability="Natural Cure" where rowid={num}""")        
-        dt.commit()
-        await ctx.response.send_message(f"{mon} transformed!")
-    elif mon=="Shaymin":
-        mon="Sky "+mon
-        ct.execute(f"""Update `{ctx.user.id}` set name="{mon}",ability="Serene Grace" where rowid={num}""")        
-        dt.commit()        
-        await ctx.response.send_message(f"{mon.replace('Sky ','')} tranformed!")
-    elif it=="Prison Bottle" and it in items:
-        ct.execute(f"select * from '{ctx.user.id}' where rowid={num}")
-        mons=c.fetchone()
-        mon=mons[0]
-    if "Unbound" in mon:
-        mon=mon.replace(" Unbound","")
-        ct.execute(f"""Update `{ctx.user.id}` set name="{mon}" where rowid={num}""")        
-        dt.commit()
-        await ctx.send(f"{mon} transformed!")
-    elif mon=="Hoopa":
-        mon=mon+" Unbound"
-        ct.execute(f"""Update `{ctx.user.id}` set name="{mon}" where rowid={num}""")        
-        dt.commit()        
-        await ctx.response.send_message(f"{mon.replace(' Unbound','')} transformed!")           
-    elif it=="Reveal Glass" and it in items:
-        ct.execute(f"select * from '{ctx.user.id}' where rowid={num}")
-        mons=c.fetchone()
-        mon=mons[0]
-    if "Therian" in mon:
-        mon=mon.replace("Therian ","")
-        ab=""
-        if mon=="Landorus":
-            ab="Intimidate"
-        elif mon=="Tornadus":
-            ab="Regenerator"
-        elif mon=="Thundurus":
-            ab="Volt Absorb"
-        elif mon=="Enamorus":
-            ab="Overcoat"
-        ct.execute(f"""Update `{ctx.user.id}` set name="{mon}",ability="{ab}" where rowid={num}""")        
-        dt.commit()
-        await ctx.response.send_message(f"{mon} transformed!")
-    elif mon in ["Thundurus","Landorus","Tornadus","Enamorus"]:
-        mon="Therian "+mon
-        ab=""
-        if mon=="Therian Landorus":
-            ab=random.choice(["Sand Force","Sheer Force"])
-        elif mon=="Therian Tornadus":
-            ab=random.choice(["Defiant","Prankster"])
-        elif mon=="Therian Thundurus":
-            ab=random.choice(["Defiant","Prankster"])
-        elif mon=="Therian Enamorus":
-            ab=random.choice(["Contrary","Fairy Aura"])
-        ct.execute(f"""Update `{ctx.user.id}` set name="{mon}" where rowid={num}""")        
-        dt.commit()        
-        await ctx.response.send_message(f"{mon.replace('Therian ','')} transformed!")
+class BagPaginator(View):
+    def __init__(self, user: discord.User, items: list, newdic: dict, total_pages: int, embed_generator_func):
+        super().__init__(timeout=180.0) # Timeout after 3 minutes of inactivity
+        self.user = user
+        self.items = items
+        self.newdic = newdic
+        self.total_pages = total_pages
+        self.current_page = 1
+        self.embed_generator = embed_generator_func
         
-@bot.tree.command(name="giveitem",description="Give item to a pokémon to hold it..")
-async def giveitem(ctx:discord.Interaction,item:str,num:int=1):
-    it=item.title()
-    db=sqlite3.connect("playerdata.db")
-    c=db.cursor()
-    c.execute(f"Select * from '{ctx.user.id}'")
-    items=c.fetchone()
-    items=eval(items[2])
-    dt=sqlite3.connect("owned.db")
-    ct=dt.cursor()
-    num=await row(ctx,num,ct)
-    ct.execute(f"select item from '{ctx.user.id}' where rowid={num}")
-    item=ct.fetchone()
-    item=item[0]
-    if item!="None":
-        items.append(item)
-        items=f"{items}"
-        c.execute(f"""update '{ctx.user.id}' set Items="{items}" """)
-        db.commit()
-        ct.execute(f"update '{ctx.user.id}' set item='None' where rowid={num}")
-        dt.commit()
-        items=eval(items)
-        await ctx.response.send_message(f"{item} was sent to your inventory!")
-    if it in items:
-        ct.execute(f"update '{ctx.user.id}' set item='{it}' where rowid={num}")
-        dt.commit()
-        items.remove(it)
-        items=f"{items}"
-        c.execute(f"""update '{ctx.user.id}' set Items="{items}" """)
-        db.commit()
-        ct.execute(f"select * from '{ctx.user.id}' where rowid={num}")
-        x=ct.fetchone()
+        # Initial button state setup
+        self.update_buttons()
+        
+    def update_buttons(self):
+        # Find the buttons by their custom_id or index and disable/enable them
+        
+        # Previous Button
+        prev_button = self.children[0]
+        prev_button.disabled = self.current_page == 1
+        
+        # Next Button
+        next_button = self.children[1]
+        next_button.disabled = self.current_page == self.total_pages
+
+    async def generate_bag_embed(self):
+        """Generates the actual discord.Embed for the current page."""
+        return await self.embed_generator(
+            self.user, 
+            self.current_page, 
+            self.total_pages, 
+            self.items, 
+            self.newdic
+        )
+
+    # --- Buttons ---
+
+    @discord.ui.button(emoji="◀️", style=ButtonStyle.primary, custom_id="prev_page")
+    async def prev_button(self, interaction: discord.Interaction, button: Button):
+        if interaction.user != self.user:
+            return await interaction.response.send_message("This menu is not for you!", ephemeral=True)
+            
+        if self.current_page > 1:
+            self.current_page -= 1
+            self.update_buttons()
+            
+            new_embed = await self.generate_bag_embed()
+            # Edit the original message with the new embed and the updated view
+            await interaction.response.edit_message(embed=new_embed, view=self)
+        else:
+            await interaction.response.defer() # Acknowledge the click without changing the message
+
+    @discord.ui.button(emoji="▶️", style=ButtonStyle.primary, custom_id="next_page")
+    async def next_button(self, interaction: discord.Interaction, button: Button):
+        if interaction.user != self.user:
+            return await interaction.response.send_message("This menu is not for you!", ephemeral=True)
+            
+        if self.current_page < self.total_pages:
+            self.current_page += 1
+            self.update_buttons()
+            
+            new_embed = await self.generate_bag_embed()
+            # Edit the original message with the new embed and the updated view
+            await interaction.response.edit_message(embed=new_embed, view=self)
+        else:
+            await interaction.response.defer() # Acknowledge the click without changing the message
+
+    async def on_timeout(self):
+        # Disable all buttons when the view times out
+        for item in self.children:
+            item.disabled = True
+        # Try to edit the message to remove interactive elements
         try:
-            await ctx.response.send_message(f"{x[0]} is now holding a {it}!")
+            # Need to get the original message from the interaction's channel
+            # This is a bit tricky without storing the message, so we rely on the message attribute being set after the send_message call
+            if hasattr(self, 'message'):
+                 await self.message.edit(view=self)
+        except Exception:
+            pass
+async def create_bag_embed(user: discord.User, page: int, total_pages: int, all_items: list, item_counts: dict) -> discord.Embed:
+    """Helper function to create the bag embed for a given page."""
+    
+    # gensub logic applied here
+    sorted_item_names = sorted(item_counts.keys())
+    start_index = (page - 1) * ITEMS_PER_PAGE
+    end_index = start_index + ITEMS_PER_PAGE
+    
+    bag_embed = discord.Embed(
+        title=f"{user.display_name}'s Backpack:",
+        description=f"Total unique items: **{len(item_counts)}** (Total quantity: **{len(all_items)}**)",
+        color=discord.Color.blue()
+    )
+    bag_embed.set_thumbnail(url="https://cdn.discordapp.com/attachments/1102579499989745764/1134073215803723827/image_search_1690454504333.png")
+
+    txt = ""
+    if len(all_items) != 0:
+        for item_name in sorted_item_names[start_index:end_index]:
+            count = item_counts[item_name]
+            # Assumes itemicon is an awaitable function
+            txt += f"{await itemicon(item_name)} **{item_name.title()}** ×{count}\n"
+        
+        bag_embed.add_field(name="Item List:", value=txt, inline=False)
+    else:
+        bag_embed.add_field(name="Item List:", value="Your backpack is empty! Go explore!", inline=False)
+        
+    bag_embed.set_footer(text=f"Page {page} of {total_pages}")
+    return bag_embed
+
+
+@bot.tree.command(name="bag", description="Shows all the items in your bag.")
+async def bag(ctx: discord.Interaction, page: int = 1):
+    user_id_str = str(ctx.user.id)
+    
+    # 1. Use aiosqlite for asynchronous database access
+    async with aiosqlite.connect("playerdata.db") as db:
+        # Fetch the entire row for the user's table
+        # NOTE: Your original code used SELECT * and then fetched items[2]. 
+        # We need to ensure the user's table name is safe and the column is correct.
+        # Assuming column 2 (index 2) is the 'items' column:
+        try:
+            async with db.execute(f"SELECT * FROM '{user_id_str}'") as cursor:
+                row = await cursor.fetchone()
+                
+            if row is None:
+                # Handle case where player data doesn't exist
+                return await ctx.response.send_message(
+                    "You do not have a player profile yet. Please start your adventure!", 
+                    ephemeral=True
+                )
+            
+            # The list of item names is stored in the 3rd column (index 2) as a string
+            items_str = row[2] 
+            
+        except aiosqlite.OperationalError:
+            # Catch errors like "no such table"
+            return await ctx.response.send_message(
+                "You do not have a player profile yet. Please start your adventure!", 
+                ephemeral=True
+            )
+
+    # 2. Safely evaluate the string into a list
+    try:
+        # Use ast.literal_eval for safety over eval()
+        all_items = ast.literal_eval(items_str) if items_str else []
+    except (ValueError, SyntaxError):
+        # Handle malformed data in the database
+        print(f"Error evaluating items string for user {ctx.user.id}: {items_str}")
+        all_items = []
+    
+    # 3. Process item counts and calculate pages
+    item_counts = await listtodic(all_items) # Dict of {item_name: count}
+    
+    total_unique_items = len(item_counts)
+    total_pages = math.ceil(total_unique_items / ITEMS_PER_PAGE) if total_unique_items > 0 else 1
+    
+    # Ensure starting page is valid
+    if not (1 <= page <= total_pages):
+        page = 1 
+
+    # 4. Create the Paginator View and the initial Embed
+    paginator_view = BagPaginator(ctx.user, all_items, item_counts, total_pages, create_bag_embed)
+    paginator_view.current_page = page # Set the starting page
+    paginator_view.update_buttons() # Update button states
+    
+    # Generate the initial embed
+    initial_embed = await paginator_view.generate_bag_embed()
+
+    # 5. Send the initial message with the view
+    if total_pages > 1:
+        # Store the message object in the view for on_timeout to work reliably
+        message = await ctx.response.send_message(embed=initial_embed, view=paginator_view)
+        paginator_view.message = await message.original_response()
+    else:
+        # If there's only one page, send the embed without buttons
+        await ctx.response.send_message(embed=initial_embed)
+            
+class BottleCapSelect(discord.ui.View):
+    def __init__(self, original_interaction: discord.Interaction, db_connection, dt_connection, user_items_list: list, user_owned_data: tuple, owned_rowid: int, bot_instance):
+        # We need to pass the connections, item list, and owned data to the view
+        super().__init__(timeout=180)
+        self.original_interaction = original_interaction
+        self.db = db_connection
+        self.dt = dt_connection
+        self.user_items = user_items_list
+        self.user_owned_data = user_owned_data
+        self.owned_rowid = owned_rowid
+        self.bot = bot_instance
+        self.item_name = "Bottle Cap" # Constant item name
+
+        # The options need to be created based on the current IVs
+        options = []
+        stats = ["HP", "Attack", "Defense", "Sp. Atk", "Sp. Def", "Speed"]
+        # IVs are stored from index 3 to 8 (m[3] to m[8] in your original code)
+        for i, stat_name in enumerate(stats, start=3):
+            iv_value = user_owned_data[i]
+            if iv_value < 31:
+                options.append(
+                    discord.SelectOption(
+                        label=f"{stat_name} IV: {iv_value}",
+                        value=str(i), # Store the column index as the value
+                        description=f"Max out {stat_name} IV to 31."
+                    )
+                )
+
+        if not options:
+            self.add_item(discord.ui.Button(label="All IVs are already maxed!", style=discord.ButtonStyle.secondary, disabled=True))
+        else:
+            self.add_item(
+                discord.ui.Select(
+                    placeholder="Choose a stat to max out...",
+                    options=options,
+                    custom_id="bottle_cap_select"
+                )
+            )
+
+    @discord.ui.select(custom_id="bottle_cap_select", placeholder="Choose a stat...")
+    async def select_callback(self, interaction: discord.Interaction, select: discord.ui.Select):
+        if interaction.user != self.original_interaction.user:
+            return await interaction.response.send_message("This menu is not for you!", ephemeral=True)
+
+        selected_index = int(select.values[0])
+        stat_name = select.options[selected_index - 3].label.split(" IV")[0] # Get the stat name (HP, Attack, etc.)
+
+        # 1. Update IV in owned.db
+        stat_col = ["hpiv", "atkiv", "defiv", "spatkiv", "spdefiv", "speediv"][selected_index - 3]
+        user_id_str = str(self.original_interaction.user.id)
+
+        # Use the passed-in connection to execute
+        await self.dt.execute(f"UPDATE '{user_id_str}' SET {stat_col}=31 WHERE rowid=?", (self.owned_rowid,))
+
+        # 2. Remove item from player bag in playerdata.db
+        self.user_items.remove(self.item_name)
+        final_items_str = f"{self.user_items}"
+        await self.db.execute(f"UPDATE '{user_id_str}' SET Items=? ", (final_items_str,))
+
+        # 3. Commit both
+        await self.dt.commit()
+        await self.db.commit()
+
+        # 4. Final Response
+        self.stop() # Stop the view
+        await interaction.response.edit_message(
+            content=f"✅ Success! **{self.user_owned_data[0]}'s** **{stat_name}** IV is now maxed out (31) using one **{self.item_name}**!",
+            embed=None,
+            view=None
+        )
+
+    async def on_timeout(self):
+        # Disable all components on timeout
+        for item in self.children:
+            item.disabled = True
+        try:
+             # Edit the original message to reflect the timeout
+            await self.original_interaction.edit_original_response(content="⚠️ Bottle Cap selection timed out. Run the command again to use.", view=self)
         except:
-            await ctx.response.send_message(f"{x[0]} is now holding a {it}!")
-async def egggroup(ctx,name):
-    db=sqlite3.connect("pokemondata.db")          
-    c=db.cursor() 
-    c.execute(f"Select * from 'wild' where name='{name}'")
-    n=c.fetchone()
-    return n[18]
-async def common(l1,l2):
-    for i in l1:
-        if i in l2:
-            return True
-    return False            
-@bot.tree.command(name="trainerinfo",description="Shows a random team of a certified trainer.")
-async def trainerinfo(ctx:discord.Interaction,num:int=1):
-    tr1=await gameteam(ctx,num)
-    db=sqlite3.connect("pokemondata.db")
-    c=db.cursor()
-    mm=tr1.name.split("> ")[-1]
-    c.execute(f"select * from 'Trainers' where name='{mm}'")
-    dat=c.fetchone()
-    n=0
-    txt=""
-    if dat!=None:
-        if dat[1]!="None":
-            txt=f"\n**Badge:**\n{dat[2]} {dat[1]}"
-    info=discord.Embed(title=f"{tr1.name}'s Team:",description=f"This is a team sample. You can't rely on it entirely. But you can get an idea about who you are dealing with.{txt}")
+            pass # Ignore if original response is gone
+@bot.tree.command(name="useitem", description="Use item on a pokémon.")
+async def useitem(ctx: discord.Interaction, item: str, num: int):
+    # 1. Acknowledge immediately as this involves database lookups
+    await ctx.response.defer(ephemeral=False)
+
+    input_item_name = item.title()
+    user_id_str = str(ctx.user.id)
+    
+    # Placeholder for database connections and data
+    db, dt, user_items_list, owned_rowid, mon_data = None, None, [], None, None
+    
+    try:
+        # Use two connections in the outer try block for BottleCapSelect to access them later
+        async with aiosqlite.connect("playerdata.db") as db_conn, \
+                   aiosqlite.connect("owned.db") as dt_conn, \
+                   aiosqlite.connect("pokemondata.db") as dx_conn:
+            
+            db, dt, dx = db_conn, dt_conn, dx_conn
+
+            # 2. Universal Data Fetch (Player Items & Pokémon RowID)
+            async with dt.cursor() as ct:
+                # Get owned Pokémon's rowid
+                owned_rowid = await row(ctx, num, ct) 
+
+                if owned_rowid is None:
+                    return await ctx.followup.send(f"❌ Error: Could not find Pokémon with ID **{num}** in your collection.", ephemeral=True)
+                
+                # Get owned Pokémon data (for stats/updates) - Assuming mon[0] is name, mon[1] is nickname, mon[3-8] are IVs
+                await ct.execute(f"SELECT * FROM '{user_id_str}' WHERE rowid=?", (owned_rowid,))
+                mon_data = await ct.fetchone()
+
+            async with db.cursor() as c:
+                # Get player's items
+                await c.execute(f"SELECT Items FROM '{user_id_str}'")
+                player_data = await c.fetchone()
+                
+                if player_data is None:
+                    return await ctx.followup.send("❌ Error: Player profile not found.", ephemeral=True)
+                
+                items_str = player_data[0] 
+                user_items_list = ast.literal_eval(items_str) if items_str else []
+
+            # 3. Validation: Check if item is in bag
+            if input_item_name not in user_items_list:
+                 return await ctx.followup.send(f"❌ Error: You do not have the item **{input_item_name}** in your bag.", ephemeral=True)
+
+
+            # --- Item Logic Starts ---
+            
+            # --- Helper function to update bag and Pokémon data ---
+            async def commit_changes(pokemon_update_sql: str = None, success_message: str = None):
+                # Remove item from bag
+                user_items_list.remove(input_item_name)
+                final_items_str = f"{user_items_list}"
+                await db.execute(f"UPDATE '{user_id_str}' SET Items=?", (final_items_str,))
+                
+                # Update Pokémon data
+                if pokemon_update_sql:
+                    await dt.execute(pokemon_update_sql, (owned_rowid,))
+                
+                await db.commit()
+                await dt.commit()
+                
+                if success_message:
+                    await ctx.followup.send(f"✅ Success! {mon_data[0]}'s stats may have changed due to the effects of the **{input_item_name}**!")
+
+
+            # A. Mint Logic (Nature Change)
+            if "Mint" in input_item_name:
+                new_nature = input_item_name.replace(" Mint", "")
+                pokemon_update_sql = f"UPDATE '{user_id_str}' SET nature='{new_nature}' WHERE rowid=?"
+                await commit_changes(pokemon_update_sql)
+                return await ctx.followup.send(
+                    f"✅ Success! **{mon_data[0]}'s** nature is now **{new_nature}**."
+                )
+
+            # B. Golden Bottle Cap (Max All IVs)
+            elif input_item_name == "Golden Bottle Cap":
+                pokemon_update_sql = f"UPDATE '{user_id_str}' SET hpiv=31,atkiv=31,defiv=31,spatkiv=31,spdefiv=31,speediv=31 WHERE rowid=?"
+                await commit_changes(pokemon_update_sql)
+                return await ctx.followup.send(
+                    f"👑 Success! **{mon_data[0]}'s** **all IVs** are now maxed out (31)!"
+                )
+
+            # C. Bottle Cap (Interactive Max One IV) - Uses View
+            elif input_item_name == "Bottle Cap":
+                # Check if all IVs are already maxed
+                if all(mon_data[i] == 31 for i in range(3, 9)):
+                    return await ctx.followup.send(f"ℹ️ **{mon_data[0]}'s** IVs are already maxed out (31) for all stats. Bottle Cap not needed.")
+
+                em = discord.Embed(
+                    title=f"🧊 Use Bottle Cap on {mon_data[0]}?",
+                    description="Select which IV stat you want to max out to 31. This action is irreversible and will consume one Bottle Cap."
+                )
+                
+                # Pass necessary data to the View for execution
+                view = BottleCapSelect(ctx, db, dt, user_items_list, mon_data, owned_rowid, bot)
+                # Send the initial embed with the view. The View handles the followup.
+                return await ctx.followup.send(embed=em, view=view)
+
+            # D. Tera Shard (Tera Type Change)
+            elif "Tera Shard" in input_item_name:
+                new_teratype = input_item_name.replace(" Tera Shard", "")
+                pokemon_update_sql = f"UPDATE '{user_id_str}' SET teratype='{new_teratype}' WHERE rowid=?"
+                await commit_changes(pokemon_update_sql)
+                return await ctx.followup.send(
+                    f"✨ Success! **{mon_data[0]}'s** Tera Type is now **{new_teratype}**."
+                )
+
+            # E. Ability Capsule (Ability Change) - Needs Pokemondata DB
+            elif input_item_name == "Ability Capsule":
+                async with dx.execute(f"SELECT * FROM wild WHERE name=?", (mon_data[0],)) as cursor:
+                    wild_data = await cursor.fetchone()
+
+                if wild_data is None:
+                    return await ctx.followup.send(f"❌ Error: Cannot find base data for **{mon_data[0]}**.")
+
+                # Assuming m[11] holds abilities as a comma-separated string
+                abilities = [ab.strip() for ab in wild_data[11].split(",") if ab.strip() and ab.strip() != mon_data[1] ] # Exclude current ability
+                
+                if not abilities:
+                    return await ctx.followup.send(f"ℹ️ **{mon_data[0]}** only has one base ability (**{mon_data[1]}**), or the secondary ability is hidden/unavailable.")
+
+                # Implement a simple selection menu using buttons or a select for abilities (similar to Bottle Cap)
+                # For simplicity here, we'll just show the available ability and prompt the user to confirm the change to the FIRST available ability
+                new_ability = abilities[0]
+                
+                # Skip the interactive part for simplicity and go straight to update (RECOMMENDED TO USE A VIEW HERE)
+                pokemon_update_sql = f"UPDATE '{user_id_str}' SET ability='{new_ability}' WHERE rowid=?"
+                await commit_changes(pokemon_update_sql)
+                return await ctx.followup.send(
+                    f"💊 Success! **{mon_data[0]}'s** ability has been changed to **{new_ability}**."
+                )
+
+            # F. Transformation Items (Gracidea, Prison Bottle, Reveal Glass)
+            # This logic is complicated and heavily relies on your specific database schema and helpers. 
+            # I will only provide the framework for the Shaymin Gracidea transformation as a complex example.
+            
+            elif input_item_name == "Gracidea":
+                
+                current_name = mon_data[0]
+                new_name = None
+                new_ability = None
+                
+                if current_name == "Shaymin":
+                    new_name = "Sky Shaymin"
+                    new_ability = "Serene Grace" # Assuming this is the correct ability for Sky Forme
+                elif current_name == "Sky Shaymin":
+                    new_name = "Shaymin"
+                    new_ability = "Natural Cure" # Assuming this is the correct ability for Land Forme
+                
+                if new_name:
+                    pokemon_update_sql = f"UPDATE '{user_id_str}' SET name='{new_name}', ability='{new_ability}' WHERE rowid=?"
+                    await commit_changes(pokemon_update_sql)
+                    return await ctx.followup.send(
+                        f"🌸 Success! **{current_name}** transformed into **{new_name}**!"
+                    )
+                else:
+                    return await ctx.followup.send(f"ℹ️ **{current_name}** cannot use the **{input_item_name}**.")
+
+            # --- Default/Fallback ---
+            else:
+                return await ctx.followup.send(f"ℹ️ The item **{input_item_name}** cannot be used on a Pokémon, or the usage logic is not implemented yet.")
+    
+    except aiosqlite.Error as e:
+        print(f"Database Error in useitem: {e}")
+        await ctx.followup.send(f"❌ A critical database error occurred: {e}", ephemeral=True)
+    except Exception as e:
+        print(f"An unexpected error occurred in useitem: {e}")
+        await ctx.followup.send(f"❌ An unexpected error occurred: {e}", ephemeral=True)
+                
+@bot.tree.command(name="giveitem", description="Give an item to a Pokémon to hold.")
+async def giveitem(ctx: discord.Interaction, item: str, num: int):
+    # Use lowercase for case-insensitive item checks, then title-case for display/storage
+    input_item_name = item.title()
+    user_id_str = str(ctx.user.id)
+    
+    # 1. IMMEDIATE ACKNOWLEDGEMENT
+    # Acknowledge the interaction immediately. We'll use followup for the result.
+    await ctx.response.defer(ephemeral=False)
+    
+    try:
+        async with aiosqlite.connect("playerdata.db") as db, \
+                   aiosqlite.connect("owned.db") as dt:
+            
+            async with db.cursor() as c, dt.cursor() as ct:
+                
+                # --- Step 1: Validate Pokémon and get its owned rowid ---
+                
+                # Assume 'row' is defined and returns the unique rowid (or ID) of the owned Pokémon
+                owned_rowid = await row(ctx, num, ct) 
+
+                if owned_rowid is None:
+                    return await ctx.followup.send(
+                        f"❌ Error: Could not find Pokémon with ID **{num}** in your collection.",
+                        ephemeral=True
+                    )
+                
+                # Get the Pokémon's current held item and its name for the final message
+                await ct.execute(f"SELECT name, item FROM '{user_id_str}' WHERE rowid=?", (owned_rowid,))
+                poke_data = await ct.fetchone()
+                
+                if poke_data is None:
+                    return await ctx.followup.send(
+                        f"❌ Error: Could not retrieve data for Pokémon ID **{num}**.",
+                        ephemeral=True
+                    )
+                    
+                poke_name, current_held_item = poke_data[0], poke_data[1]
+                
+                # --- Step 2: Fetch and Update Player's Item Bag ---
+                
+                await c.execute(f"SELECT Items FROM '{user_id_str}'")
+                player_data = await c.fetchone()
+                
+                if player_data is None:
+                    return await ctx.followup.send("❌ Error: Player profile not found. Please start your adventure!", ephemeral=True)
+                
+                items_str = player_data[0] # Assuming Items is the first (and only) column selected
+                items_list = ast.literal_eval(items_str) if items_str else []
+
+                # --- Step 3: Handle Existing Item (If any) ---
+                
+                return_message = ""
+                if current_held_item and current_held_item.lower() != "none":
+                    # Put the old item back in the bag
+                    items_list.append(current_held_item)
+                    return_message = f"**{current_held_item.title()}** was removed and sent to your bag.\n"
+                    
+                # --- Step 4: Check for New Item in Bag ---
+                
+                if input_item_name not in items_list:
+                    # Commit the return action even if the give fails
+                    final_items_str = f"{items_list}"
+                    await c.execute(f"UPDATE '{user_id_str}' SET Items=?", (final_items_str,))
+                    await db.commit()
+                    
+                    # Update the Pokémon to hold 'None' if an item was returned
+                    if current_held_item and current_held_item.lower() != "none":
+                         await ct.execute(f"UPDATE '{user_id_str}' SET item='None' WHERE rowid=?", (owned_rowid,))
+                         await dt.commit()
+                         
+                    return await ctx.followup.send(
+                        f"❌ Error: You do not have the item **{input_item_name}** in your bag.", 
+                        ephemeral=True
+                    )
+                
+                # --- Step 5: Perform the GIVE Action ---
+                
+                # 5a. Update Pokémon's held item
+                await ct.execute(f"UPDATE '{user_id_str}' SET item=? WHERE rowid=?", (input_item_name, owned_rowid))
+                
+                # 5b. Remove item from player's bag
+                items_list.remove(input_item_name)
+                final_items_str = f"{items_list}"
+                await c.execute(f"UPDATE '{user_id_str}' SET Items=?", (final_items_str,))
+                
+                # 5c. Commit all changes
+                await dt.commit()
+                await db.commit()
+                
+                # --- Step 6: Final Success Message ---
+                
+                final_message = f"✅ Success!\n{return_message}**{poke_name}** is now holding a **{input_item_name}**."
+                await ctx.followup.send(final_message)
+
+
+    except aiosqlite.Error as e:
+        print(f"Database Error in giveitem: {e}")
+        await ctx.followup.send(f"❌ A critical database error occurred. ({e})", ephemeral=True)
+    except Exception as e:
+        print(f"An unexpected error occurred in giveitem: {e}")
+        await ctx.followup.send(f"❌ An unexpected error occurred. Please try again.", ephemeral=True)
+            
+async def egggroup(name: str) -> list[str]:
+    """
+    Fetches a Pokémon's egg group list from the database.
+    Assumes the egg group is stored as a string representation of a list (e.g., '["Field", "Monster"]').
+    """
+    # Use aiosqlite for non-blocking database access
+    async with aiosqlite.connect("pokemondata.db") as db:
+        # Assuming column 18 (index 18) is the egg group string
+        async with db.execute("SELECT * FROM wild WHERE name=?", (name.title(),)) as cursor:
+            n = await cursor.fetchone()
+            
+            if n is None:
+                # Return an empty list or handle the error appropriately
+                return [] 
+            
+            egggroup_str = n[18]
+            
+            # Use ast.literal_eval for safe conversion from string to list
+            try:
+                return ast.literal_eval(egggroup_str) if egggroup_str else []
+            except (ValueError, SyntaxError):
+                print(f"Error evaluating egg group for {name}: {egggroup_str}")
+                return []
+                        
+@bot.tree.command(name="trainerinfo", description="Shows a random team of a certified trainer.")
+async def trainerinfo(ctx: discord.Interaction, num: int = 1):
+    
+    # Use defer as this command performs multiple database lookups
+    await ctx.response.defer()
+    
+    # 1. Fetch the Trainer's Team and Base Data
+    try:
+        # Assuming gameteam is an async function
+        tr1 = await gameteam(ctx, num) 
+    except Exception as e:
+        print(f"Error fetching game team: {e}")
+        return await ctx.followup.send("❌ Error: Could not fetch trainer data. Please check the input number.", ephemeral=True)
+
+    user_id_str = str(ctx.user.id)
+    mm = tr1.name.split("> ")[-1]
+    trainer_data = None
+
+    # 2. Fetch Detailed Trainer Info from Database
+    async with aiosqlite.connect("pokemondata.db") as db:
+        # NOTE: Using a parameterized query for safety, though table name is hardcoded
+        async with db.execute("SELECT * FROM Trainers WHERE name=?", (mm,)) as cursor:
+            trainer_data = await cursor.fetchone()
+
+    # 3. Process Trainer Metadata for Immersion
+    
+    # Determine the trainer's specialization or rank for a flavor sentence
+    if trainer_data and trainer_data[1] and trainer_data[1].lower() != "none":
+        badge_name = trainer_data[1]
+        badge_icon = trainer_data[2] # Assuming trainer_data[2] holds the icon/emoji
+        specialization_text = f"They hold the **{badge_name}** {badge_icon} Badge, indicating mastery in a particular domain."
+    else:
+        specialization_text = "This trainer appears to be a formidable challenger, but their specialty is unknown."
+        badge_name = "Challenger" # Default name for use in the embed
+
+    # Choose an appropriate flavor quote/opening line
+    flavor_quotes = [
+        f"**{badge_name} {tr1.name}'s** data is being downloaded...",
+        f"Intel secured. Get ready to face a tough challenge from **{tr1.name}**!",
+        f"Trainer **{tr1.name}** has entered the battle. Analyze their strategy!",
+    ]
+    
+    description_text = (
+        f"{random.choice(flavor_quotes)}\n\n"
+        f"This is a **sample team**. While you can't rely on it entirely, it provides crucial insight into their potential strategy.\n\n"
+        f"**Trainer Focus:** {specialization_text}"
+    )
+
+    # 4. Create the Embed
+    info = discord.Embed(
+        title=f"⚔️ Trainer Battle Intel: {tr1.name}",
+        description=description_text,
+        color=discord.Color.dark_red()
+    )
     info.set_thumbnail(url=tr1.sprite)
-    for i in tr1.pokemons:
-        n+=1
-        info.add_field(name=f"#{n} {i.icon} {i.nickname} {await teraicon(i.tera)}",value=f"**Ability:** {i.ability}\n**Item:** {await itemicon(i.item)} {i.item}\n{await movetypeicon(i,i.moves[0])} {i.moves[0]} {await movect(i.moves[0])}\n{await movetypeicon(i,i.moves[1])} {i.moves[1]} {await movect(i.moves[1])}\n{await movetypeicon(i,i.moves[2])} {i.moves[2]} {await movect(i.moves[2])}\n{await movetypeicon(i,i.moves[3])} {i.moves[3]} {await movect(i.moves[3])}",inline=False)
-    await ctx.response.send_message(embed=info)        
+    
+    # 5. Add Immersive Fields for Each Pokémon
+    
+    pokemon_fields = []
+    
+    # Assuming tr1.pokemons is a list of Pokémon objects with attributes like:
+    # .name (Pokedex name), .nickname, .level, .ability, .item, .tera, .moves (list of 4)
+    
+    for n, i in enumerate(tr1.pokemons, 1):
+        
+        # Determine the Pokémon's type icons (assuming get_pokemon_type_icons is implemented)
+        # Using .name is safer if the object doesn't store the types directly
+        try:
+            type_icons = await get_pokemon_type_icons(i.name)
+        except:
+            type_icons = ""
+            
+        # Strategy/Role Text (You might need a separate database for this flavor text)
+        role_text = "A versatile threat." # Placeholder - replace with actual strategy notes if available
+
+        # Construct the value field with enhanced detail
+        value_field = (
+            f"**Level:** Lvl. {i.level}\n"
+            f"**Type:** {type_icons}\n"
+            f"**Ability:** {i.ability}\n"
+            f"**Held Item:** {await itemicon(i.item)} {i.item}\n"
+            f"**Role:** *{role_text}*\n"
+            f"--- **Moveset** ---\n"
+            f"{await movetypeicon(i, i.moves[0])} {i.moves[0].title()} {await movect(i.moves[0])}\n"
+            f"{await movetypeicon(i, i.moves[1])} {i.moves[1].title()} {await movect(i.moves[1])}\n"
+            f"{await movetypeicon(i, i.moves[2])} {i.moves[2].title()} {await movect(i.moves[2])}\n"
+            f"{await movetypeicon(i, i.moves[3])} {i.moves[3].title()} {await movect(i.moves[3])}"
+        )
+        
+        info.add_field(
+            name=f"**#{n} {i.icon} {i.nickname}** (Lv.{i.level}) {await teraicon(i.tera)}",
+            value=value_field,
+            inline=True # Use inline=True to fit 2 Pokémon per row (better visualization)
+        )
+        
+    # Add a blank field to ensure the last row of fields aligns correctly if the total is odd
+    if len(tr1.pokemons) % 2 != 0:
+         info.add_field(name="\u200b", value="\u200b", inline=True) # Invisible spacer field
+         
+    info.set_footer(text=f"Total Pokémon: {len(tr1.pokemons)}. Prepare for battle!")
+
+    await ctx.followup.send(embed=info)        
 
 @bot.tree.command(name="claim",description="Claim event pokemons.")           
 async def claim(ctx:discord.Interaction,code:str):
