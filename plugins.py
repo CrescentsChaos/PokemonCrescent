@@ -22,12 +22,10 @@ if TYPE_CHECKING:
     class Pokemon:
         name: str
         icon: Optional[str] = None
+        
 async def pokeicon(nm):
     # FIX: Replace sqlite3.connect with aiosqlite.connect
     async with aiosqlite.connect("pokemondata.db") as db:
-        
-        # FIX: Use db.execute() followed by db.fetchone()
-        # db.execute_fetchone() is not a method on the connection object.
         cursor = await db.execute("SELECT * FROM 'wild' WHERE name = ?", (nm,))
         row = await cursor.fetchone()
         
