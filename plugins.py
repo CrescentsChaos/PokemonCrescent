@@ -243,7 +243,7 @@ async def pokonvert(ctx, member, num: int = None):
         if num is None:
             # Check if there are any Pokémon
             if not allmon:
-                 return None, []
+                 return None, [],None,None
                  
             # If num is None, we want the index of the latest Pokémon (len(allmon)).
             target_index = len(allmon)
@@ -266,7 +266,7 @@ async def pokonvert(ctx, member, num: int = None):
             n = await cursor.fetchone()
         
         if n is None:
-            return None, allmon
+            return None, allmon,None,None
         
         # --- FIX 2: Use a cursor to fetch the wild Pokémon data ---
         wild_query = "SELECT * FROM wild WHERE name = ?"
@@ -275,7 +275,7 @@ async def pokonvert(ctx, member, num: int = None):
             m = await cursor.fetchone()
         
         if m is None:
-            return None, allmon
+            return None, allmon, None, None
             
         # Create the Pokemon object (unchanged logic)
         p = Pokemon(
@@ -1550,16 +1550,6 @@ async def score(ctx, x, y, tr1, tr2, turn, bg):
     # 3. Run only the valid coroutines
     results = await asyncio.gather(*coroutines_to_run)
     
-    # --- Mapping Results Back ---
-    # This part gets tricky because the number of 'results' is variable.
-    # To maintain the original structure and make sure 'results' aligns with the original 10 items, 
-    # you need a different approach.
-    
-    # The better approach is to wrap the None value in an awaitable:
-    
-    # ------------------------------------------------
-    # 2. Use an Awaitable to Return None (Alternative Fix)
-    # ------------------------------------------------
     
     # Helper to return None as an awaitable
     async def return_none():

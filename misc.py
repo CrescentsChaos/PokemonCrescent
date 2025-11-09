@@ -24,31 +24,146 @@ async def createhuman(ctx:discord.Interaction):
         await ctx.response.send_message(embed=em,ephemeral=True)
     else:
         await ctx.response.send_message("Invalid.")
-@bot.tree.command(name="release",description="Release following pokémons.")
+        
+class ReleaseConfirmView(View):
+    # CRITICAL CHANGE: Accept db_path (string) instead of a live connection object
+    def __init__(self, bot, ctx: discord.Interaction, rel: list, db_path: str):
+        super().__init__(timeout=60)
+        self.bot = bot
+        self.ctx = ctx
+        self.rel = rel # List of row IDs to release
+        self.db_path = db_path # Path to the database file
+        self.value = None
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        # Ensures only the command invoker can interact
+        if interaction.user != self.ctx.user:
+            await interaction.response.send_message("This confirmation is not for you!", ephemeral=True)
+            return False
+        return True
+
+    @discord.ui.button(label="Confirm Release", style=discord.ButtonStyle.red)
+    async def confirm_button(self, interaction: discord.Interaction, button: Button):
+        self.stop()
+        self.value = True
+        
+        # FIX: Open a new, dedicated connection inside the callback
+        try:
+            async with aiosqlite.connect(self.db_path) as db:
+                c = await db.cursor()
+                
+                # Perform the deletion for each row ID
+                for row_id in self.rel:
+                    # Parameterized query is safer, even with rowid
+                    await c.execute(f"DELETE FROM '{self.ctx.user.id}' WHERE rowid=?", (row_id,))
+                
+                await db.commit() # Commit the changes
+            # Connection automatically closes here
+            
+            # Update the original message
+            await interaction.response.edit_message(
+                embed=discord.Embed(
+                    title="Release Successful! ✅", 
+                    description=f"Released **{len(self.rel)}** pokémon(s) successfully.", 
+                    color=discord.Color.green()
+                ),
+                view=None # Remove buttons
+            )
+        except Exception as e:
+            # Handle potential database or other errors
+            print(f"Database error during release: {e}")
+            await interaction.response.edit_message(
+                embed=discord.Embed(
+                    title="Release Failed! ❌", 
+                    description="An error occurred during the release process.", 
+                    color=discord.Color.red()
+                ),
+                view=None
+            )
+
+    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.gray)
+    async def cancel_button(self, interaction: discord.Interaction, button: Button):
+        self.stop()
+        self.value = False
+        
+        # Update the original message
+        await interaction.response.edit_message(
+            embed=discord.Embed(
+                title="Release Cancelled! 🚫", 
+                description="The release has been cancelled.", 
+                color=discord.Color.yellow()
+            ),
+            view=None # Remove buttons
+        )
+
+    async def on_timeout(self) -> None:
+        # Edit the original message to show timeout
+        try:
+            await self.ctx.edit_original_response(
+                embed=discord.Embed(
+                    title="Release Timed Out! ⏱️", 
+                    description="Confirmation timed out. Release cancelled.", 
+                    color=discord.Color.light_gray()
+                ),
+                view=None
+            )
+        except Exception:
+            pass # Ignore if message was already edited or deleted
+
+
+# --- 2. Slash Command Definition ---
+
+# NOTE: You must define your 'row' function as an async function that uses 
+# the passed aiosqlite cursor to find the rowid.
+# Example: async def row(ctx, index, c): ...
+
+@bot.tree.command(name="release", description="Release following pokémons.")
 @app_commands.describe(mons="Pokémons that you wanna release!")
-async def release(ctx:discord.Interaction,mons:str):
-    db=sqlite3.connect("owned.db")
-    c=db.cursor()
-    mons=mons.split(" ")
-    rel=[]
-    txt="Are you sure you want to release these pokemon(s)? Write (yes/confirm) to release!"
-    for i in mons:
-        rel.append(await row(ctx,int(i),c))
-    for i in rel:
-        c.execute(f"select * from '{ctx.user.id}' where rowid={i}")
-        mon=c.fetchone()
-        txt+=f"\n**{mon[0]}** - {mon[25]}%"
-    em=discord.Embed(title="Release:",description=txt,color=0xff0000)
+async def release(ctx: discord.Interaction, mons: str):
+    DB_PATH = "owned.db" # Database file path
+    
+    # Temporarily open connection to fetch details for the embed
+    async with aiosqlite.connect(DB_PATH) as db:
+        c = await db.cursor()
+        
+        mons_indices = mons.split(" ")
+        rel = []
+        
+        # 1. Gather row IDs
+        try:
+            for i in mons_indices:
+                # Assuming 'row' is an async function:
+                rel.append(await row(ctx, int(i), c)) 
+        except Exception as e:
+            await ctx.response.send_message(f"Error processing input: {e}", ephemeral=True)
+            return
+
+        txt = "**Are you sure you want to release these pokemon(s)?**"
+        
+        # 2. Fetch and list the Pokémon details
+        for row_id in rel:
+            await c.execute(f"SELECT * FROM '{ctx.user.id}' WHERE rowid=?", (row_id,))
+            mon = await c.fetchone()
+            if mon:
+                # Assuming mon[0] is name and mon[25] is IV percentage
+                txt += f"\n**{mon[0]}** - {mon[25]}%"
+            else:
+                txt += f"\n**Pokémon with ID {row_id}** - Not Found"
+
+    # The 'db' connection is now safely closed
+
+    # 3. Create the Embed and View
+    em = discord.Embed(title="Release Confirmation:", description=txt, color=0xff0000)
     em.set_image(url="https://cdn.discordapp.com/attachments/1102579499989745764/1142222584159674569/image_search_1692397466636.png")
-    await ctx.response.send_message(embed=em)
-    rsponse = await bot.wait_for('message', check=lambda message: message.author == ctx.user)
-    if rsponse.content.lower() in ["yes","confirm"]:
-        for i in rel:
-            c.execute(f"delete from '{ctx.user.id}' where rowid={i}")
-            db.commit()
-        await ctx.channel.send(f"Released {len(rel)} pokémon(s) successfully!")
-    else:
-        await ctx.channel.send("Release cancelled!")  
+    
+    # 4. Initialize View by passing the database path (DB_PATH)
+    view = ReleaseConfirmView(bot, ctx, rel, DB_PATH)
+    
+    # 5. Send the message with buttons
+    await ctx.response.send_message(embed=em, view=view)
+    
+    # Wait for the view to stop
+    await view.wait() 
         
 @bot.tree.command(name="abilityinfo",description="Shows ability description.")
 @app_commands.describe(ability="Name of the ability.")
@@ -1087,7 +1202,7 @@ class PokeInfoView(discord.ui.View):
         self.current_index = current_index
         self.total_pokemon = total_pokemon
         
-        # Disable buttons if at the edge
+        # Disable buttons if at the edge. The children are indexed 0 for Previous, 1 for Next.
         if self.current_index == 1:
             self.children[0].disabled = True  # Previous button
         if self.current_index == self.total_pokemon:
@@ -1096,27 +1211,34 @@ class PokeInfoView(discord.ui.View):
     # --- Button Callbacks ---
 
     async def update_message(self, interaction: discord.Interaction):
-        # Ensure only the original user can interact
+        # The interaction check is also done in the button callbacks, 
+        # but this check is good for robustness if update_message is called elsewhere.
         if interaction.user != self.ctx.user:
+            # We use interaction.followup.send here if a defer has already occurred,
+            # but since this is called immediately after a button press, response.send_message is safer.
             return await interaction.response.send_message("This isn't your information panel!", ephemeral=True)
             
-        # 1. Defer the interaction
-        await interaction.response.defer()
+        # 1. Defer the interaction (already deferred by the button callbacks, so deferring again might raise an error if not handled properly)
+        # If the button callbacks handle the initial defer, this line can be removed/skipped.
+        # Since button callbacks DO NOT defer, but call this method which is supposed to handle deferral:
+        await interaction.response.defer() # Defer the response before long async operations
 
         # 2. Use aiosqlite for the connection
         async with aiosqlite.connect("owned.db") as db:
-            
-            # 3. Create a cursor to pass to the asynchronous row function
-            async with db.cursor() as c:
-                row_id = await row(self.ctx, self.current_index, c) 
-            p, allmon, mon, spc = await pokonvert(self.ctx, self.ctx.user, row_id) # row_id is the actual ID needed
+            print(self.current_index)
+            async with db.cursor() as cursor:
+                row_id = await row(self.ctx, self.current_index, cursor) 
+                print(row_id)
+                p, allmon, mon, spc = await pokonvert(self.ctx, self.ctx.user, row_id)
         
-        await db.close()
+        # ⚠️ FIX: Removed 'await db.close()' here, as the 'async with' statement closes it automatically.
+        # await db.close() # Removed!
 
-        # 3. Rebuild the embed content (identical to the original logic)
+        # 4. Rebuild the embed content
         known = ""
-        for i in p.moves:
-            known += f"{await movetypeicon(p,i)} {i} {await movect(i)}\n"
+        if p.moves and isinstance(p.moves, (list, tuple)):
+            for i in p.moves:
+                known += f"{await movetypeicon(p,i)} {i} {await movect(i)}\n"
             
         types = await typeicon(p.primaryType)
         clr = await moncolor(p.tera)
@@ -1132,25 +1254,27 @@ class PokeInfoView(discord.ui.View):
             color=clr
         )
         infos.set_author(name=self.ctx.user.display_name, icon_url=self.ctx.user.avatar)
-        infos.add_field(name="Moves:", value=known)
+        infos.add_field(name="Moves:", value=known if known else "No moves learned.")
         infos.set_image(url=p.sprite)
         infos.set_footer(text=f"Catching Date: {p.catchdate}\nDisplaying Pokémon: {self.current_index}/{self.total_pokemon}")
 
-        # 6. Create a new view instance to update button state
+        # 5. Create a new view instance to update button state
         new_view = PokeInfoView(self.ctx, self.current_index, self.total_pokemon)
 
-        # 7. Edit the original message
+        # 6. Edit the original message
         await interaction.edit_original_response(embed=infos, view=new_view)
 
 
     # The 'Previous' button
     @discord.ui.button(label="Previous", style=discord.ButtonStyle.blurple, emoji="⬅️")
     async def previous_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if interaction.user != self.ctx.user:
-            return await interaction.response.send_message("This isn't your information panel!", ephemeral=True)
-            
-        if self.current_index > 1:
+        # Interaction check in the button is fine, but moved to update_message for single point of exit
+        
+        if self.current_index > -1:
             self.current_index -= 1
+        else:
+             # Defer if no change happens to prevent interaction failure
+             return await interaction.response.defer()
         
         await self.update_message(interaction)
 
@@ -1158,11 +1282,13 @@ class PokeInfoView(discord.ui.View):
     # The 'Next' button
     @discord.ui.button(label="Next", style=discord.ButtonStyle.blurple, emoji="➡️")
     async def next_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if interaction.user != self.ctx.user:
-            return await interaction.response.send_message("This isn't your information panel!", ephemeral=True)
-            
+        # Interaction check in the button is fine, but moved to update_message for single point of exit
+
         if self.current_index < self.total_pokemon:
             self.current_index += 1
+        else:
+            # Defer if no change happens to prevent interaction failure
+            return await interaction.response.defer()
             
         await self.update_message(interaction)
 
@@ -1170,24 +1296,29 @@ class PokeInfoView(discord.ui.View):
     async def on_timeout(self):
         # Disable all components when the view times out
         for item in self.children:
-            item.disabled = True   
-            
+            item.disabled = True 
+        
+        # ⚠️ It is good practice to edit the message to reflect the timeout
+        try:
+             await self.ctx.edit_original_response(view=self)
+        except discord.NotFound:
+            pass # Message may have been deleted
+
+
 @bot.tree.command(name="pokeinfo", description="Shows infos about particular pokémon.")
 async def pokeinfo(ctx: discord.Interaction, num: int = None):
     "Shows infos about your captured pokémons."
     await ctx.response.defer()
+    
     # Use aiosqlite to open the connection asynchronously
     async with aiosqlite.connect("owned.db") as db:
         
         # 1. Get all Pokémon to determine the total count
-        # pokonvert is called with None to get the full list (p=None, allmon=list)
-        # Assuming pokonvert returns a list of allmon even if p is None
-        p, allmon, mon, spc = await pokonvert(ctx, ctx.user, None)
-        total_pokemon = len(allmon)
-
+        # Assuming pokonvert returns p=None and allmon=list when the row ID argument is None
+        p_list_check, allmon, mon_check, spc_check = await pokonvert(ctx, ctx.user, None)
+        total_pokemon = len(allmon) # This correctly determines the total count
         if total_pokemon == 0:
-            # Note: Since the command uses aiosqlite, we don't need to manually close db here
-            await ctx.response.send_message(
+            await ctx.followup.send(
                 "Unfortunately you don't have any Pokémon. Please catch some Pokémon using `/spawn` command.", 
                 ephemeral=True
             )
@@ -1197,22 +1328,23 @@ async def pokeinfo(ctx: discord.Interaction, num: int = None):
         if num is not None:
             if not (1 <= num <= total_pokemon):
                 await ctx.followup.send(
-                    f"Invalid Pokémon number. You only have {total_pokemon} Pokémon (1 to {total_pokemon}).", 
+                    f"Invalid Pokémon number. You only have **{total_pokemon}** Pokémon (1 to {total_pokemon}).", 
                     ephemeral=True
                 )
                 return
-            current_index = num
+            owned_query = f"SELECT * FROM '{ctx.user.id}' WHERE rowid = ?"
+            async with db.cursor() as cursor:
+                current_index = await row(ctx,num,cursor)
         else:
-            # Default to the latest (highest index) Pokémon.
-            current_index = total_pokemon 
+            # ✅ CORRECT: Default to the latest (highest index) Pokémon.
+            current_index = None 
 
         # 3. Fetch Data for the Selected Index
-        # We pass the index (current_index) to get the specific Pokémon data
+        # Pass the index (current_index) to get the specific Pokémon data
         p, allmon, n, m = await pokonvert(ctx, ctx.user, current_index)
         
-        # This check should ideally not fail if total_pokemon > 0, but is a safety
         if p is None:
-            await ctx.edit_original_response("Could not retrieve Pokémon data.", ephemeral=True)
+            await ctx.followup.send("Could not retrieve Pokémon data for the selected index.", ephemeral=True)
             return
 
         # --- 4. Build the Embed (UNCHANGED LOGIC) ---
@@ -1239,12 +1371,14 @@ async def pokeinfo(ctx: discord.Interaction, num: int = None):
         infos.set_author(name=ctx.user.display_name, icon_url=ctx.user.avatar)
         infos.add_field(name="Moves:", value=known if known else "No moves learned.")
         infos.set_image(url=p.sprite)
+        if current_index is None:
+            current_index=len(allmon)
         infos.set_footer(text=f"Catching Date: {p.catchdate}\nDisplaying Pokémon: {current_index}/{total_pokemon}")
 
         # 5. Send Message with View
-        view = PokeInfoView(ctx, current_index, total_pokemon)
+        view = PokeInfoView(ctx, num, total_pokemon)
         
-        await ctx.edit_original_response(embed=infos, view=view)
+        await ctx.followup.send(embed=infos, view=view)
 
 @bot.tree.command(name="marketlists",description="Shows pokémons in market.")
 async def marketlists(ctx:discord.Interaction,num:int=1):   
@@ -1474,9 +1608,11 @@ class PokemonView(discord.ui.View):
         return True
 
 @bot.tree.command(name="pokemons",description="Shows all the pokémons in your PC.")
-@app_commands.describe(name="Filter by 'Shiny', 'IV', Egg Group, or Pokémon name.")
-async def pokemons(ctx:discord.Interaction, name:str=None): 
-    # NOTE: The 'page' argument is removed as the view handles it internally.
+@app_commands.describe(
+    name="Filter by 'Shiny', 'IV', Egg Group, or Pokémon name.",
+    page="The page number to jump to (optional)." # New parameter description
+)
+async def pokemons(ctx:discord.Interaction, name:str=None, page:int=None): 
     
     await ctx.response.defer(thinking=True) # Defer the response as DB lookups can be slow
 
@@ -1502,7 +1638,7 @@ async def pokemons(ctx:discord.Interaction, name:str=None):
         elif name in egg_groups:
             sql_query = f"Select * from '{user_id}' where egg like '%{name}' or egg like '{name}%' order by totaliv DESC"
         elif name in ["Favourite","Fav"]:
-            sql_query = f"Select * from '{user_id}' where nickname like '%<:favorite:1144122202942357534>%' order by totaliv DESC"    
+            sql_query = f"Select * from '{user_id}' where nickname like '%<:favorite:1144122202942357534>%' order by totaliv DESC"     
         elif name == "Alpha":
             sql_query = f"Select * from '{user_id}' where nickname like '%<:alpha:1127167307198758923>%' order by totaliv DESC"
         elif name == "Item":
@@ -1510,7 +1646,7 @@ async def pokemons(ctx:discord.Interaction, name:str=None):
         elif name in ["Speediv","Spdefiv","Spatkiv","Defiv","Hpiv","Atkiv"]:
             sql_query = f"Select * from '{user_id}' order by {name} DESC"
         elif name in ["Iv","IV","iv"]:
-            sql_query = f"Select * from '{user_id}' order by totaliv DESC"    
+            sql_query = f"Select * from '{user_id}' order by totaliv DESC"     
         elif name in rarities:
             sql_query = f"Select * from '{user_id}' where rarity='{name.title()}' order by totaliv DESC"
         else:
@@ -1545,8 +1681,26 @@ async def pokemons(ctx:discord.Interaction, name:str=None):
         
     pages = len(list_of_pages)
     
-    # --- 4. Initialize and Send View ---
+    # --- 4. Handle Page Jumps (New Logic) ---
+    start_page = 1
+    if page is not None:
+        if 1 <= page <= pages:
+            start_page = page
+        elif page > pages:
+            # If the requested page is too high, go to the last page
+            await ctx.followup.send(f"Page {page} is out of range. Showing page **{pages}** instead.", ephemeral=True)
+            start_page = pages
+        elif page < 1:
+            # If the requested page is too low, go to the first page
+            await ctx.followup.send(f"Page {page} is invalid. Showing page **1** instead.", ephemeral=True)
+            start_page = 1
+            
+    # --- 5. Initialize and Send View ---
     view = PokemonView(user_id, total_pokemon, list_of_pages, pages)
+    # Set the current page based on the new parameter
+    view.current_page = start_page 
+    view.update_buttons() # Update buttons for the starting page
+    
     initial_embed = await view.get_page_content()
 
     await ctx.followup.send(embed=initial_embed, view=view)
