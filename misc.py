@@ -1953,26 +1953,48 @@ async def teach(ctx: discord.Interaction, mon: int, move: str):
         await ctx.response.send_message(embed=now, view=view) 
                     
 @bot.tree.command(name="evtrain",description="EV train your pokémon.")
-async def evtrain(ctx:discord.Interaction,num:int=1,hpev:int=0,atkev:int=0,defev:int=0,spatkev:int=0,spdefev:int=0,speedev:int=0):
+async def evtrain(ctx: discord.Interaction, num: int = 1, hpev: int = 0, atkev: int = 0, defev: int = 0, spatkev: int = 0, spdefev: int = 0, speedev: int = 0):
     "EV trains your pokémon for free!"
-    evlist=[hpev,atkev,defev,spatkev,spdefev,speedev]
-    total=hpev+atkev+defev+spatkev+spdefev+speedev
-    if max(evlist)<=252 and len(evlist)==6 and total<=508:
-        db=sqlite3.connect("owned.db")
-        c=db.cursor()
-        num=await row(ctx,num,c)
-        c.execute(f"""Update `{ctx.user.id}` set 
-        hpev="{hpev}",
-        atkev="{atkev}",
-        defev="{defev}",
-        spatkev="{spatkev}",
-        spdefev="{spdefev}",
-        speedev="{speedev}"
-        where rowid={num}""")
-        db.commit()
-        await ctx.response.send_message("EV training complete.")
+    
+    evlist = [hpev, atkev, defev, spatkev, spdefev, speedev]
+    total = hpev + atkev + defev + spatkev + spdefev + speedev
+    
+    # ⚠️ Security Note: The original query uses f-string for SQL. 
+    # The updated code below is safer and uses parameter substitution.
+
+    if max(evlist) <= 252 and len(evlist) == 6 and total <= 508:
+        try:
+            # ⬅️ Connect using aiosqlite and async with
+            async with aiosqlite.connect("owned.db") as db:
+                sql_update = f"""
+                UPDATE `{ctx.user.id}` SET 
+                hpev = ?,
+                atkev = ?,
+                defev = ?,
+                spatkev = ?,
+                spdefev = ?,
+                speedev = ?
+                WHERE rowid = ?
+                """
+                
+                # The values are passed as a tuple.
+                values = (hpev, atkev, defev, spatkev, spdefev, speedev, num)
+                
+                await db.execute(sql_update, values)
+                await db.commit() # ⬅️ Commit is also awaited
+                
+                # --- END: Modified for Safe Parameterized Query ---
+                
+            await ctx.response.send_message("EV training complete.")
+            
+        except Exception as e:
+            # Handle potential database or connection errors
+            print(f"Database error: {e}")
+            await ctx.response.send_message("An error occurred during EV training.", ephemeral=True)
+            
     else:
-        await ctx.response.send_message("Invalid input.") 
+        await ctx.response.send_message("Invalid input.")
+        
 @bot.tree.command(name="iteminfo",description="Shows details about an item.")
 async def iteminfo(ctx:discord.Interaction,item:str):
     "Shows you an item."
@@ -2736,14 +2758,12 @@ class AbilitySelectView(View):
         # --- Asynchronous Database Write (Owned Pokémon Update) ---
         try:
             async with aiosqlite.connect("owned.db") as db:
-                # Use parameterized query for ability and rowid
-                # The user_id_str is used in the table name, which is generally acceptable 
-                # if it's derived directly from discord.Interaction.user.id
-                await db.execute(
-                    f"""UPDATE '{self.user_id_str}' SET ability=? WHERE rowid=?""", 
-                    (new_ability, self.pokemon_id)
-                )
-                await db.commit()
+                async with db.cursor() as c:
+                    rowid=await row(self.ctx,self.pokemon_id,c)
+                    print(rowid)
+                    pokemon_update_sql = f'UPDATE "{self.user_id_str}" SET ability=? WHERE ROWID=?'
+                    await db.execute(pokemon_update_sql,(new_ability, rowid))
+                    await db.commit()
                 
             # Disable the menu, stop the view, and send success message
             self.stop()
@@ -2878,23 +2898,13 @@ async def useitem(ctx: discord.Interaction, item: str, num: int):
 
                 # --- 2. UPDATE POKÉMON NATURE in owned.db ---
                 try:
-                    async with aiosqlite.connect("owned.db") as owned_db:
-                        # Secure parameterized query for the nature update
-                        pokemon_update_sql = f"UPDATE '{user_id_str}' SET nature=? WHERE rowid=?"
-                        await owned_db.execute(
-                            pokemon_update_sql, 
-                            (new_nature, pokemon_id)
-                        )
-                        await owned_db.commit()
-
-                        # --- 2a. CRITICAL: RECALCULATE STATS AFTER NATURE CHANGE ---
-                        # You need a function here that takes the Pokémon's base stats, IVs, EVs,
-                        # and the NEW nature, and then updates the final calculated stats (HP, ATK, DEF, etc.)
-                        # in the owned.db table for this specific pokemon_id.
-                        
-                        # Placeholder for the stat recalculation call:
-                        await recalculate_stats_by_nature(owned_db, user_id_str, pokemon_id, new_nature)
-                        
+                    async with aiosqlite.connect("owned.db") as db:
+                        async with db.cursor() as c: 
+                            rowid=await row(ctx,num,c)
+                            print(rowid)
+                            pokemon_update_sql = f'UPDATE "{user_id_str}" SET nature=? WHERE ROWID=?'
+                            await db.execute(pokemon_update_sql,(new_nature, rowid))
+                            await db.commit()
                 except Exception as e:
                     # If the nature update or stat recalculation fails, the item is already consumed! 
                     print(f"Mint Nature/Stat Update Error: {e}")
@@ -3012,7 +3022,7 @@ async def useitem(ctx: discord.Interaction, item: str, num: int):
                 ability_view = AbilitySelectView(
                     ctx=ctx,
                     user_id_str=user_id_str,
-                    pokemon_id=pokemon_id,
+                    pokemon_id=num,
                     options=options
                 )
                 
