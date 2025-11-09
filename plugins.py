@@ -257,7 +257,7 @@ async def pokonvert(ctx, member, num: int = None):
             if num is None:
                  num = allmon[-1][-1]
             
-        num = int(num)
+        #num = int(num)
         owned_query = f"SELECT * FROM '{member_id_str}' WHERE rowid = ?"
         
         # --- FIX 1: Use a cursor to fetch the owned Pokémon data ---
@@ -287,7 +287,7 @@ async def pokonvert(ctx, member, num: int = None):
             hpiv=n[3], atkiv=n[4], defiv=n[5], spatkiv=n[6], spdefiv=n[7], speediv=n[8],
             hpev=n[9], atkev=n[10], defev=n[11], spatkev=n[12], spdefev=n[13], speedev=n[14],
         )
-        return p, allmon
+        return p, allmon, n, m
          
 # async def pokonvert(ctx, member, num=None):
 #     if num is not None:
@@ -3080,9 +3080,6 @@ async def faint(ctx, bot, x, y, tr1, tr2, field, turn):
     if x.dmax == True and turn >= x.maxend:
         x.dmax = False
         x.gsprite = "None"
-        # Revert HP and Max HP from the +50% Dynamax state back to base stats.
-        # Note: Your code *halves* current and max HP, which is unusual for Dynamax end, 
-        # but kept here to match your original structure.
         x.hp = round(x.hp / 2)
         x.maxhp = round(x.maxhp / 2)
         
@@ -4665,11 +4662,10 @@ class PokemonSwitchView(discord.ui.View):
                            
 async def switch(ctx, bot, x, y, tr1, tr2, field, turn):
     # --- 1. Cleanup Active Pokémon (x) State ---
-    
     # Dynamax Cleanup
     if x.dmax:
         x.gsprite = x.sprite
-        x.name = x.name.replace(" <:dynamax:1104646304904257647>", "")
+        x.nickname = x.nickname.replace(" <:dynamax:1104646304904257647>", "")
         x.hp /= 2
         x.maxhp /= 2
         x.dmax = False

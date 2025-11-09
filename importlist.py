@@ -11,8 +11,8 @@ import typing
 from typing import Optional,List, Tuple,TYPE_CHECKING,Literal
 from keep_alive import keep_alive
 from discord.ext import commands
-from discord import app_commands,ui,ButtonStyle,File
-from discord.ui import View, Button
+from discord import app_commands,ui,ButtonStyle,File,SelectOption
+from discord.ui import View, Button,Select
 from pokemon import *
 from trainers import *
 from field import *

@@ -71,12 +71,27 @@ def remove_common(a, b):
     for i in a:
         if i in b:
             a.remove(i)
-def common(a,b):
-    new=False
+            
+def common(a: list, b: list) -> bool:
+    print(a,b)
+    """Checks for a common element between two lists, ignoring case and whitespace."""
+    new = False
+    
+    # Pre-process list 'b' for quick, robust lookups
+    # Converts all items in 'b' to stripped lowercase strings and stores them in a set
+    b_lookup = {item.strip().lower() for item in b}
+    
     for i in a:
-        if i in b:
-            new=True
+        # Convert the item 'i' from list 'a' to a stripped lowercase string
+        i_normalized = i.strip().lower()
+        
+        # Check if the normalized item exists in the pre-processed set
+        if i_normalized in b_lookup:
+            new = True
+            break # Exit the loop immediately upon finding a match
+    print(new)      
     return new
+
 def moveset(type1,type2,moves,num=4,name="None"):
     new=[]
     forbidden=["Healing Wish","Switcheroo","Trick","Psyshock","Psychic","Wave Crash","Liquidation","Hydro Pump","Surf","Muddy Water","Hydro Cannon","Hurricane","Air Slash","Brave Bird","Knock Off","Foul Play","Flamethrower","Fiery Dance","Lava Plume","Magma Storm","Overheat","Heat Wave","Fire Blast","Fire Fang","Flame Charge","Inferno","Flare Blitz","Thunder Punch","Wild Charge","Dire Claw","Poison Jab","Gunk Shot","Aura Sphere","Focus Blast","Close Combat","Drain Punch","Superpower","Hammer Arm","Bitter Malice","Shadow Ball","Dragon Pulse","Draco Meteor","Spacial Rend","Taunt","Strength Sap","Encore","Will-O-Wisp","Thunder Wave","Toxic Spikes","Stone Edge","Rock Slide","Yawn","Substitute","Haze","Nuzzle","Defog","Toxic","Yawn","Water Spout","Bulldoze","Earthquake","Stomping Tantrum","Headlong Rush","Magnitude","Drill Run","Fissure","Rock Blast","Rock Tomb","Head Smash","Rock Wrecker","Meteor Beam","Ancient Power","Frenzy Plant","Giga Drain","Leaf Storm","Razor Leaf","Petal Dance","Petal Blizzard","Leaf Blade","Power Whip","Rest","Sleep Talk","Dragon Pulse"]+typemoves.atkboost+typemoves.spatkboost+typemoves.pivotingmoves+typemoves.hazards+typemoves.recoverymoves
