@@ -1362,7 +1362,9 @@ async def pokeinfo(ctx: discord.Interaction, num: int = None):
             
         p.totaliv = round(((p.hpiv + p.atkiv + p.defiv + p.spatkiv + p.spdefiv + p.speediv) / 186) * 100, 2)
         p.totalev = (p.hpev + p.atkev + p.defev + p.spatkev + p.spdefev + p.speedev) 
-        
+        if current_index is None:
+            current_index=len(allmon)
+            num=len(allmon)
         infos = discord.Embed(
             title=f"#{current_index} {p.nickname} Lv.{p.level}", 
             description=f"""**Types:** {types}\n**Tera-Type:** {await teraicon(p.tera)}\n**Nature:** {p.nature}\n**Gender:** {await statusicon(p.gender)}\n**Held Item:** {await itemicon(p.item)} {p.item}\n**<:hp:1140877395050647613>HP:** {p.maxhp} - IV: {p.hpiv}/31 - EV: {p.hpev}\n**<:attack:1140877438746890280>ATK:** {p.maxatk} - IV: {p.atkiv}/31 - EV: {p.atkev}\n**<:defense:1140877538072203344>DEF:** {p.maxdef} - IV: {p.defiv}/31 - EV: {p.defev}\n**<:spatk:1140877607185956954>SPA:** {p.maxspatk} - IV: {p.spatkiv}/31 - EV: {p.spatkev}\n**<:spdef:1140877582691209286>SPD:** {p.maxspdef} - IV: {p.spdefiv}/31 - EV: {p.spdefev}\n**<:speed:1140877488055128115>SPE:** {p.maxspeed} - IV: {p.speediv}/31 - EV: {p.speedev}\n**Total IV %:** {p.totaliv}%\n**Total EV :** {p.totalev}/508\n**Ability:** {p.ability}\n{await abilitydesc(p.ability)}""",
@@ -1371,8 +1373,6 @@ async def pokeinfo(ctx: discord.Interaction, num: int = None):
         infos.set_author(name=ctx.user.display_name, icon_url=ctx.user.avatar)
         infos.add_field(name="Moves:", value=known if known else "No moves learned.")
         infos.set_image(url=p.sprite)
-        if current_index is None:
-            current_index=len(allmon)
         infos.set_footer(text=f"Catching Date: {p.catchdate}\nDisplaying Pokémon: {current_index}/{total_pokemon}")
 
         # 5. Send Message with View
