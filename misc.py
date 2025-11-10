@@ -791,111 +791,162 @@ async def sortbadge(bdg_list: List[str]) -> List[str]:
 
 # --- View Class for Pagination ---
 
-class BadgesView(discord.ui.View):
-    def __init__(self, user_id: int, bdg_list: List[str], max_per_page: int = 10):
-        super().__init__(timeout=300)
+async def get_badge_icon(badge_name: str) -> str:
+    """Retrieves the icon for a badge name from the global cache."""
+    data = BADGE_METADATA.get(badge_name.strip())
+    return data["icon"] if data and "icon" in data else "❓"
+
+async def sortbadge(badge_list: typing.List[str]) -> typing.List[str]:
+    """Sorts the badge list based on their pre-defined 'order' from global cache."""
+    clean_list = [b.strip() for b in badge_list if b.strip()]
+    
+    def sort_key(badge_name):
+        data = BADGE_METADATA.get(badge_name)
+        return data["order"] if data and "order" in data else 999
+        
+    return sorted(clean_list, key=sort_key)
+
+
+class BadgesView(View):
+    def __init__(self, user_id: int, all_badges: typing.List[str]):
+        super().__init__(timeout=180)
         self.user_id = user_id
-        self.bdg_list = bdg_list
-        self.max_per_page = max_per_page
-        self.current_page = 1
+        self.all_badges = all_badges
+        self.current_page = 0
+        self.total_pages = math.ceil(len(self.all_badges) / MAX_BADGES_PER_PAGE)
         
-        # Calculate total pages
-        self.total_pages = (len(bdg_list) + max_per_page - 1) // max_per_page
-        
-        # Disable buttons if only one page exists
-        if self.total_pages <= 1:
-            self.children[0].disabled = True  # Previous
-            self.children[1].disabled = True  # Next
-
-    # --- Pagination Logic ---
-    def get_page_content(self) -> discord.Embed:
-        # Re-establish DB connection for each page generation (safer in async callbacks)
-        dt = sqlite3.connect("pokemondata.db")
-        ct = dt.cursor()
-        
-        tex = ""
-        start = (self.current_page - 1) * self.max_per_page
-        end = min(self.current_page * self.max_per_page, len(self.bdg_list))
-        
-        # If the page is valid but empty (shouldn't happen if logic is correct)
-        if start >= len(self.bdg_list):
-            self.current_page = 1
-            return self.get_page_content() # Recursively call page 1
-
-        for i in range(start, end):
-            # bdg_list[i] is the symbolname
-            ct.execute(f"select symbolname, icon, name from 'Trainers' where symbolname='{self.bdg_list[i]}'")
-            # Assuming jj[2] is icon, jj[1] is name in your original code
-            jj = ct.fetchone() 
-            if jj:
-                 # Check if the structure is jj[2]=icon and jj[1]=name
-                tex += f"{jj[1]} {jj[2]}\n"  # Adjust indexing based on your DB columns
-        
-        dt.close()
-        
-        # Update button states
-        self.children[0].disabled = (self.current_page == 1)      # Previous button
-        self.children[1].disabled = (self.current_page == self.total_pages) # Next button
-
-        # Create the embed
-        bd = discord.Embed(
-            title=f"Badges: {len(self.bdg_list)} Total",
-            description=tex if tex else "No badges found on this page."
-        )
-        bd.set_footer(text=f"Page {self.current_page} of {self.total_pages}")
-        
-        return bd
-
-    # --- Button Callbacks ---
-
-    @discord.ui.button(label="<", style=discord.ButtonStyle.blurple, disabled=True)
-    async def previous_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if self.current_page > 1:
-            self.current_page -= 1
-            embed = self.get_page_content()
-            await interaction.response.edit_message(embed=embed, view=self)
-        else:
-            await interaction.response.defer()
-
-    @discord.ui.button(label=">", style=discord.ButtonStyle.blurple)
-    async def next_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if self.current_page < self.total_pages:
-            self.current_page += 1
-            embed = self.get_page_content()
-            await interaction.response.edit_message(embed=embed, view=self)
-        else:
-            await interaction.response.defer()
+        # Initial button state setup
+        self.update_buttons()
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        # Only the user who ran the command can use the buttons
+        # Only the user who ran the command can use the view
         if interaction.user.id != self.user_id:
-            await interaction.response.send_message("This badge viewer is not for you!", ephemeral=True)
+            await interaction.response.send_message("This view is not for you!", ephemeral=True)
             return False
         return True
+
+    def get_page_content(self) -> discord.Embed:
+        """Creates and returns the embed for the current page."""
         
+        # ... (Calculate start_index, end_index, page_badges) ...
+        start_index = self.current_page * MAX_BADGES_PER_PAGE
+        end_index = start_index + MAX_BADGES_PER_PAGE
+        page_badges = self.all_badges[start_index:end_index]
+        
+        # Build the badge list string
+        badge_fields = []
+        for badge_name in page_badges:
+            
+            # --- FIX: Retrieve icon from the globally preloaded metadata ---
+            icon = BADGE_METADATA.get(badge_name, {}).get("icon", "❓")
+            
+            badge_fields.append(f"**{icon} {badge_name}**")
+            
+        badge_list_str = "\n".join(badge_fields)
+
+        em = discord.Embed(
+            title="🏅 Your Collected Badges",
+            description=badge_list_str,
+            color=discord.Color.blue()
+        )
+        
+        em.set_footer(text=f"Page {self.current_page + 1}/{self.total_pages} | Total Badges: {len(self.all_badges)}")
+        return em
+
+    def update_buttons(self):
+        """Disables/enables the navigation buttons based on the current page."""
+        
+        # If there's only 1 page, disable both prev and next
+        is_disabled = self.total_pages <= 1
+        
+        # Find the buttons by their custom_id or known index (assuming order: Prev, Next, Close)
+        for child in self.children:
+            if isinstance(child, Button):
+                if child.custom_id == "badge_prev":
+                    child.disabled = is_disabled or (self.current_page == 0)
+                elif child.custom_id == "badge_next":
+                    child.disabled = is_disabled or (self.current_page == self.total_pages - 1)
+                    
+    async def update_message(self, interaction: discord.Interaction):
+        """Helper to create new embed, update buttons, and edit message."""
+        new_embed = self.get_page_content()
+        self.update_buttons()
+        await interaction.response.edit_message(embed=new_embed, view=self)
+
+    # --- BUTTONS ---
+
+    @button(label="< Previous", style=ButtonStyle.blurple, custom_id="badge_prev")
+    async def previous_page(self, interaction: discord.Interaction, button: Button):
+        if self.current_page > 0:
+            self.current_page -= 1
+        await self.update_message(interaction)
+
+    @button(label="Next >", style=ButtonStyle.blurple, custom_id="badge_next")
+    async def next_page(self, interaction: discord.Interaction, button: Button):
+        if self.current_page < self.total_pages - 1:
+            self.current_page += 1
+        await self.update_message(interaction)
+
+    @button(label="Close", style=ButtonStyle.red, custom_id="badge_close", row=1)
+    async def close_view(self, interaction: discord.Interaction, button: Button):
+        self.stop()
+        await interaction.response.edit_message(content="View closed.", embed=None, view=None)
+
+    async def on_timeout(self):
+        # Disable all buttons on timeout
+        for item in self.children:
+            item.disabled = True
+        try:
+            # You'd need a reference to the original message interaction to edit it here.
+            # Assuming the original interaction is stored in self.ctx from your command structure:
+            # await self.ctx.edit_original_response(content="❌ Badge view timed out.", view=self)
+            pass
+        except Exception:
+            pass
+
+
 @bot.tree.command(name="badges", description="Shows the badges you have collected.")
-async def badges(ctx: discord.Interaction): # Removed page argument as it's handled by the view
-    db = sqlite3.connect("playerdata.db")
-    c = db.cursor()
-    c.execute(f"select data_column_for_badges from '{ctx.user.id}'")
-    dat = c.fetchone()
-    db.close() # Close connection immediately
+async def badges(ctx: discord.Interaction):
+    # 1. Use aiosqlite for asynchronous database connection
+    async with aiosqlite.connect("playerdata.db") as db:
+        player_id_str = str(ctx.user.id)
+        
+        # NOTE: It is much safer to SELECT the column by name than rely on order.
+        # We assume the columns from the image: Balance, Squad, Items, creationdate, winstreak, highstreak, badges
+        
+        # Execute the query
+        try:
+            async with db.execute(f"SELECT badges FROM '{player_id_str}'") as cursor:
+                dat = await cursor.fetchone()
+        except aiosqlite.OperationalError:
+            # Handle the case where the player's table does not exist
+            return await ctx.response.send_message("❌ Your profile data was not found. Have you started a game yet?", ephemeral=True)
 
-    # dat[6] is assumed to be the column index for the comma-separated badge string
-    badge_data = dat[6] if dat and len(dat) > 6 else "None" # Safe indexing
 
-    if badge_data == "None" or not badge_data.strip():
+    # Check if data was returned. dat is (badge_string,) or None
+    if dat:
+        # dat[0] is the result of SELECT badges
+        badge_data = dat[0] 
+    else:
+        badge_data = None
+        
+    # Check for empty or non-existent badge data
+    if not badge_data or not badge_data.strip():
         await ctx.response.send_message("You haven't collected any badges yet! 🏅", ephemeral=True)
         return
 
+    # Split the comma-separated string
     bdg = badge_data.split(",")
+    
     # You MUST await your sortbadge function
+    # NOTE: Ensure sortbadge is defined and correctly imports/uses badge metadata
     bdg = await sortbadge(bdg) 
 
-    # Initialize the View
+    # Initialize the View (BadgesView must be defined)
     view = BadgesView(ctx.user.id, bdg)
     
     # Get the content for the first page
+    # NOTE: Ensure view.get_page_content() returns a discord.Embed object
     initial_embed = view.get_page_content()
 
     # Send the initial response with the buttons
@@ -2112,14 +2163,13 @@ async def evtrain(ctx: discord.Interaction, num: int = 1, hpev: int = 0, atkev: 
     
     evlist = [hpev, atkev, defev, spatkev, spdefev, speedev]
     total = hpev + atkev + defev + spatkev + spdefev + speedev
-    
-    # ⚠️ Security Note: The original query uses f-string for SQL. 
-    # The updated code below is safer and uses parameter substitution.
 
     if max(evlist) <= 252 and len(evlist) == 6 and total <= 508:
         try:
             # ⬅️ Connect using aiosqlite and async with
             async with aiosqlite.connect("owned.db") as db:
+                async with db.cursor() as cursor:
+                    rowid=await row(ctx,num,cursor)
                 sql_update = f"""
                 UPDATE `{ctx.user.id}` SET 
                 hpev = ?,
@@ -2132,7 +2182,7 @@ async def evtrain(ctx: discord.Interaction, num: int = 1, hpev: int = 0, atkev: 
                 """
                 
                 # The values are passed as a tuple.
-                values = (hpev, atkev, defev, spatkev, spdefev, speedev, num)
+                values = (hpev, atkev, defev, spatkev, spdefev, speedev, rowid)
                 
                 await db.execute(sql_update, values)
                 await db.commit() # ⬅️ Commit is also awaited
@@ -2617,9 +2667,8 @@ async def buyitem(ctx: discord.Interaction, item: str):
     
     em = discord.Embed(
         title=f"Would you like to buy {item_data[0]}?",
-        description=f"**Price:** {await numberify(item_price)} <:pokecoin:1134595078892044369>\n**Balance after purchase:** {await numberify(balance_after)} <:pokecoin:1134595078892044369>"
+        description=f"**Item:** {item_data[4]}\n**Price:** {await numberify(item_price)} <:pokecoin:1134595078892044369>\n**Balance after purchase:** {await numberify(balance_after)} <:pokecoin:1134595078892044369>"
     )
-    em.set_thumbnail(url=item_data[2])
     
     view = BuyConfirmView(ctx, user_id_str, item_data, item_price)
     
@@ -3501,3 +3550,263 @@ async def claim(ctx:discord.Interaction,code:str):
             await ctx.response.send_message(embed=em)  
         else:
             await ctx.response.send_message("Oops! You already claimed this event.")
+
+class ShopPaginatorView(discord.ui.View): # Changed 'View' to 'discord.ui.View' for clarity
+    def __init__(self, ctx: discord.Interaction, all_items: List[Tuple], numberify_func: Callable): 
+        super().__init__(timeout=180)
+        self.ctx = ctx
+        self.all_items = all_items
+        self.numberify_func = numberify_func
+        # self.bot = bot # Removed: bot is not passed or used effectively here
+        
+        self.filtered_items = all_items # New: Items currently being displayed (all by default)
+        self.active_filter = None      # New: The current filter text
+        
+        self.current_page = 0
+        self.update_total_pages() # Calculate total pages based on initial/filtered items
+        
+        # Disable buttons if only one page (now calls update_buttons)
+        self.update_buttons() # Call update_buttons to set initial state
+
+    # New Helper: Recalculates total pages based on filtered_items
+    def update_total_pages(self):
+        """Calculates total pages based on the current list of items."""
+        global ITEMS_PER_PAGE # Make sure ITEMS_PER_PAGE is accessible
+        if not self.filtered_items:
+            self.total_pages = 0
+        else:
+            self.total_pages = math.ceil(len(self.filtered_items) / ITEMS_PER_PAGE)
+            
+    # New Helper: Applies a filter to the all_items list
+    def apply_filter(self, filter_text: str):
+        """Filters items and recalculates pages/buttons."""
+        self.active_filter = filter_text
+        self.filtered_items = [
+            item for item in self.all_items 
+            if filter_text in item[0].lower() or filter_text in item[3].lower() # Match name or description
+        ]
+        self.current_page = 0 # Reset to page 1 on new filter
+        self.update_total_pages()
+        self.update_buttons()
+        
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        # Only the user who executed the command can interact
+        if interaction.user != self.ctx.user:
+            await interaction.response.send_message("This shop view is not for you!", ephemeral=True)
+            return False
+        return True
+        
+    def get_page_items(self) -> List[Tuple]:
+        """Returns the ITEMS_PER_PAGE items for the current page from filtered_items."""
+        start_index = self.current_page * ITEMS_PER_PAGE
+        end_index = start_index + ITEMS_PER_PAGE
+        return self.filtered_items[start_index:end_index] # Use filtered_items
+
+    async def create_page_embed(self) -> discord.Embed:
+        """Creates the embed for the current page."""
+        
+        if not self.filtered_items:
+            return discord.Embed(
+                title="❌ No Items Found",
+                description=f"The shop is empty or your filter **'{self.active_filter}'** returned no results.",
+                color=discord.Color.red()
+            )
+            
+        page_items = self.get_page_items()
+        total_items = len(self.filtered_items)
+        
+        em = discord.Embed(
+            title="🛒 Item Shop",
+            # Adjusted description to reflect filtered results
+            description=(
+                f"Showing items {self.current_page * ITEMS_PER_PAGE + 1}-{min((self.current_page + 1) * ITEMS_PER_PAGE, total_items)} of {total_items}" 
+                + (f" (Filter: **{self.active_filter}**)" if self.active_filter else "")
+            ),
+            color=discord.Color.blue()
+        )
+        # ... (rest of create_page_embed remains the same, using page_items) ...
+        # ... (Loop for adding fields remains the same) ...
+        for item in page_items:
+             emoji = item[2]
+             item_name = item[0]
+             item_price = item[1]
+             item_desc = item[3]
+
+             price_str = await self.numberify_func(item_price)
+
+             em.add_field(
+                 name=f"{emoji} **{item_name}** ({price_str} <:pokecoin:1134595078892044369>)",
+                 value=f"*{item_desc}*",
+                 inline=False
+             )
+
+        em.set_footer(text=f"Page {self.current_page + 1}/{self.total_pages}")
+        return em
+
+    def update_buttons(self):
+        """Updates the state of the navigation buttons."""
+        
+        # Check if items exist before trying to disable
+        if self.total_pages == 0:
+            for item in self.children:
+                item.disabled = True
+            return
+            
+        # The first two children are 'Previous' and 'Next'
+        self.children[0].disabled = (self.current_page == 0) # Previous button
+        self.children[1].disabled = (self.current_page == self.total_pages - 1) # Next button
+        
+        # If there's only 1 page, disable both
+        if self.total_pages <= 1:
+            self.children[0].disabled = True
+            self.children[1].disabled = True
+
+    # New Helper: Handles the interaction response for page/filter change
+    async def update_view_from_input(self, interaction: discord.Interaction):
+        """Updates the embed and view after a modal/button interaction."""
+        new_embed = await self.create_page_embed()
+        # You need to respond to the interaction from the modal!
+        # Since on_submit already sent a modal response, you must edit the original message.
+        # Check if the interaction is a Modal submission or a button click
+        if interaction.response.is_done():
+             await interaction.edit_original_response(embed=new_embed, view=self)
+        else:
+             await interaction.response.edit_message(embed=new_embed, view=self)
+
+
+    @discord.ui.button(label="< Previous", style=ButtonStyle.blurple, custom_id="shop_prev", disabled=True)
+    async def previous_page(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.current_page > 0:
+            self.current_page -= 1
+            self.update_buttons()
+            new_embed = await self.create_page_embed()
+            await interaction.response.edit_message(embed=new_embed, view=self)
+        else:
+            await interaction.response.defer() 
+
+    @discord.ui.button(label="Next >", style=ButtonStyle.blurple, custom_id="shop_next")
+    async def next_page(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.current_page < self.total_pages - 1:
+            self.current_page += 1
+            self.update_buttons()
+            new_embed = await self.create_page_embed()
+            await interaction.response.edit_message(embed=new_embed, view=self)
+        else:
+            await interaction.response.defer() 
+
+    # --- NEW BUTTON ---
+    @discord.ui.button(label="Filter", style=ButtonStyle.green, custom_id="shop_jump", row=0)
+    async def jump_filter(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # Create and send the modal
+        modal = ShopJumpModal(self.current_page + 1, self.total_pages, self)
+        await interaction.response.send_modal(modal)
+
+    @discord.ui.button(label="Clear Filter", style=ButtonStyle.grey, custom_id="shop_clear_filter", row=1)
+    async def clear_filter(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.active_filter is None:
+            return await interaction.response.send_message("❌ No active filter to clear.", ephemeral=True)
+            
+        # Reset to show all items
+        self.filtered_items = self.all_items
+        self.active_filter = None
+        self.current_page = 0
+        self.update_total_pages()
+        self.update_buttons()
+        
+        await self.update_view_from_input(interaction)
+        
+    @discord.ui.button(label="Close", style=ButtonStyle.red, custom_id="shop_close", row=1)
+    async def close_view(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.stop()
+        await interaction.response.edit_message(content="Shop closed.", embed=None, view=None)
+
+    async def on_timeout(self):
+        # Disable all buttons on timeout
+        for item in self.children:
+            item.disabled = True
+        try:
+            # Edit the original interaction response message
+            await self.ctx.edit_original_response(content="❌ Shop view timed out.", view=self)
+        except discord.errors.NotFound:
+            pass
+            
+class ShopJumpModal(Modal, title="Jump to Page or Filter Shop"):
+    def __init__(self, current_page: int, total_pages: int, view):
+        super().__init__(timeout=180)
+        self.view = view # Store a reference to the view
+        self.current_page = current_page
+        self.total_pages = total_pages
+        
+        # Input Field: Page Number or Filter
+        self.input_field = TextInput(
+            label=f"Page Number (1-{total_pages}) or Filter Text",
+            placeholder="e.g., 3 or 'master ball' or 'p'",
+            required=False,
+            max_length=50
+        )
+        self.add_item(self.input_field)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        user_input = self.input_field.value.strip()
+        
+        if not user_input:
+            return await interaction.response.send_message(
+                "❌ Input cannot be empty. Try again!", ephemeral=True
+            )
+            
+        # Try to parse as a page number
+        try:
+            page_num = int(user_input)
+            
+            if 1 <= page_num <= self.total_pages:
+                # Update the view's current page and clear any existing filter
+                self.view.current_page = page_num - 1
+                self.view.active_filter = None # Clear filter when jumping page
+                
+                # Update the displayed items
+                await self.view.update_view_from_input(interaction)
+                
+            else:
+                await interaction.response.send_message(
+                    f"❌ Invalid page number. Must be between 1 and {self.total_pages}.", 
+                    ephemeral=True
+                )
+        
+        # If it's not a page number, treat it as a filter phrase
+        except ValueError:
+            filter_text = user_input.lower()
+            
+            # Update the view's filter and reset page to 0
+            self.view.apply_filter(filter_text)
+            
+            # Check if the filter resulted in any items
+            if not self.view.filtered_items:
+                 await interaction.response.send_message(
+                    f"❌ No items found matching **'{filter_text}'**.", 
+                    ephemeral=True
+                )
+            else:
+                await self.view.update_view_from_input(interaction)
+
+@bot.tree.command(name="shop", description="Displays all available items in the shop.")
+async def shop_command(ctx: discord.Interaction):
+    
+    # --- A. Fetch ALL Item Data (pokemondata.db) ---
+    async with aiosqlite.connect("pokemondata.db") as db:
+        # Select all columns, order by price (ascending)
+        cursor = await db.execute("SELECT item, price, emoji, Description FROM itemshop ORDER BY price ASC")
+        all_items = await cursor.fetchall()
+
+    if not all_items:
+        return await ctx.response.send_message("❌ The item shop is currently empty!", ephemeral=True)
+
+    # --- B. Initialize Paginator View ---
+    
+    # The 'all_items' list is passed to the view, which handles pagination
+    view = ShopPaginatorView(ctx, all_items, numberify) 
+    
+    # Get the initial embed (Page 1)
+    initial_embed = await view.create_page_embed()
+    
+    # Send the initial message with the view
+    await ctx.response.send_message(embed=initial_embed, view=view)

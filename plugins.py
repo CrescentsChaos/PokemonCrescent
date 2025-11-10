@@ -3941,6 +3941,7 @@ async def awardgift(user_id_str: str, gift_name: str):
             # In a full game, you'd add logic here to CREATE the table.
         except Exception as e:
             print(f"Unexpected error awarding gift to user {user_id_str}: {e}")      
+
 async def winner(ctx: typing.Union[discord.Interaction, discord.ext.commands.Context], tr1, tr2):
 
     is_interaction = isinstance(ctx, discord.Interaction)
@@ -3948,21 +3949,18 @@ async def winner(ctx: typing.Union[discord.Interaction, discord.ext.commands.Con
     player_id_str = str(user.id)
     player_display_name = user.display_name
     
-    # 1. Update Usage Records for Both Teams
-    # We only update records for human-controlled teams (tr.ai is False)
+    # 1. Update Usage Records for Both Teams (for human-controlled teams only)
     if tr2.ai is False:
-        # Assuming usagerecord is an async function
         await usagerecord(tr2.fullteam)
     if tr1.ai is False:
         await usagerecord(tr1.fullteam)
 
     # 2. Database Operations (Player Data & Pokémon Records)
-    # pokemondata.db is assumed to contain the 'Trainers' table for special NPCs
     async with aiosqlite.connect("playerdata.db") as player_db, \
-               aiosqlite.connect("record.db") as record_db, \
-               aiosqlite.connect("pokemondata.db") as data_db:
+            aiosqlite.connect("record.db") as record_db, \
+            aiosqlite.connect("pokemondata.db") as data_db:
         
-        # A. Update Pokémon Win Counts (human winner's team)
+        # A. Update Pokémon Win Counts (winner's team)
         if tr1.ai is False:
             for i in tr1.fullteam:
                 async with record_db.execute("SELECT wins FROM pokemons WHERE name=?", (i.name,)) as cursor:
@@ -3973,41 +3971,34 @@ async def winner(ctx: typing.Union[discord.Interaction, discord.ext.commands.Con
             await record_db.commit()
 
         # B. Player Data Fetch
-        # NOTE: Assuming the columns map to indices: [0]:balance, [1]:highstreak, [2]:winstreak, [3]:badges
         try:
             async with player_db.execute(f"SELECT balance, highstreak, winstreak, badges FROM '{player_id_str}'") as cursor:
                 player_data = await cursor.fetchone()
         except aiosqlite.OperationalError:
-            # Table for the player is missing (should be handled elsewhere, but safety net)
             player_data = None
         
-        # Handle profile missing
         if player_data is None:
-            # Determine the appropriate send method (interaction followup or regular channel send)
             send_method = ctx.followup.send if is_interaction and ctx.response.is_done() else ctx.send
             return await send_method("❌ Error: Player profile data not found.")
 
         current_streak = player_data[2]
         high_streak = player_data[1]
-        # Ensure badges is a string, default to empty string if it's None or SQL 'None'
         current_badges = str(player_data[3]) if player_data[3] else "" 
         
-        em = discord.Embed(title=f"🎉 {tr1.name} won the battle!", color=discord.Color.gold())
-        
-
         # 3. Handle Win/Loss Streaks and Rewards
-
-        # Player Loss (tr1 is the winner, if tr1's name is not the player's, the player lost)
+        
+        # --- PLAYER LOSS ---
         if tr1.name != player_display_name:
-            await player_db.execute(f"UPDATE '{player_id_str}' SET winstreak=0")
-            em.title = f"😔 {tr1.name} won the battle..."
+            em = discord.Embed(title=f"😔 {tr1.name} won the battle...", color=discord.Color.red())
             em.set_image(url=tr1.sprite) 
+            
+            # **This is the winstreak reset logic**
             new_streak = 0
             await player_db.execute(f"UPDATE '{player_id_str}' SET winstreak=?", (new_streak,))
-            # Note: No rewards or special trainer logic applied on player loss.
             
-        # Player Win (tr1's name matches the player's display name)
-        elif tr1.name == player_display_name:
+        # --- PLAYER WIN ---
+        else: # tr1.name == player_display_name
+            em = discord.Embed(title=f"🎉 {tr1.name} won the battle!", color=discord.Color.gold())
             
             # Update Streak and High Streak
             new_streak = current_streak + 1
@@ -4018,76 +4009,60 @@ async def winner(ctx: typing.Union[discord.Interaction, discord.ext.commands.Con
                 em.add_field(name="🔥 New High Score!", value=f"Your highest win streak is now **{new_streak}**!", inline=False)
             
             # --- Trainer Data Update (Win/Symbol/Gift Logic) ---
-            opponent_name = tr2.name.split("> ")[-1].strip() # Get the clean trainer name
+            opponent_name = tr2.name.split("> ")[-1].strip() 
             trainer_data = None
             
-            # **Check if the opponent is a special, reward-giving trainer**
+            # Check if the opponent is a special, reward-giving trainer
             try:
-                # Assuming the 'Trainers' table has these five columns
-                # [0]:name, [1]:symbolname, [2]:symbolicon, [3]:win, [4]:gift
-                async with data_db.execute("SELECT name, symbolname, symbolicon, win, gift FROM Trainers WHERE name=?", (opponent_name,)) as cursor:
+                async with data_db.execute("SELECT name, symbolname, symbolicon, wins, gift FROM Trainers WHERE name=?", (opponent_name,)) as cursor:
                     trainer_data = await cursor.fetchone() 
             except aiosqlite.OperationalError as e:
-                # Catches cases where the 'Trainers' table or the 'win' column is missing/incorrect.
                 print(f"Trainer Data Fetch Warning for {opponent_name}: {e}. Treating as generic opponent.")
-                trainer_data = None 
-                
-            # CORE FIX: Only process special rewards if the trainer record was found
+            
             if trainer_data:
-                trainer_name = trainer_data[0]
                 badge_name = trainer_data[1]
                 badge_icon = trainer_data[2]
                 current_wins = trainer_data[3]
                 gift_item = trainer_data[4]
 
-                # A. Update Trainer Wins (Increment win count for the defeated special trainer)
+                # A. Update Trainer Wins
                 new_wins = current_wins + 1
-                await data_db.execute("UPDATE Trainers SET win=? WHERE name=?", (new_wins, opponent_name))
-                await data_db.commit() # Commit the Trainer data update
+                await data_db.execute("UPDATE Trainers SET wins=? WHERE name=?", (new_wins, opponent_name))
+                await data_db.commit() 
 
                 # B. Badge/Symbol Reward Logic
-                if badge_name and badge_name.lower() != "none" and badge_icon:
+                if badge_name and badge_name.lower() != "none" and badge_icon and badge_name not in current_badges:
+                    new_badges = f"{current_badges},{badge_name}" if current_badges else badge_name
+                    await player_db.execute(f"UPDATE '{player_id_str}' SET badges=?", (new_badges,))
                     
-                    # Check if the player already has this badge
-                    if badge_name not in current_badges:
-                        # Append the new badge. Ensure we handle empty/non-existent current_badges gracefully.
-                        new_badges = f"{current_badges},{badge_name}" if current_badges else badge_name
-                        
-                        await player_db.execute(f"UPDATE '{player_id_str}' SET badges=?", (new_badges,))
-                        
-                        em.add_field(
-                            name="🏅 New Symbol Obtained!",
-                            value=f"{badge_icon} Congratulations! You received the **{badge_name}** from {tr2.name}.",
-                            inline=False
-                        )
+                    em.add_field(
+                        name="🏅 New Symbol Obtained!",
+                        value=f"{badge_icon} Congratulations! You received the **{badge_name}** from {tr2.name}.",
+                        inline=False
+                    )
                 
                 # C. Gift Item Logic
                 if gift_item and gift_item.lower() != "none":
-                    # NOTE: Assuming 'awardgift' is defined and handles the item distribution
                     await awardgift(ctx, user, gift_item)
                     em.add_field(name="🎁 Item Received!", value=f"You received a **{gift_item}** from {tr2.name}!", inline=False)
 
-
-            # --- Money Reward Logic (Applies to ALL wins, determined by name category) ---
+            # --- Money Reward Logic ---
             reward_amount = 1000 
             if "Champion" in tr2.name: reward_amount = 10000
             elif "Elite Four" in tr2.name: reward_amount = 5000
             elif "Gym Leader" in tr2.name: reward_amount = 2000
 
-            # CHANGE: Pass the existing player_db connection to addmoney
             await addmoney(ctx, user, reward_amount, player_db) 
             em.add_field(name="💰 Prize Money", value=f"You earned **{await numberify(reward_amount)}** Pokécoins!", inline=False)
 
-            # 4. Final Commit (Player Data) - Keep this commit here!
-            await player_db.commit()
+        # 4. Final Commit (Player Data)
+        await player_db.commit()
 
-    # 5. Send Final Embed (Handle Interaction vs. Context)
+    # 5. Send Final Embed
     if is_interaction and ctx.response.is_done():
-        # This uses the followup for slash commands that were deferred
         await ctx.followup.send(embed=em)
     elif hasattr(ctx, 'send'):
-        # This handles regular prefix commands or if the interaction was never deferred/responded to
-        await ctx.send(embed=em)  
+        await ctx.send(embed=em) 
         
 #Effects    
 async def effects(ctx,x,y,tr1,field,turn):

@@ -1222,14 +1222,44 @@ def _fetch_profile_data(user_id):
     # Return all necessary raw data
     return det, allmon, shinies
 
+@bot.tree.command(name="squad", description="Shows your squad.")
+async def squad(ctx: discord.Interaction):
+    await ctx.response.defer() 
+    try:
+        det, allmon, shinies = await asyncio.to_thread(_fetch_profile_data, ctx.user.id)
+    except Exception as e:
+        # Handle case where user ID table doesn't exist (e.g., new player)
+        print(f"Database error for user {ctx.user.id}: {e}")
+        return await ctx.followup.send("Could not load profile. Have you registered yet?", ephemeral=True)
+    # Team display logic
+    sq = eval(det[1])
+    data = discord.Embed(
+        title=f"{ctx.user.display_name}'s Team:",description=("All available team details."))
+    if True: # The original 'if True' is redundant, but keeping the block structure
+        team = await teamconvert(ctx, ctx.user, ctx.user.id)
+        ll = 0
+        for i in team:
+            ll += 1
+            # Assuming findnum, teraicon, itemicon are defined and safe
+            data.add_field(
+                name=f"#{await findnum(ctx, sq[ll-1])} {i.icon} {i.nickname} {await teraicon(i.tera)}",
+                value=f"**Ability:** {i.ability}\n**Item:** {await itemicon(i.item)} {i.item}\n" f"**Moveset:**\n{await movetypeicon(i, i.moves[0])} {i.moves[0].title()} {await movect(i.moves[0])}\n"
+            f"{await movetypeicon(i, i.moves[1])} {i.moves[1].title()} {await movect(i.moves[1])}\n"
+            f"{await movetypeicon(i, i.moves[2])} {i.moves[2].title()} {await movect(i.moves[2])}\n"
+            f"{await movetypeicon(i, i.moves[3])} {i.moves[3].title()} {await movect(i.moves[3])}\n"
+            f"**IVs:** {i.hpiv}/{i.atkiv}/{i.defiv}/{i.spatkiv}/{i.spdefiv}/{i.speediv}\n"f"**EVs:** {i.hpev}/{i.atkev}/{i.defev}/{i.spatkev}/{i.spdefev}/{i.speedev}\n"
+            "--------------",
+                inline=False
+            )
+    else:
+        data.add_field(name="Current Team:", value="Not available")
+        
+    # 4. Final step: Send the message using followup (since we deferred)
+    await ctx.followup.send(embed=data)
 @bot.tree.command(name="profile", description="Shows profile.")
 async def profile(ctx: discord.Interaction):
     # 1. CRITICAL: Defer immediately to keep the interaction token alive (up to 15 mins)
     await ctx.response.defer() 
-
-    # 2. Delegate Blocking Database work to a separate thread
-    # This line runs the _fetch_profile_data function synchronously in a separate thread,
-    # preventing the main thread from blocking.
     try:
         det, allmon, shinies = await asyncio.to_thread(_fetch_profile_data, ctx.user.id)
     except Exception as e:

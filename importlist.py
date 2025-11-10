@@ -8,11 +8,11 @@ import time
 import aiohttp
 import ast
 import typing
-from typing import Optional,List, Tuple,TYPE_CHECKING,Literal
+from typing import Optional,List, Tuple,Callable,TYPE_CHECKING,Literal
 from keep_alive import keep_alive
 from discord.ext import commands
 from discord import app_commands,ui,ButtonStyle,File,SelectOption
-from discord.ui import View, Button,Select
+from discord.ui import View,button,Button,Select,Modal, TextInput
 from pokemon import *
 from trainers import *
 from field import *
