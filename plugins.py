@@ -686,15 +686,7 @@ async def entryeff(ctx, x, y, tr1, tr2, field, turn):
             entry.add_field(name=f"{x.icon} {x.name}'s Sand Stream!",value=f"️{x.name} whipped up a sandstorm!")
             field.weather="Sandstorm" 
             field.sandturn=turn
-            await sandend(field,x,y)   
-        elif x.ability=="Primordial Sea" and field.weather!="Heavy Rain":
-            x.showability=True
-            entry.add_field(name=f"{x.icon} {x.name}'s Primordial Sea!",value=f"️A heavy rain began to fall!")
-            field.weather="Heavy Rain"
-        elif x.ability=="Desolate Land" and field.weather!="Extreme Sunlight":  
-            x.showability=True
-            entry.add_field(name=f"{x.icon} {x.name}'s Desolate Land!",value=f"️The sunlight turned extremely harsh!")
-            field.weather="Extreme Sunlight"   
+            await sandend(field,x,y)    
         elif x.ability=="Drought" and field.weather not in ["Sunny","Heavy Rain","Extreme Sunlight"]:
             x.showability=True
             entry.add_field(name=f"{x.icon} {x.name}'s Drought!",value=f"️{x.name} intensified the sun's rays!")
@@ -755,10 +747,11 @@ async def entryeff(ctx, x, y, tr1, tr2, field, turn):
             tr1.auroraend(x,y)
             tr1.auroraveil=True  
             entry.add_field(name=f"{x.icon} {x.name}'s North Wind!",value="Aurora Veil will reduced your team's damage taken!")
-    if x.item == "Blue Orb" and "Primal" not in x.name and x.name == "Kyogre":
+    if x.item == "Blue Orb" and "Primal" not in x.name and x.name == "Kyogre" and y.ability!="Neutralizing Gas":
         em = discord.Embed(title="Primal Reversion:", description=f"{x.name}'s Primal Reversion! It reverted to its primal form!")
         x.sprite = x.sprite.replace(".gif", "-primal.gif")
         x.name = "Primal Kyogre"
+        x.nickname = "Primal Kyogre"
         per = x.hp / x.maxhp
         x.ability = "Primordial Sea"
         x.weight, x.hp, x.atk, x.defense, x.spatk, x.spdef, x.speed = 947.99, 100, 150, 90, 180, 160, 90
@@ -766,10 +759,11 @@ async def entryeff(ctx, x, y, tr1, tr2, field, turn):
         x.hp = x.maxhp * per
         em.set_image(url=x.sprite)
         em.set_thumbnail(url="https://cdn.discordapp.com/attachments/1102579499989745764/1108653012680982568/Blue_Orb.png")    
-    if x.item == "Red Orb" and "Primal" not in x.name and x.name == "Groudon":
+    if x.item == "Red Orb" and "Primal" not in x.name and x.name == "Groudon" and y.ability!="Neutralizing Gas":
         em = discord.Embed(title="Primal Reversion:", description=f"{x.name}'s Primal Reversion! It reverted to its primal form!")
         x.sprite = x.sprite.replace(".gif", "-primal.gif")
         x.name = "Primal Groudon"
+        x.nickname = "Primal Groudon"
         per = x.hp / x.maxhp
         x.ability = "Desolate Land"
         x.weight = 2203.96
@@ -778,7 +772,14 @@ async def entryeff(ctx, x, y, tr1, tr2, field, turn):
         x.hp = x.maxhp * per
         em.set_image(url=x.sprite)
         em.set_thumbnail(url="https://cdn.discordapp.com/attachments/1102579499989745764/1109011460601954364/Red_Orb.png")  
-    
+    if x.ability=="Primordial Sea" and field.weather!="Heavy Rain":
+        x.showability=True
+        entry.add_field(name=f"{x.icon} {x.name}'s Primordial Sea!",value=f"A heavy rain began to fall!")
+        field.weather="Heavy Rain"
+    if x.ability=="Desolate Land" and field.weather!="Extreme Sunlight":  
+        x.showability=True
+        entry.add_field(name=f"{x.icon} {x.name}'s Desolate Land!",value=f"The sunlight turned extremely harsh!")
+        field.weather="Extreme Sunlight"
     if "Spikes" in tr1.hazard and x.ability not in ["Magic Guard","Levitate","Shield Dust"] and x.item not in ["Heavy-Duty Boots","Air Balloon"]:
         entry.add_field(name=f"Spikes!",value=f"️{x.name} was hurt by the Spikes!")
         

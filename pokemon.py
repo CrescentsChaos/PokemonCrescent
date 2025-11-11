@@ -335,6 +335,7 @@ class Pokemon:
         self.dmgtaken=0
         self.confuseeendturn=-1
         self.use="None"
+        self.used="None"
         self.perishturn=0
         self.evasion=100
         self.accuracy=100
