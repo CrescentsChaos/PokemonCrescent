@@ -26,7 +26,6 @@ async def createhuman(ctx:discord.Interaction):
         await ctx.response.send_message("Invalid.")
         
 class ReleaseConfirmView(View):
-    # CRITICAL CHANGE: Accept db_path (string) instead of a live connection object
     def __init__(self, bot, ctx: discord.Interaction, rel: list, db_path: str):
         super().__init__(timeout=60)
         self.bot = bot
@@ -36,7 +35,6 @@ class ReleaseConfirmView(View):
         self.value = None
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        # Ensures only the command invoker can interact
         if interaction.user != self.ctx.user:
             await interaction.response.send_message("This confirmation is not for you!", ephemeral=True)
             return False
@@ -46,21 +44,14 @@ class ReleaseConfirmView(View):
     async def confirm_button(self, interaction: discord.Interaction, button: Button):
         self.stop()
         self.value = True
-        
-        # FIX: Open a new, dedicated connection inside the callback
         try:
             async with aiosqlite.connect(self.db_path) as db:
                 c = await db.cursor()
-                
-                # Perform the deletion for each row ID
                 for row_id in self.rel:
-                    # Parameterized query is safer, even with rowid
                     await c.execute(f"DELETE FROM '{self.ctx.user.id}' WHERE rowid=?", (row_id,))
                 
-                await db.commit() # Commit the changes
-            # Connection automatically closes here
+                await db.commit() 
             
-            # Update the original message
             await interaction.response.edit_message(
                 embed=discord.Embed(
                     title="Release Successful! ✅", 
@@ -70,7 +61,6 @@ class ReleaseConfirmView(View):
                 view=None # Remove buttons
             )
         except Exception as e:
-            # Handle potential database or other errors
             print(f"Database error during release: {e}")
             await interaction.response.edit_message(
                 embed=discord.Embed(
@@ -111,28 +101,20 @@ class ReleaseConfirmView(View):
             pass # Ignore if message was already edited or deleted
 
 
-# --- 2. Slash Command Definition ---
-
-# NOTE: You must define your 'row' function as an async function that uses 
-# the passed aiosqlite cursor to find the rowid.
-# Example: async def row(ctx, index, c): ...
 
 @bot.tree.command(name="release", description="Release following pokémons.")
 @app_commands.describe(mons="Pokémons that you wanna release!")
 async def release(ctx: discord.Interaction, mons: str):
     DB_PATH = "owned.db" # Database file path
     
-    # Temporarily open connection to fetch details for the embed
     async with aiosqlite.connect(DB_PATH) as db:
         c = await db.cursor()
         
         mons_indices = mons.split(" ")
         rel = []
         
-        # 1. Gather row IDs
         try:
             for i in mons_indices:
-                # Assuming 'row' is an async function:
                 rel.append(await row(ctx, int(i), c)) 
         except Exception as e:
             await ctx.response.send_message(f"Error processing input: {e}", ephemeral=True)
@@ -150,19 +132,13 @@ async def release(ctx: discord.Interaction, mons: str):
             else:
                 txt += f"\n**Pokémon with ID {row_id}** - Not Found"
 
-    # The 'db' connection is now safely closed
-
-    # 3. Create the Embed and View
     em = discord.Embed(title="Release Confirmation:", description=txt, color=0xff0000)
     em.set_image(url="https://cdn.discordapp.com/attachments/1102579499989745764/1142222584159674569/image_search_1692397466636.png")
     
-    # 4. Initialize View by passing the database path (DB_PATH)
     view = ReleaseConfirmView(bot, ctx, rel, DB_PATH)
     
-    # 5. Send the message with buttons
     await ctx.response.send_message(embed=em, view=view)
     
-    # Wait for the view to stop
     await view.wait() 
         
 @bot.tree.command(name="abilityinfo",description="Shows ability description.")
@@ -354,25 +330,20 @@ async def purchase(ctx:discord.Interaction,code:str):
           
 @bot.tree.command(name="compare", description="Compare two pokémons.")
 async def compare(ctx: discord.Interaction, num1: int, num2: int):
-    # Use 'async with' for connection to ensure it's closed properly
     async with aiosqlite.connect("owned.db") as db:
         c = await db.cursor()
 
-        # Assuming 'row' and 'pokonvert' are defined elsewhere and are 'async' functions.
-        # If 'row' is a wrapper for a simple database query, it must now use 'aiosqlite' methods.
         nm1 = await row(ctx, num1, c)
         nm2 = await row(ctx, num2, c)
 
         p, allmon, mon, spc = await pokonvert(ctx, ctx.user, nm1)
         q, allmon, mon, spc = await pokonvert(ctx, ctx.user, nm2)
 
-    # --- Embed Creation (Remains the same) ---
     com = discord.Embed(
         title=f"#{num1} {p.name} {p.icon} vs {q.icon} {q.name} #{num2}",
         description="Sample comparison between these two pokemons are shown below!"
     )
     
-    # Attributes Field
     com.add_field(
         name="Attributes:",
         value=(
@@ -385,7 +356,6 @@ async def compare(ctx: discord.Interaction, num1: int, num2: int):
         )
     )
 
-    # IVs Field
     com.add_field(
         name="IVs:",
         value=(
@@ -398,7 +368,6 @@ async def compare(ctx: discord.Interaction, num1: int, num2: int):
         )
     )
 
-    # EVs Field
     com.add_field(
         name="EVs:",
         value=(
@@ -1276,10 +1245,8 @@ class PokeInfoView(discord.ui.View):
 
         # 2. Use aiosqlite for the connection
         async with aiosqlite.connect("owned.db") as db:
-            print(self.current_index)
             async with db.cursor() as cursor:
                 row_id = await row(self.ctx, self.current_index, cursor) 
-                print(row_id)
                 p, allmon, mon, spc = await pokonvert(self.ctx, self.ctx.user, row_id)
         
         # ⚠️ FIX: Removed 'await db.close()' here, as the 'async with' statement closes it automatically.
@@ -1383,7 +1350,6 @@ async def pokeinfo(ctx: discord.Interaction, num: int = None):
                     ephemeral=True
                 )
                 return
-            owned_query = f"SELECT * FROM '{ctx.user.id}' WHERE rowid = ?"
             async with db.cursor() as cursor:
                 current_index = await row(ctx,num,cursor)
         else:
@@ -1415,7 +1381,8 @@ async def pokeinfo(ctx: discord.Interaction, num: int = None):
         p.totalev = (p.hpev + p.atkev + p.defev + p.spatkev + p.spdefev + p.speedev) 
         if current_index is None:
             current_index=len(allmon)
-            num=len(allmon)
+        else:
+            current_index=num
         infos = discord.Embed(
             title=f"#{current_index} {p.nickname} Lv.{p.level}", 
             description=f"""**Types:** {types}\n**Tera-Type:** {await teraicon(p.tera)}\n**Nature:** {p.nature}\n**Gender:** {await statusicon(p.gender)}\n**Held Item:** {await itemicon(p.item)} {p.item}\n**<:hp:1140877395050647613>HP:** {p.maxhp} - IV: {p.hpiv}/31 - EV: {p.hpev}\n**<:attack:1140877438746890280>ATK:** {p.maxatk} - IV: {p.atkiv}/31 - EV: {p.atkev}\n**<:defense:1140877538072203344>DEF:** {p.maxdef} - IV: {p.defiv}/31 - EV: {p.defev}\n**<:spatk:1140877607185956954>SPA:** {p.maxspatk} - IV: {p.spatkiv}/31 - EV: {p.spatkev}\n**<:spdef:1140877582691209286>SPD:** {p.maxspdef} - IV: {p.spdefiv}/31 - EV: {p.spdefev}\n**<:speed:1140877488055128115>SPE:** {p.maxspeed} - IV: {p.speediv}/31 - EV: {p.speedev}\n**Total IV %:** {p.totaliv}%\n**Total EV :** {p.totalev}/508\n**Ability:** {p.ability}\n{await abilitydesc(p.ability)}""",
@@ -1427,7 +1394,7 @@ async def pokeinfo(ctx: discord.Interaction, num: int = None):
         infos.set_footer(text=f"Catching Date: {p.catchdate}\nDisplaying Pokémon: {current_index}/{total_pokemon}")
 
         # 5. Send Message with View
-        view = PokeInfoView(ctx, num, total_pokemon)
+        view = PokeInfoView(ctx, current_index, total_pokemon)
         
         await ctx.followup.send(embed=infos, view=view)
 
@@ -1793,7 +1760,11 @@ async def moveset(ctx: discord.Interaction, num: int = 1):
     
     # --- 1. Fetch Pokémon Object (p) and allmon using the ID ---
     # We pass the integer ID 'num'. pokonvert will run the necessary DB queries itself.
-    p, allmon, mon, spc = await pokonvert(ctx, ctx.user, num) 
+    async with aiosqlite.connect("owned.db") as owned_db:
+        # Fetch the raw Pokémon row from the user's private table
+        async with owned_db.cursor() as cursor:
+            row_id= await row(ctx,num,cursor)
+    p, allmon, mon, spc = await pokonvert(ctx, ctx.user,row_id) 
     
     if p is None:
         await ctx.response.send_message(f"❌ Pokémon with ID **{num}** not found.", ephemeral=True)
@@ -1810,8 +1781,7 @@ async def moveset(ctx: discord.Interaction, num: int = 1):
     spc = None
 
     async with aiosqlite.connect("owned.db") as owned_db:
-        # Fetch the raw Pokémon row from the user's private table
-        cursor = await owned_db.execute(f"SELECT * FROM '{ctx.user.id}' WHERE rowid=?", (num,))
+        cursor = await owned_db.execute(f"SELECT * FROM '{ctx.user.id}' WHERE rowid=?", (row_id,))
         mon = await cursor.fetchone()
 
     async with aiosqlite.connect("pokemondata.db") as data_db:
@@ -2107,14 +2077,8 @@ async def teach(ctx: discord.Interaction, mon: int, move: str):
     async with aiosqlite.connect("pokemondata.db") as dt_db, \
                aiosqlite.connect("owned.db") as db_db:
         
-        # 1. Fetch raw data using the helper functions (assuming they are fixed)
-        # Note: We pass the DB connection objects for the helpers to use aiosqlite.
-        # Although your latest 'pokonvert' runs its own connections, 
-        # this ensures compatibility if 'row' needs it.
-        
-        # Assuming row returns the raw rowid or handles errors
-        # If your fixed pokonvert takes the ID, we use 'mon' as the ID.
-        pokemon_id = mon # Use the mon integer as the rowid
+        async with db_db.cursor() as cursor:
+            pokemon_id = await row(ctx,mon,cursor) # Use the mon integer as the rowid
         
         # 2. Get Pokémon data using the fixed helper function
         # This will fetch the p object and the raw row data
@@ -2963,7 +2927,6 @@ class AbilitySelectView(View):
             async with aiosqlite.connect("owned.db") as db:
                 async with db.cursor() as c:
                     rowid=await row(self.ctx,self.pokemon_id,c)
-                    print(rowid)
                     pokemon_update_sql = f'UPDATE "{self.user_id_str}" SET ability=? WHERE ROWID=?'
                     await db.execute(pokemon_update_sql,(new_ability, rowid))
                     await db.commit()
@@ -3104,7 +3067,6 @@ async def useitem(ctx: discord.Interaction, item: str, num: int):
                     async with aiosqlite.connect("owned.db") as db:
                         async with db.cursor() as c: 
                             rowid=await row(ctx,num,c)
-                            print(rowid)
                             pokemon_update_sql = f'UPDATE "{user_id_str}" SET nature=? WHERE ROWID=?'
                             await db.execute(pokemon_update_sql,(new_nature, rowid))
                             await db.commit()
@@ -3389,88 +3351,68 @@ async def egggroup(name: str) -> list[str]:
             # Use ast.literal_eval for safe conversion from string to list
             return egggroup_str.split(',')
                         
-@bot.tree.command(name="trainerinfo", description="Shows a random team of a certified trainer.")
-async def trainerinfo(ctx: discord.Interaction, num: int = 1):
-    
-    # Use defer as this command performs multiple database lookups
-    await ctx.response.defer()
+async def create_trainer_embed(ctx: discord.Interaction, num: int):
+    """Fetches trainer data and creates the embed."""
     
     # 1. Fetch the Trainer's Team and Base Data
     try:
-        # Assuming gameteam is an async function
         tr1 = await gameteam(ctx, num) 
     except Exception as e:
+        # Return None or raise an exception to be handled by the caller
         print(f"Error fetching game team: {e}")
-        return await ctx.followup.send("❌ Error: Could not fetch trainer data. Please check the input number.", ephemeral=True)
+        return None, f"❌ Error: Could not fetch trainer data for number {num}."
 
-    user_id_str = str(ctx.user.id)
     mm = tr1.name.split("> ")[-1]
     trainer_data = None
 
     # 2. Fetch Detailed Trainer Info from Database
-    async with aiosqlite.connect("pokemondata.db") as db:
-        # NOTE: Using a parameterized query for safety, though table name is hardcoded
-        async with db.execute("SELECT * FROM Trainers WHERE name=?", (mm,)) as cursor:
-            trainer_data = await cursor.fetchone()
+    # NOTE: You MUST have 'aiosqlite' and 'pokemondata.db' set up correctly.
+    try:
+        async with aiosqlite.connect("pokemondata.db") as db:
+            async with db.execute("SELECT * FROM Trainers WHERE name=?", (mm,)) as cursor:
+                trainer_data = await cursor.fetchone()
+    except Exception as e:
+        print(f"Database error: {e}")
+        # Default to a generic trainer if DB fails
+        trainer_data = (None, "Challenger", "❓")
 
     # 3. Process Trainer Metadata for Immersion
-    
-    # Determine the trainer's specialization or rank for a flavor sentence
     if trainer_data and trainer_data[1] and trainer_data[1].lower() != "none":
         badge_name = trainer_data[1]
-        badge_icon = trainer_data[2] # Assuming trainer_data[2] holds the icon/emoji
-        specialization_text = f"They hold the **{badge_name}** {badge_icon} Badge, indicating mastery in a particular domain."
+        badge_icon = trainer_data[2]
+        specialization_text = f"They hold the {badge_icon} **{badge_name}**, indicating mastery in a particular domain."
     else:
         specialization_text = "This trainer appears to be a formidable challenger, but their specialty is unknown."
-        badge_name = "Challenger" # Default name for use in the embed
 
-    # Choose an appropriate flavor quote/opening line
-    flavor_quotes = [
-        f"**{badge_name} {tr1.name}'s** data is being downloaded...",
-        f"Intel secured. Get ready to face a tough challenge from **{tr1.name}**!",
-        f"Trainer **{tr1.name}** has entered the battle. Analyze their strategy!",
-    ]
     
     description_text = (
-        f"{random.choice(flavor_quotes)}\n\n"
-        f"This is a **sample team**. While you can't rely on it entirely, it provides crucial insight into their potential strategy.\n\n"
-        f"**Trainer Focus:** {specialization_text}"
+        f"{specialization_text}"
     )
 
     # 4. Create the Embed
     info = discord.Embed(
-        title=f"⚔️ Trainer Battle Intel: {tr1.name}",
+        title=f"{tr1.name}",
         description=description_text,
         color=discord.Color.dark_red()
     )
     info.set_thumbnail(url=tr1.sprite)
     
     # 5. Add Immersive Fields for Each Pokémon
-    
-    pokemon_fields = []
-    
-    # Assuming tr1.pokemons is a list of Pokémon objects with attributes like:
-    # .name (Pokedex name), .nickname, .level, .ability, .item, .tera, .moves (list of 4)
-    
     for n, i in enumerate(tr1.pokemons, 1):
         
-        # Determine the Pokémon's type icons (assuming get_pokemon_type_icons is implemented)
-        # Using .name is safer if the object doesn't store the types directly
         try:
-            type_icons = await get_pokemon_type_icons(i.name)
+            if i.secondaryType=="???":
+                type_icons = f"{await typeicon(i.primaryType)}"
+            else:
+                type_icons = f"{await typeicon(i.primaryType)}{await typeicon(i.secondaryType)}"
         except:
             type_icons = ""
-            
-        # Strategy/Role Text (You might need a separate database for this flavor text)
-        role_text = "A versatile threat." # Placeholder - replace with actual strategy notes if available
 
-        # Construct the value field with enhanced detail
         value_field = (
             f"**Level:** Lvl. {i.level}\n"
             f"**Type:** {type_icons}\n"
             f"**Ability:** {i.ability}\n"
             f"**Held Item:** {await itemicon(i.item)} {i.item}\n"
-            f"**Role:** *{role_text}*\n"
             f"--- **Moveset** ---\n"
             f"{await movetypeicon(i, i.moves[0])} {i.moves[0].title()} {await movect(i.moves[0])}\n"
             f"{await movetypeicon(i, i.moves[1])} {i.moves[1].title()} {await movect(i.moves[1])}\n"
@@ -3481,16 +3423,98 @@ async def trainerinfo(ctx: discord.Interaction, num: int = 1):
         info.add_field(
             name=f"**#{n} {i.icon} {i.nickname}** (Lv.{i.level}) {await teraicon(i.tera)}",
             value=value_field,
-            inline=True # Use inline=True to fit 2 Pokémon per row (better visualization)
+            inline=True
         )
         
     # Add a blank field to ensure the last row of fields aligns correctly if the total is odd
     if len(tr1.pokemons) % 2 != 0:
-         info.add_field(name="\u200b", value="\u200b", inline=True) # Invisible spacer field
-         
-    info.set_footer(text=f"Total Pokémon: {len(tr1.pokemons)}. Prepare for battle!")
+         info.add_field(name="\u200b", value="\u200b", inline=True)
+            
+    info.set_footer(text=f"Current Trainer Index: {num} | Total Pokémon: {len(tr1.pokemons)}. Prepare for battle!")
+    
+    return info, None
 
-    await ctx.followup.send(embed=info)        
+# --- Custom View for Button Handling ---
+
+class TrainerCycleView(discord.ui.View):
+    def __init__(self, original_ctx: discord.Interaction, current_num: int):
+        super().__init__(timeout=180) # Timeout after 3 minutes
+        self.original_ctx = original_ctx
+        self.current_num = current_num
+        # Assuming you know the total number of trainers, e.g., 50. 
+        # If not, you'll need to fetch this dynamically or handle the error gracefully.
+        self.MAX_TRAINERS = len(players)
+
+    async def update_view(self, interaction: discord.Interaction):
+        """Called by button callbacks to update the message."""
+        
+        # 1. Fetch new data
+        new_embed, error_message = await create_trainer_embed(self.original_ctx, self.current_num)
+        
+        if error_message:
+            # If there's an error (e.g., out of bounds), reset to 1 and try again
+            if self.current_num != 1:
+                self.current_num = 1
+                new_embed, error_message = await create_trainer_embed(self.original_ctx, self.current_num)
+            
+            if error_message:
+                # If it still fails, send an error response
+                return await interaction.response.send_message(error_message, ephemeral=True)
+            
+        # 2. Update the message embed and view
+        await interaction.response.edit_message(embed=new_embed, view=self)
+
+    @discord.ui.button(label="Previous Trainer", style=discord.ButtonStyle.blurple, emoji="⬅️")
+    async def previous_page(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # Only allow the user who ran the command to interact
+        if interaction.user != self.original_ctx.user:
+            return await interaction.response.send_message("You didn't run this command!", ephemeral=True)
+
+        self.current_num = self.current_num - 1
+        if self.current_num < 1:
+            self.current_num = self.MAX_TRAINERS # Wrap around to the highest index
+        
+        await self.update_view(interaction)
+
+    @discord.ui.button(label="Next Trainer", style=discord.ButtonStyle.blurple, emoji="➡️")
+    async def next_page(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # Only allow the user who ran the command to interact
+        if interaction.user != self.original_ctx.user:
+            return await interaction.response.send_message("You didn't run this command!", ephemeral=True)
+
+        self.current_num = self.current_num + 1
+        if self.current_num > self.MAX_TRAINERS:
+            self.current_num = 1 # Wrap around to 1
+            
+        await self.update_view(interaction)
+        
+    async def on_timeout(self):
+        # Disable buttons on timeout
+        for child in self.children:
+            child.disabled = True
+        # Find the original message and edit it (requires self.original_ctx to be stored)
+        await self.original_ctx.edit_original_response(view=self)
+
+
+# --- Refactored Command ---
+
+@bot.tree.command(name="trainerinfo", description="Shows a random team of a certified trainer.")
+async def trainerinfo(ctx: discord.Interaction, num: int = 1):
+    
+    # Use defer as this command performs multiple database lookups
+    await ctx.response.defer()
+    
+    # 1. Create the initial embed
+    embed, error_message = await create_trainer_embed(ctx, num)
+    
+    if error_message:
+        return await ctx.followup.send(error_message, ephemeral=True)
+        
+    # 2. Create the View with the buttons, passing the current index
+    view = TrainerCycleView(ctx, num)
+    
+    # 3. Send the embed along with the view
+    await ctx.followup.send(embed=embed, view=view)      
 
 @bot.tree.command(name="claim",description="Claim event pokemons.")           
 async def claim(ctx:discord.Interaction,code:str):

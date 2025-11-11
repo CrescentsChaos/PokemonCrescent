@@ -991,7 +991,15 @@ async def game(interaction: discord.Interaction, num: int = 0):
         f"⚔️ **{interaction.user.display_name}** is queuing for a Battle! Finding opponent..."
     )
     await multiplayer(interaction, interaction.user, num)
-
+    
+@bot.tree.command(name="aibattle", description="Start an AI game")
+async def aibattle(interaction: discord.Interaction):
+    # Change to ephemeral deferral
+    await interaction.response.send_message(
+        f"⚔️ AI is queuing for a Battle! Finding opponent..."
+    )
+    await multiplayer(interaction, interaction.user,"ai")
+    
 @bot.tree.command(name="doublebattle", description="Start a double battle")
 @app_commands.describe(num="Game number (optional)")
 async def doublebattle(interaction: discord.Interaction, num: int = 0):
@@ -1243,7 +1251,7 @@ async def squad(ctx: discord.Interaction):
             # Assuming findnum, teraicon, itemicon are defined and safe
             data.add_field(
                 name=f"#{await findnum(ctx, sq[ll-1])} {i.icon} {i.nickname} {await teraicon(i.tera)}",
-                value=f"**Ability:** {i.ability}\n**Item:** {await itemicon(i.item)} {i.item}\n" f"**Moveset:**\n{await movetypeicon(i, i.moves[0])} {i.moves[0].title()} {await movect(i.moves[0])}\n"
+                value=f"**Ability:** {i.ability}\n**Nature:** {i.nature}\n**Item:** {await itemicon(i.item)} {i.item}\n" f"**Moveset:**\n{await movetypeicon(i, i.moves[0])} {i.moves[0].title()} {await movect(i.moves[0])}\n"
             f"{await movetypeicon(i, i.moves[1])} {i.moves[1].title()} {await movect(i.moves[1])}\n"
             f"{await movetypeicon(i, i.moves[2])} {i.moves[2].title()} {await movect(i.moves[2])}\n"
             f"{await movetypeicon(i, i.moves[3])} {i.moves[3].title()} {await movect(i.moves[3])}\n"
@@ -1288,24 +1296,6 @@ async def profile(ctx: discord.Interaction):
     )
     data.set_footer(text=f"Creation Date: {det[3]} ({dy} days ago)")
     data.set_thumbnail(url=ctx.user.avatar)
-    
-    # Team display logic
-    sq = eval(det[1])
-    if True: # The original 'if True' is redundant, but keeping the block structure
-        team = await teamconvert(ctx, ctx.user, ctx.user.id)
-        ll = 0
-        for i in team:
-            ll += 1
-            # Assuming findnum, teraicon, itemicon are defined and safe
-            data.add_field(
-                name=f"#{await findnum(ctx, sq[ll-1])} {i.icon} {i.nickname} {await teraicon(i.tera)}",
-                value=f"**Ability:** {i.ability}\n**Item:** {await itemicon(i.item)} {i.item}",
-                inline=False
-            )
-    else:
-        data.add_field(name="Current Team:", value="Not available")
-        
-    # 4. Final step: Send the message using followup (since we deferred)
     await ctx.followup.send(embed=data)
              
      
@@ -1416,19 +1406,23 @@ class LeadSelectionView(discord.ui.View):
                 
 async def multiplayer(ctx, p1, p2):
     field = Field()
-    
-    # --- 1. Team Setup ---
     p1team = await teamconvert(ctx, p1, p1.id)
     if p2 == "ranked":
         tr2 = await rankedteam(ctx)
     elif isinstance(p2, int):
+        tr1 = Trainer(p1.display_name, p1team, "Earth", sprite=p1.avatar, member=p1) 
+        p1team = await teamconvert(ctx, p1, p1.id)
+        tr2 = await gameteam(ctx, p2, p1team)
+    elif p2 == "ai":
+        p1=random.randint(1,262)
+        tr1=await gameteam(ctx, p1, p1team) 
+        p2=random.randint(1,262)
         tr2 = await gameteam(ctx, p2, p1team)
     else:
         p2team = await teamconvert(ctx, p2, p2.id)
-        tr2 = Trainer(p2.display_name, p2team, "Earth", sprite=p2.avatar, member=p2) 
-        
-    tr1 = Trainer(p1.display_name, p1team, "Earth", sprite=p1.avatar, member=p1) 
-    
+        tr2 = Trainer(p2.display_name, p2team, "Earth", sprite=p2.avatar, member=p2)  
+        tr1 = Trainer(p1.display_name, p1team, "Earth", sprite=p1.avatar, member=p1) 
+        p1team = await teamconvert(ctx, p1, p1.id)
     # --- 2. Intro Embed ---
     intro = discord.Embed(title=f"{tr1.name} vs {tr2.name}")
     intro.set_thumbnail(url="https://cdn.discordapp.com/attachments/1102579499989745764/1103853991760248924/VS.png")
@@ -1485,13 +1479,14 @@ async def multiplayer(ctx, p1, p2):
     if tr2.ai:
         # Send the main intro message
         await ctx.followup.send(embed=intro)
-        
+        if tr1.ai:
+            x = random.choice(tr1.pokemons)
         # P1 chooses in the main channel
-        x = await get_lead(tr1, ctx.channel)
+        else:
+            x = await get_lead(tr1, ctx.channel)
         
         # AI chooses randomly
         y = random.choice(tr2.pokemons)
-        
     # --- 5. Human vs. Human (Both choose in DM simultaneously) ---
     else:
         # Send the main intro message

@@ -518,7 +518,7 @@ async def attack(ctx,bot,x,y,tr1,tr2,used,choice2,field,turn):
         em.add_field(name=f"{x.name} used {used}!",value="It failed.")
         used="None"
     #Consecutive Protect     
-    if x.protect=="Pending" and used in ["Protect","Spiky Shield","King's Shield","Baneful Bunker","Obstruct","Silk Trap","Burning Bulwark"]:
+    if x.protect=="Pending" and used in typemoves.protectmoves:
         em.add_field(name=f"{x.name} used {used}!",value="It failed.")
         used="None"                 
         x.protect=False   

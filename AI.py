@@ -2,6 +2,13 @@ import random
 import discord
 from movelist import *
 from typing import TYPE_CHECKING, Optional, List, Set, Dict
+async def movetype(move): 
+    types=("Rock","Fire","Water","Grass","Electric","Ground","Flying","Fighting","Fairy","Dragon","Steel","Poison","Dark","Ghost","Normal","Bug","Ice","Psychic")
+    res="Normal"
+    for i in types:
+        if move in eval(f"typemoves.{i.lower()}moves"):
+            res=i
+    return res  
 if TYPE_CHECKING:
     class Pokemon:
         name: str
@@ -96,72 +103,21 @@ ABILITY_IMMUNITIES = {
 }
 
 async def moveAI(x: 'Pokemon', y: 'Pokemon', tr1: 'Trainer', tr2: 'Trainer', field: 'Field'):
-    """
-    Determines the best move for an AI Pokémon using a comprehensive scoring system
-    that prioritizes KO potential, setup advantage, and utility.
-
-    NOTE: This requires access to the functions defined in moves.py and attack.py
-    (e.g., physical, special, weakness, randroll) to simulate damage.
-    """
-    
-    # --------------------------------------------------------------------------
-    # HELPER: DAMAGE SIMULATION FUNCTION
-    # This replaces the old placeholder and attempts to use your battle functions.
-    # It must return the damage dealt, the effectiveness modifier, and crit flag.
     # --------------------------------------------------------------------------
     async def _simulate_damage(move: str, attacker: 'Pokemon', defender: 'Pokemon', current_field: 'Field') -> float:
         """Simulates move damage as a percentage of opponent's max HP."""
         try:
-            # We need temporary copies of Pokemon objects if your damage functions modify them,
-            # but for this simulation, we'll try to use the raw functions with mock variables.
-
-            # Assume 'movetypes' is a dictionary mapping move names to their properties
-            # and that 'MoveData' is available/imported.
-            move_data = MoveData[move]
-            move_type = move_data.type
-            move_category = move_data.category # 'Physical', 'Special', 'Status'
-            
-            # 1. Calculate effectiveness and crit chance (using your functions)
-            # This is complex because your 'weakness' function requires 'ctx' and 'em'
-            # and updates the field/embed, which is not ideal for simulation.
-            # We'll use a direct effectiveness calculation if possible:
-            
-            # --- Simplified Type Effectiveness Proxy (REPLACE IF YOU HAVE A BETTER ONE) ---
             effectiveness = 1.0
             
-            # Since I can't directly call 'await weakness(ctx,x,y,field,em)', 
-            # I must rely on effectiveness lists calculated in Section 2.
-            # A real simulation would calculate this here using TYPE_DATA.
-            
-            # 2. Get Power (Base Power is assumed to be in MoveData)
-            power = move_data.power
-            if power == 0 or move_category == "Status":
-                return 0.0, 1.0 # 0 damage for status moves, score handled separately
-            
-            # 3. Use your damage functions (physical/special) to get raw damage
-            # NOTE: Your original functions are complex and use many side effects (like crit/randroll).
-            # We must call them in a way that minimizes side effects.
-            
-            # To avoid modifying the *real* embed/field, we pass the actual field/em here
-            # hoping the damage functions only use them for display/readout, not state changes.
-            
-            # We need to determine the final damage value 'dmg'
-            # Placeholder for actual damage calculation using your functions:
-            
-            # Example call (you must adjust based on your function signatures):
-            # dmg = await physical/special(x, x.level, x.atk/x.spatk, y.defense/y.spdef, power, move_type, c, effectiveness, r, al)
-            # Since I cannot fully replicate your damage environment, I use a scoring proxy 
-            # that is informed by the effectiveness lists from Section 2 for accuracy.
-            
-            # --- Scoring Proxy based on Effectiveness (to be replaced by your code) ---
-            
-            damage_score = power * 2
-            
+            move_type = await movetype(move)
+            #damage_score = power * 2
+            damage_score=10
             # Effectiveness boost (based on the classification derived in moveAI)
             x_types = [t for t in [attacker.primaryType, attacker.secondaryType, attacker.teraType] if t is not None]
             is_stab = any(move in TYPE_MOVES.get(t, set()) for t in x_types)
             
-            if is_stab: damage_score *= 1.5
+            if is_stab: 
+                damage_score *= 1.5
             
             # Effectiveness lists (emove, superduper) are not available here, so we must calculate:
             
@@ -210,12 +166,6 @@ async def moveAI(x: 'Pokemon', y: 'Pokemon', tr1: 'Trainer', tr2: 'Trainer', fie
     use = None
     if x.fmove and any(m in mymove for m in ["Outrage", "Thrash", "Petal Dance", "Raging Fury"]):
         use = next((m for m in ["Outrage", "Thrash", "Petal Dance", "Raging Fury"] if m in mymove), None)
-    elif "Counter" in mymove and y.atkcat == "Physical" and y.use in typemoves.physicalmoves:
-        use = "Counter"
-    elif "Mirror Coat" in mymove and y.atkcat == "Special" and y.use not in typemoves.physicalmoves + typemoves.statusmove:
-        use = "Mirror Coat"
-    elif "Sleep Talk" in mymove and x.status == "Sleep" and not x.choiced:
-        use = "Sleep Talk"
         
     if use is not None:
         return use, [], [], []
@@ -264,9 +214,8 @@ async def moveAI(x: 'Pokemon', y: 'Pokemon', tr1: 'Trainer', tr2: 'Trainer', fie
 
     for move in legal_moves:
         score = 0
-        
         # --- Offensive Scoring ---
-        if move not in typemoves.statusmove and move not in typemoves.healingmoves:
+        if move not in typemoves.statusmove:
             
             # 1. Base Score based on damage simulation (Uses the helper above)
             damage_score, effectiveness_multiplier = await _simulate_damage(move, x, y, field)
@@ -279,38 +228,94 @@ async def moveAI(x: 'Pokemon', y: 'Pokemon', tr1: 'Trainer', tr2: 'Trainer', fie
             # 3. KO Check (Highest Priority) - Score 1000 if guaranteed KO
             # To implement this, _simulate_damage must return the raw damage number.
             # if predicted_damage >= y.hp: score = 1000 
-            
+            elif move == "Counter" and x.hp>=(x.maxhp*0.25) and y.atk>y.spatk:
+                score=500
+            elif move == "Mirror Coat" and x.hp>=(x.maxhp*0.25) and y.spatk>y.atk:
+                score=500
+            elif move in typemoves.prioritymove and field.terrain=="Psychic":
+                score=0
             # 4. Cleanup Moves (e.g., Flip Turn)
-            if move == "Flip Turn" and "Hero" not in x.name and x.ability == "Zero to Hero":
-                if x.hp <= x.maxhp * 0.3: score += 500 # Emergency switch out
-                else: score += 100 # Strategic switch out
-
+            elif move == "Flip Turn" and "Hero" not in x.name and x.ability == "Zero to Hero":
+                score==500 # Strategic switch out
             elif move == "Hex" and has_major_status:
                 score *= 2.0 # Power doubled
-            
-            elif move == "Explosion" and y.hp <= y.maxhp * 0.5:
+            elif move == "Rapid Spin" and len(tr1.hazard)!=0:
+                score = 700
+            elif move == "Final Gambit" and (x.hp == x.maxhp) and (x.hp >= y.hp) and (y.hp>=y.maxhp * 0.25):
+                score = 850 
+            elif move in typemoves.priorityatkmoves and (y.hp <=y.maxhp * 0.10):
+                score=1000
+            elif move in ["Explosion","Self Destruct","Misty Explosion"] and (x.hp >= x.maxhp * 0.5):
+                # Prioritize KO but with caution (suicide move)
+                score = 0 
+            elif move == "Explosion" and (x.hp <= x.maxhp * 0.25):
                 # Prioritize KO but with caution (suicide move)
                 score = 850 
 
         # --- Utility/Setup Scoring ---
         else: # Move is status or healing
             is_sleep_move = move in typemoves.sleepmoves # ASSUMPTION: This list exists
-            if is_sleep_move and y.status == "Sleep":
+            if is_sleep_move and y.status == "Sleep" and y.ability in ["Insomnia","Vital Spirit","Early Bird"]:
                 score = 0
             # A. Emergency/Critical Healing (Prioritize)
+            elif move in typemoves.protectmoves and x.protect:
+                score=0
+            elif move == "Sleep Talk" and y.status=="Sleep":
+                score=1000
+            elif move=="Taunt" and y.use in typemoves.statusmove and not y.taunted:
+                score=700
+            elif move in ["Toxic","Thunder Wave","Poison Powder","Spore","Will-O-Wisp"] and (y.status != "Alive" or y.ability in ["Magic Bounce","Comatose"] or field.terrain=="Misty"):
+                score=0
+            elif move == "Tailwind" and tr1.tailwind:
+                score=0
+                print(f"{tr1.name} will avoid using Tailwind")
+            elif move == "Grassy Terrain" and field.terrain=="Grassy":
+                score=0
+                print(f"{tr1.name} will avoid using Grassy Terrain")
+            elif move == "Misty Terrain" and field.terrain=="Misty":
+                score=0
+                print(f"{tr1.name} will avoid using Misty Terrain")
+            elif move == "Electric Terrain" and field.terrain=="Electric":
+                score=0
+                print(f"{tr1.name} will avoid using Electric Terrain")
+            elif move == "Psychic Terrain" and field.terrain=="Psychic":
+                score=0
+                print(f"{tr1.name} will avoid using Psychic Terrain")
+            elif move=="Reflect" == tr1.reflect:
+                score=0
+                print(f"{tr1.name} will avoid using Reflect")
+            elif move=="Light Screen" == tr1.lightscreen:
+                score=0
+                print(f"{tr1.name} will avoid using Light Screen")
+            elif move=="Trick Room" and field.trickroom and x.speed<y.speed:
+                score=0
+                print(f"{tr1.name} will avoid using Trick Room")
+            elif move=="Trick Room" and field.trickroom and x.speed>y.speed:
+                score=500
+                print(f"{tr1.name} will use Trick Room")
             if move in typemoves.healingmoves and x.hp <= x.maxhp * 0.5:
-                if x.hp <= x.maxhp * 0.25: score = 950 # Very Low HP, highest priority
-                else: score = 750 # Need to heal now
+                if x.hp <= x.maxhp * 0.25: 
+                    score = 950 # Very Low HP, highest priority
+                    print(f"{tr1.name} will definitely heal")
+                else: 
+                    score = 750 # Need to heal now
+                    print(f"{tr1.name} might heal")
             
             # B. Hazard Control
-            elif move == "Defog" and tr1.hazard:
+            elif move == "Defog" and len(tr1.hazard)!=0:
                 score = 700
                 
             # C. Status Infliction (Smart Selection: Avoid Spam/Immunity)
             elif not has_major_status:
-                if move == "Will-O-Wisp" and "Steel" not in y_types: score = 650
-                elif move == "Thunder Wave" and "Ground" not in y_types: score = 650
-                elif move == "Toxic" and "Poison" not in y_types and "Steel" not in y_types: score = 650
+                if move == "Will-O-Wisp":
+                    if "Fire" not in y_types and y.atk>y.spatk: 
+                        score = 650
+                elif move == "Thunder Wave":
+                    if "Ground" not in y_types and "Electric" not in y_types and y.speed>x.speed:
+                        score = 650
+                elif move == "Toxic":
+                    if "Poison" not in y_types and "Steel" not in y_types:
+                        score = 650
             
             # D. Setup/Boosting Moves (Prioritize when safe and advantageous)
             elif x.speed > y.speed and x.hp >= x.maxhp * 0.75: # Only setup when safe
@@ -327,8 +332,8 @@ async def moveAI(x: 'Pokemon', y: 'Pokemon', tr1: 'Trainer', tr2: 'Trainer', fie
                 elif move == "Tailwind" and not tr1.tailwind: score = 650 # Strategic selection
                 
                 # Entry Hazards
-                elif move == "Stealth Rock" and not tr2.hazard.get("Stealth Rock"): score = 600
-                elif move == "Toxic Spikes" and not tr2.hazard.get("Toxic Spikes"): score = 600
+                elif move == "Stealth Rock" and "Stealth Rock" not in tr2.hazard.get: score = 600
+                elif move == "Toxic Spikes" and "Toxic Spikes" not in tr2.hazard: score = 600
                 
             # E. Weather/Terrain Control
             elif move == "Sunny Day" and field.weather != "Sunny": score = 550
@@ -337,7 +342,7 @@ async def moveAI(x: 'Pokemon', y: 'Pokemon', tr1: 'Trainer', tr2: 'Trainer', fie
             elif move == "Snowscape" and field.weather != "Snowscape": score = 550
             
         move_scores[move] = score
-
+    print(move_scores)
     # 4. Final Decision
     if move_scores:
         chosen_move = max(move_scores, key=move_scores.get)
@@ -351,5 +356,6 @@ async def moveAI(x: 'Pokemon', y: 'Pokemon', tr1: 'Trainer', tr2: 'Trainer', fie
         x.choicedmove = use
     if x.choiced and not x.dmax and x.choicedmove in x.moves:
         use = x.choicedmove
+        print("choice")
 
     return use, emove_list, superduper_list, list(myimmunemove)

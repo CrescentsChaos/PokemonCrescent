@@ -8583,7 +8583,7 @@ async def magmastorm(ctx,x,y,tr1,em,field,turn):
     y.hp-=await special(x,x.level,x.spatk,y.spdef,100,a,b,c,r,al,w)      
     if y.magmadmg is False:
         y.magmadmg=True
-        x.magmaendturn=turn+random.choice(2,5)
+        x.magmaendturn=turn+random.randint(2,5)
         if x.item=="Binding Band":
             x.magmaendturn=turn+5
 #Overheat

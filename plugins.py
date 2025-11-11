@@ -15,6 +15,75 @@ from typematchup import *
 from AI import *
 from hiddenpower import *
 megastones=("Heatranite","Zeraorite","Darkranite","Chimecite","Baxcaliburite","Floettite","Chandelurite","Scolipite","Falinksite","Pyroarite","Scraftinite","Drampanite","Eelektrossite","Dragalgite","Barbaracite","Clefablite","Starminite","Meganiumite","Excadrite","Emboarite","Froslassite","Feraligite","Skarmorite","Raichunite X","Raichunite Y","Greninjite","Delphoxite","Chesnaughtite","Malamarite","Hawluchanite","Victreebelite","Dragoninite","Gyaradosite","Venusaurite","Charizardite X","Charizardite Y","Abomasite","Absolite","Aerodactylite","Aggronite","Alakazite","Altarianite","Ampharosite","Audinite","Banettite","Beedrillite","Blastoisinite","Blazikenite","Camerupite","Diancite","Galladite","Garchompite","Gardevoirite","Gengarite","Glalitite","Heracronite","Houndoominite","Kangaskhanite","Latiasite","Latiosite","Lopunnite","Lucarionite","Manectite","Mawilite","Medichamite","Metagrossite","Mewtwonite X","Mewtwonite Y","Pidgeotite","Pinsirite","Sablenite","Salamencite","Sceptilite","Scizorite","Sharpedonite","Slowbronite","Steelixite","Seampertite","Tyranitarite")
+players = ("Pokemon Trainer Ludlow","Pokemon Trainer Liko","Pokemon Trainer Roy","Pokemon Trainer Dot","Pokemon Trainer Ult",
+        "Explorers Chalce","Explorers Lucius","Explorers Coral","Explorers Sidian","Flare Nouveau Grisham","Flare Nouveau Griselle",
+        "SBC Lebanne","SBC Jacinthe","Detective Emma","Fist of Justice Gwynn","Fist of Justice Ivor",
+        "Quasartico Vinnie","DYN4MO Tarragon","DYN4MO Canari","Rust Syndicate Corbeau",
+        "Rust Syndicate Philippe","Pokemon Trainer Taunie","Pokemon Trainer Naveen","Pokemon Trainer Lida",
+        "World Champion Ash","Professor Oak","Researcher Gary Oak","Team Rocket James",
+        "Team Rocket Jessie","Pokemon Breeder Brock","Gym Leader Brock","Tomboyish Mermaid Misty",
+        "Gym Leader Misty","Gym Leader Lt.Surge","Gym Leader Erika","Gym Leader Janine",
+        "Gym Leader Sabrina","Gym Leader Blaine","Gym Leader Blue","Elite Four Lorelei",
+        "Champion Lorelei(Rain)","Champion Lorelei(Hail)","Elite Four Bruno","Elite Four Agatha",
+        "Kanto Champion Lance","Pokemon Trainer Green","Pokemon Trainer Trace","Kanto Champion Red",
+        "Rocket Boss Giovanni","Pokemon Trainer Silver","Gym Leader Falkner","Gym Leader Bugsy",
+        "Gym Leader Morty","Gym Leader Chuck","Gym Leader Jasmine","Gym Leader Pryce",
+        "Gym Leader Clair","Elite Four Will","Elite Four Koga","Elite Four Karen",
+        "Rocket Admin Archer","Rocket Admin Ariana","Pokemon Trainer Harrison","Pokemon Trainer May",
+        "Gym Leader Roxanne","Gym Leader Brawly","Gym Leader Wattson","Gym Leader Flannery",
+        "Gym Leader Norman","Gym Leader Winona","Gym Leader Tate","Gym Leader Liza",
+        "Gym Leader Juan","Elite Four Sidney","Elite Four Phoebe","Elite Four Glacia",
+        "Elite Four Drake","Hoenn Champion Steven","Hoenn Champion Wallace","Aqua Leader Archie",
+        "Magma Admin Courtney","Magma Leader Maxie","Factory Head Noland","Arena Tycoon Greta",
+        "Dome Ace Tucker","Palace Maven Spenser","Pike Queen Lucy","Salon Maiden Anabel",
+        "Pyramid King Brandon","Pokemon Trainer Paul","Pokemon Trainer Barry","Pokemon Trainer Conway",
+        "Gym Leader Roark","Gym Leader Gardenia","Gym Leader Maylene","Gym Leader Crasher Wake",
+        "Gym Leader Fantina","Gym Leader Byron","Gym Leader Candice","Gym Leader Volkner",
+        "Elite Four Aaron","Elite Four Bertha","Elite Four Flint","Elite Four Lucian",
+        "Sinnoh Champion Cynthia","Pokemon Trainer Tobias","Galactic Commander Mars",
+        "Galactic Commander Jupiter","Galactic Commander Saturn","Galactic Leader Cyrus",
+        "Pokemon Trainer Riley","Pokemon Trainer Cheryl","Pokemon Trainer Marley","Pokemon Trainer Mira",
+        "Pokemon Trainer Buck","Factory Head Thorton","Battle Arcade Dahlia","Castle Velvet Darach",
+        "Hall Matron Argenta","Tower Tycoon Palmer","Pokemon Trainer Trip","Pokemon Trainer Cameron",
+        "Pokemon Trainer Stephan","Gym Leader Cilan","Gym Leader Cress","Gym Leader Chili",
+        "Pokemon Trainer Cheren","Pokemon Trainer Bianca","Gym Leader Lenora","Gym Leader Roxie",
+        "Gym Leader Burgh","Gym Leader Elesa","Gym Leader Clay","Gym Leader Skyla",
+        "Gym Leader Brycen","Gym Leader Marlon","Gym Leader Drayden","Gym Leader Marlon",
+        "Elite Four Marshal","Elite Four Shauntal","Elite Four Grimsley","Elite Four Caitlin",
+        "Unova Champion Alder","Unova Champion Iris","Pokemon Trainer Hugh",
+        "Plasma Admin Colress","Natural Harmonia Gropius","Plasma Leader Ghetsis",
+        "Boss Trainer Benga","Subway Boss Ingo","Subway Boss Emmet","Pokemon Trainer Sawyer",
+        "Pokemon Trainer Trevor","Pokemon Trainer Tierno","Pokemon Trainer Shauna",
+        "Gym Leader Viola","Gym Leader Grant","Gym Leader Korrina","Gym Leader Ramos",
+        "Gym Leader Clemont","Gym Leader Valerie","Gym Leader Olympia","Gym Leader Wulfric",
+        "Elite Four Siebold","Elite Four Wikstrom","Elite Four Malva","Elite Four Drasna",
+        "Pokemon Trainer Alain","Kalos Champion Diantha","Flare Boss Lysandre",
+        "Pokemon Trainer Gladion","Trial Captain Kiawe","Trial Captain Lana","Trial Captain Lillie",
+        "Trial Captain Mallow","Island Kahuna Ilima","Trial Captain Nanu","Elite Four Hala",
+        "Elite Four Olivia","Elite Four Molayne","Professor Kukui","Skull Admin Plumeria",
+        "Skull Leader Guzma","Aether Foundation Faba","Aether President Lusamine",
+        "Gym Leader Milo","Gym Leader Nessa","Gym Leader Kabu","Gym Leader Bede",
+        "Gym Leader Bea","Gym Leader Allister","Gym Leader Opal","Gym Leader Gordie",
+        "Gym Leader Marnie","Gym Leader Piers","Gym Leader Raihan","Pokemon Trainer Hop",
+        "Galar Champion Peony","Galar Champion Leon","Chairman Rose","Galar Champion Mustard",
+        "Instructor Jacq","Instructor Miriam","Instructor Tyme","Instructor Dendra",
+        "Gym Leader Katy","Gym Leader Brassius","Gym Leader Iono","Gym Leader Kofu",
+        "Gym Leader Ryme","Gym Leader Tulip","Gym Leader Grusha","Team Star Giacomo",
+        "Team Star Mela","Team Star Atticus","Team Star Ortega","Team Star Eri",
+        "Star Leader Penny","Elite Four Rika","Elite Four Poppy","Elite Four Larry",
+        "Elite Four Hassel","Paldea Champion Geeta","Paldea Champion Nemona",
+        "Pokemon Trainer Carmine","Elite Four Crispin","Elite Four Amarys",
+        "Elite Four Lacey","Elite Four Drayton","Pokemon Trainer Keiran",
+        "Academy Director Cyrano","Director Clavell","Professor Sada","Professor Turo",
+        "Elite Four Acerola","Pokemon Trainer Drew","Battle Chatelaine Evelyn",
+        "Island Kahuna Hapu","Fusion Creator Darwin","Elite Four Kahili",
+        "Coordinator Kenny","Gym Leader Klara","Aqua Admin Matt","Battle Chatelaine Nita",
+        "Pokemon Wielder Volo","Nurse Joy","Evil Trainer Crescent","CrescentUwU",
+        "Cipher Head Evice",'Gym Leader Jessica','Gym Leader Esmeralda','Gym Leader Lucas',
+        'Gym Leader Thomas','Gym Leader Atlur','Gym Leader Rayner','Gym Leader Sophia',
+        'Gym Leader Wesley','Elite Four Aisey','Elite Four Triton','Elite Four Rukia',
+        'Elite Four Elizabeth','Zhery Champion Kaohri'
+    )
 if TYPE_CHECKING:
     class Trainer:
         pokemons: List['Pokemon'] # List of Pokémon objects (used in Double Battle)
@@ -288,64 +357,6 @@ async def pokonvert(ctx, member, num: int = None):
             hpev=n[9], atkev=n[10], defev=n[11], spatkev=n[12], spdefev=n[13], speedev=n[14],
         )
         return p, allmon, n, m
-         
-# async def pokonvert(ctx, member, num=None):
-#     if num is not None:
-#         num = int(num)
-#     dt = sqlite3.connect("pokemondata.db")
-#     db = sqlite3.connect("owned.db")
-#     cx = dt.cursor()
-#     c = db.cursor()
-#     c.execute(f"SELECT * FROM '{member.id}'")
-#     allmon=c.fetchall()
-#     if num==None:
-#         num=len(allmon)
-#         num=await row(ctx,num,c)   
-#     c.execute(f"SELECT * FROM '{member.id}' where rowid={num}")
-#     n = c.fetchone()
-#     cx.execute(f"SELECT * FROM 'wild' WHERE name=?", (n[0],))
-#     m = cx.fetchall()[0]
-#     p = Pokemon(
-#         name=m[0],
-#         nickname=n[1],
-#         primaryType=m[1],
-#         secondaryType=m[2],
-#         level=n[2],
-#         hp=m[4],
-#         atk=m[5],
-#         defense=m[6],
-#         spatk=m[7],
-#         spdef=m[8],
-#         speed=m[9],
-#         moves=n[22],
-#         ability=n[15],
-#         sprite=m[12],
-#         gender=n[19],
-#         tera=n[20],
-#         maxiv="Custom",
-#         item=n[18],
-#         shiny=n[17],
-#         nature=n[16],
-#         hpiv=n[3],
-#         atkiv=n[4],
-#         defiv=n[5],
-#         spatkiv=n[6],
-#         spdefiv=n[7],
-#         speediv=n[8],
-#         hpev=n[9],
-#         atkev=n[10],
-#         defev=n[11],
-#         spatkev=n[12],
-#         spdefev=n[13],
-#         speedev=n[14],
-#         catchdate=n[24],
-#         icon=m[22],
-#         weight=m[13],
-#         height=m[25]
-        
-#     )
-#     return p,allmon
-
 
 async def numberify(num):
     num = str(num)
@@ -393,7 +404,7 @@ async def movect(move):
         return "<:status:1127210505275183156>"
     else:
         return "<:special:1127210563685077022>"
-    
+
 async def movetypeicon(x,move,field="Normal"):
     types=("Rock","Fire","Water","Grass","Electric","Ground","Flying","Fighting","Fairy","Dragon","Steel","Poison","Dark","Ghost","Normal","Bug","Ice","Psychic")
     res="Normal"
@@ -4016,6 +4027,8 @@ async def winner(ctx: typing.Union[discord.Interaction, discord.ext.commands.Con
             try:
                 async with data_db.execute("SELECT name, symbolname, symbolicon, wins, gift FROM Trainers WHERE name=?", (opponent_name,)) as cursor:
                     trainer_data = await cursor.fetchone() 
+                    print(trainer_data
+                          )
             except aiosqlite.OperationalError as e:
                 print(f"Trainer Data Fetch Warning for {opponent_name}: {e}. Treating as generic opponent.")
             
@@ -5199,75 +5212,6 @@ async def gameteam(ctx, num=0, p1team=None):
     """
 
     # --- 1. Trainer Selection ---
-    players = ("Pokemon Trainer Ludlow","Pokemon Trainer Liko","Pokemon Trainer Roy","Pokemon Trainer Dot","Pokemon Trainer Ult",
-        "Explorers Chalce","Explorers Lucius","Explorers Coral","Explorers Sidian","Flare Nouveau Grisham","Flare Nouveau Griselle",
-        "SBC Lebanne","SBC Jacinthe","Detective Emma","Fist of Justice Gwynn","Fist of Justice Ivor",
-        "Quasartico Vinnie","DYN4MO Tarragon","DYN4MO Canari","Rust Syndicate Corbeau",
-        "Rust Syndicate Philippe","Pokemon Trainer Taunie","Pokemon Trainer Naveen","Pokemon Trainer Lida",
-        "World Champion Ash","Professor Oak","Researcher Gary Oak","Team Rocket James",
-        "Team Rocket Jessie","Pokemon Breeder Brock","Gym Leader Brock","Tomboyish Mermaid Misty",
-        "Gym Leader Misty","Gym Leader Lt.Surge","Gym Leader Erika","Gym Leader Janine",
-        "Gym Leader Sabrina","Gym Leader Blaine","Gym Leader Blue","Elite Four Lorelei",
-        "Champion Lorelei(Rain)","Champion Lorelei(Hail)","Elite Four Bruno","Elite Four Agatha",
-        "Kanto Champion Lance","Pokemon Trainer Green","Pokemon Trainer Trace","Kanto Champion Red",
-        "Rocket Boss Giovanni","Pokemon Trainer Silver","Gym Leader Falkner","Gym Leader Bugsy",
-        "Gym Leader Morty","Gym Leader Chuck","Gym Leader Jasmine","Gym Leader Pryce",
-        "Gym Leader Clair","Elite Four Will","Elite Four Koga","Elite Four Karen",
-        "Rocket Admin Archer","Rocket Admin Ariana","Pokemon Trainer Harrison","Pokemon Trainer May",
-        "Gym Leader Roxanne","Gym Leader Brawly","Gym Leader Wattson","Gym Leader Flannery",
-        "Gym Leader Norman","Gym Leader Winona","Gym Leader Tate","Gym Leader Liza",
-        "Gym Leader Juan","Elite Four Sidney","Elite Four Phoebe","Elite Four Glacia",
-        "Elite Four Drake","Hoenn Champion Steven","Hoenn Champion Wallace","Aqua Leader Archie",
-        "Magma Admin Courtney","Magma Leader Maxie","Factory Head Noland","Arena Tycoon Greta",
-        "Dome Ace Tucker","Palace Maven Spenser","Pike Queen Lucy","Salon Maiden Anabel",
-        "Pyramid King Brandon","Pokemon Trainer Paul","Pokemon Trainer Barry","Pokemon Trainer Conway",
-        "Gym Leader Roark","Gym Leader Gardenia","Gym Leader Maylene","Gym Leader Crasher Wake",
-        "Gym Leader Fantina","Gym Leader Byron","Gym Leader Candice","Gym Leader Volkner",
-        "Elite Four Aaron","Elite Four Bertha","Elite Four Flint","Elite Four Lucian",
-        "Sinnoh Champion Cynthia","Pokemon Trainer Tobias","Galactic Commander Mars",
-        "Galactic Commander Jupiter","Galactic Commander Saturn","Galactic Leader Cyrus",
-        "Pokemon Trainer Riley","Pokemon Trainer Cheryl","Pokemon Trainer Marley","Pokemon Trainer Mira",
-        "Pokemon Trainer Buck","Factory Head Thorton","Battle Arcade Dahlia","Castle Velvet Darach",
-        "Hall Matron Argenta","Tower Tycoon Palmer","Pokemon Trainer Trip","Pokemon Trainer Cameron",
-        "Pokemon Trainer Stephan","Gym Leader Cilan","Gym Leader Cress","Gym Leader Chili",
-        "Pokemon Trainer Cheren","Pokemon Trainer Bianca","Gym Leader Lenora","Gym Leader Roxie",
-        "Gym Leader Burgh","Gym Leader Elesa","Gym Leader Clay","Gym Leader Skyla",
-        "Gym Leader Brycen","Gym Leader Marlon","Gym Leader Drayden","Gym Leader Marlon",
-        "Elite Four Marshal","Elite Four Shauntal","Elite Four Grimsley","Elite Four Caitlin",
-        "Unova Champion Alder","Unova Champion Iris","Pokemon Trainer Hugh",
-        "Plasma Admin Colress","Natural Harmonia Gropius","Plasma Leader Ghetsis",
-        "Boss Trainer Benga","Subway Boss Ingo","Subway Boss Emmet","Pokemon Trainer Sawyer",
-        "Pokemon Trainer Trevor","Pokemon Trainer Tierno","Pokemon Trainer Shauna",
-        "Gym Leader Viola","Gym Leader Grant","Gym Leader Korrina","Gym Leader Ramos",
-        "Gym Leader Clemont","Gym Leader Valerie","Gym Leader Olympia","Gym Leader Wulfric",
-        "Elite Four Siebold","Elite Four Wikstrom","Elite Four Malva","Elite Four Drasna",
-        "Pokemon Trainer Alain","Kalos Champion Diantha","Flare Boss Lysandre",
-        "Pokemon Trainer Gladion","Trial Captain Kiawe","Trial Captain Lana","Trial Captain Lillie",
-        "Trial Captain Mallow","Island Kahuna Ilima","Trial Captain Nanu","Elite Four Hala",
-        "Elite Four Olivia","Elite Four Molayne","Professor Kukui","Skull Admin Plumeria",
-        "Skull Leader Guzma","Aether Foundation Faba","Aether President Lusamine",
-        "Gym Leader Milo","Gym Leader Nessa","Gym Leader Kabu","Gym Leader Bede",
-        "Gym Leader Bea","Gym Leader Allister","Gym Leader Opal","Gym Leader Gordie",
-        "Gym Leader Marnie","Gym Leader Piers","Gym Leader Raihan","Pokemon Trainer Hop",
-        "Galar Champion Peony","Galar Champion Leon","Chairman Rose","Galar Champion Mustard",
-        "Instructor Jacq","Instructor Miriam","Instructor Tyme","Instructor Dendra",
-        "Gym Leader Katy","Gym Leader Brassius","Gym Leader Iono","Gym Leader Kofu",
-        "Gym Leader Ryme","Gym Leader Tulip","Gym Leader Grusha","Team Star Giacomo",
-        "Team Star Mela","Team Star Atticus","Team Star Ortega","Team Star Eri",
-        "Star Leader Penny","Elite Four Rika","Elite Four Poppy","Elite Four Larry",
-        "Elite Four Hassel","Paldea Champion Geeta","Paldea Champion Nemona",
-        "Pokemon Trainer Carmine","Elite Four Crispin","Elite Four Amarys",
-        "Elite Four Lacey","Elite Four Drayton","Pokemon Trainer Keiran",
-        "Academy Director Cyrano","Director Clavell","Professor Sada","Professor Turo",
-        "Elite Four Acerola","Pokemon Trainer Drew","Battle Chatelaine Evelyn",
-        "Island Kahuna Hapu","Fusion Creator Darwin","Elite Four Kahili",
-        "Coordinator Kenny","Gym Leader Klara","Aqua Admin Matt","Battle Chatelaine Nita",
-        "Pokemon Wielder Volo","Nurse Joy","Evil Trainer Crescent","CrescentUwU",
-        "Cipher Head Evice",'Gym Leader Jessica','Gym Leader Esmeralda','Gym Leader Lucas',
-        'Gym Leader Thomas','Gym Leader Atlur','Gym Leader Rayner','Gym Leader Sophia',
-        'Gym Leader Wesley','Elite Four Aisey','Elite Four Triton','Elite Four Rukia',
-        'Elite Four Elizabeth','Zhery Champion Kaohri'
-    )
 
     if num == 0:
         trainer_name = random.choice(players)
