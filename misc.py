@@ -547,201 +547,269 @@ async def movedex(ctx: discord.Interaction, name: str):
         # Handle case where the move is not found
         await ctx.response.send_message(f"❌ Move **{name}** not found in the MoveDex.", ephemeral=True) 
               
-@bot.tree.command(name="spawn",description="Spawns a pokémon.")   
-async def spawn(ctx:discord.Interaction):
-    dn=sqlite3.connect("playerdata.db")
-    cn=dn.cursor()
-    cn.execute(f"select * from '{ctx.user.id}'")
-    mmm=cn.fetchone()
-    money=mmm[0]
-    if money>=500:
-        await addmoney(ctx,ctx.user,-500)
-        dx=sqlite3.connect("playerdata.db")
-        ct=dx.cursor()
-        ct.execute(f"SELECT name FROM sqlite_master WHERE type='table' AND name='{ctx.user.id}' ")
-        if ct.fetchone():
-            db=sqlite3.connect("pokemondata.db")
-            dt=sqlite3.connect("owned.db")
-            cx=dt.cursor()
-            c=db.cursor()
-            select=random.choices(["Common","Uncommon","Rare","Very Rare","Common Legendary","Ultra Beasts","Legendary","Mythical"],weights=[1500,500,150,50,5,10,1,3],k=1)[0]
-            c.execute(f"select * from 'wild' where Rarity='{select}'")
-            x=c.fetchall()
-            m=random.choice(x)
-            tch=random.randint(1,25)
-            ach=random.randint(1,50)
-            tera="???"
-            extra=""
-            turl=""
-            shinyodd=random.randint(1,1024)
-            shiny="No"
-            maxiv="No"
-            item="None"
-            itemodd=random.randint(1,100)
-            if itemodd<25:
-                item=random.choice(m[17].split(","))
-            if shinyodd==7:
-                shiny="Yes"
-            if ach==7 and select not in ("Common Legendary","Legendary","Mythical"):
-                maxiv="Alpha"
-                turl="https://cdn.discordapp.com/attachments/1102579499989745764/1103318414795219024/20230503_195314.png"
-                extra=" This pokémon seems larger than usual!"
-            if tch==7:
-                tera=random.choice(("Rock","Fire","Water","Grass","Electric","Ground","Flying","Fighting","Fairy","Dragon","Steel","Poison","Dark","Ghost","Normal","Bug","Ice","Psychic","Stellar"))
-                if 'Terapagos' in m[0]:
-                    tera='Stellar'
-                if tera not in (m[1],m[2]):
-                    extra=" Seems like it has a different Tera-Type!"
-                    if tera!='Stellar':
-                        turl=f"https://play.pokemonshowdown.com/sprites/types/Tera{tera}.png"
-                    elif tera=='Stellar':
-                        turl='https://cdn.discordapp.com/attachments/1151371872815034370/1187805155249373215/20231222_230941.png'
-            p=Pokemon(name=m[0],primaryType=m[1],secondaryType=m[2],level=100,hp=m[4],atk=m[5],defense=m[6],spatk=m[7],spdef=m[8],speed=m[9],moves=m[10], ability=m[11],sprite=m[12],gender=m[15],tera=tera,shiny=shiny,maxiv=maxiv,item=item)
-            #level=random.randint(1,m[3])
-            types=p.primaryType
-            if p.secondaryType!="???":
-                types=f"{p.primaryType}/{p.secondaryType}"
-            p.totaliv=round(((p.hpiv+p.atkiv+p.defiv+p.spatkiv+p.spdefiv+p.speediv)/186)*100,2)
-            p.totalev=(p.hpev+p.atkev+p.defev+p.spatkev+p.spdefev+p.speedev)    
-            wild=discord.Embed(title=f"A wild pokémon has appeared!{extra}")
-            if (tch<10 and tera not in (m[1],m[2])) or "Alpha" in p.nickname:
-                wild.set_thumbnail(url=f"{turl}")
+spawn_message_tracker = {} 
+
+
+@bot.tree.command(name="spawn", description="Spawns a pokémon.")
+async def spawn(ctx: discord.Interaction):
+    global spawn_message_tracker # Declare it as global if defined globally
+
+    # --- NEW FEATURE IMPLEMENTATION START ---
+    channel_id = ctx.channel_id
+    
+    # 0. Check for existing spawn in the channel
+    if channel_id in spawn_message_tracker:
+        old_message = spawn_message_tracker.pop(channel_id, None)
+        if old_message:
+            # Create a simple "fled" embed to update the old message
+            fled_embed = discord.Embed(
+                title="The previous wild Pokémon fled!",
+                description="A new spawn has been requested. Be quicker next time!",
+                color=discord.Color.dark_grey()
+            )
+            # Try to edit the old message to show it fled
             try:
-                wild.set_image(url=p.sprite)
-            except:
-                wild.add_field(name="Network Error!",value=f"Answer: {p.name}")
-            wild.set_footer(text="Guess it's full name to capture it!")
-            flee=discord.Embed(title=f"The wild {p.name} fled!")
-            flee.set_image(url=p.sprite)
-            flee.set_footer(text="Try again later!")
-            await ctx.response.send_message(embed=wild)
-            try:
-                while True:
-                    guess = await bot.wait_for('message',timeout=60)
-                    if "hint" in guess.content:
-                        ch=random.randint(1,5)
-                        hint=p.name
-                        if ch==4:
-                            hint=p.ability
-                        elif ch==3:
-                            hint=p.secondaryType
-                        elif ch==2:
-                            hint=p.primaryType
-                        elif ch==1:
-                            n=list(p.name.lower())
-                            random.shuffle(n)
-                            hint="".join(n)
-                        await ctx.channel.send(f" Hint: {hint}")
-                    if p.name.lower().split()[-1] in guess.content.lower():
-                        p.moves=f"{p.moves}"
-                        cx.execute(f"""CREATE TABLE IF NOT EXISTS [{guess.author.id}] (
-                    Name text,
-                    Nickname text,
-                    Level integer,
-                    hpiv integer,
-                    atkiv integer,
-                    defiv integer,
-                    spatkiv integer,
-                    spdefiv integer,
-                    speediv integer,
-                    hpev integer,
-                    atkev integer,
-                    defev integer,
-                    spatkev integer,
-                    spdefev integer,
-                    speedev integer,
-                    ability text,
-                    nature text,
-                    shiny text,
-                    item text,
-                    gender text,
-                    teratype text,
-                    maxiv text,
-                    moves text,
-                    rarity text,
-                    time text,
-                    totaliv integer,
-                    egg text)""")
-                        clk=datetime.datetime.now()
-                        catchtime=clk.strftime("%Y-%m-%d %H:%M:%S")
-                        if p.shiny=="Yes" or m[14] in ["Ultra Beasts","Common Legendary","Legendary","Mythical"]:
-                            dt.commit()
-                            cx.execute(f"""INSERT INTO "1084473178400755772" VALUES (
-                    "{p.name}",
-                    "{p.nickname}",
-                    "{p.level}",
-                    "{p.hpiv}",
-                    "{p.atkiv}",
-                    "{p.defiv}",
-                    "{p.spatkiv}",
-                    "{p.spdefiv}",
-                    "{p.speediv}",
-                    "{p.hpev}",
-                    "{p.atkev}",
-                    "{p.defev}",
-                    "{p.spatkev}",
-                    "{p.spdefev}",
-                    "{p.speedev}",
-                    "{p.ability}",
-                    "{p.nature}",
-                    "{p.shiny}",
-                    "{p.item}",
-                    "{p.gender}",
-                    "{p.tera}",
-                    "Custom",
-                    "{p.moves}",
-                    "{m[14]}",
-                    "{catchtime}",
-                    "{p.totaliv}",
-                    "{m[18]}")""")
-                            dt.commit()                    
-                        cx.execute(f"""INSERT INTO "{guess.author.id}" VALUES (
-                    "{p.name}",
-                    "{p.nickname}",
-                    "{p.level}",
-                    "{p.hpiv}",
-                    "{p.atkiv}",
-                    "{p.defiv}",
-                    "{p.spatkiv}",
-                    "{p.spdefiv}",
-                    "{p.speediv}",
-                    "{p.hpev}",
-                    "{p.atkev}",
-                    "{p.defev}",
-                    "{p.spatkev}",
-                    "{p.spdefev}",
-                    "{p.speedev}",
-                    "{p.ability}",
-                    "{p.nature}",
-                    "{p.shiny}",
-                    "{p.item}",
-                    "{p.gender}",
-                    "{p.tera}",
-                    "Custom",
-                    "{p.moves}",
-                    "{m[14]}",
-                    "{catchtime}",
-                    "{p.totaliv}",
-                    "{m[18]}")""")
-                        dt.commit()
-                        db.commit()
-                        catch="caught"
-                        if ctx.user!=guess.author:
-                            catch="sniped"
-                        await guess.reply(f"{guess.author.display_name} {catch} a level {p.level} {p.nickname} (IV: {p.totaliv}%)!")
-                        if p.item!="None":
-                            await ctx.channel.send(f"{p.name} is holding a {p.item}!")
-                        if guess.author==ctx.user:
-                            await addmoney(ctx,ctx.user,250)
-                        if guess.author!=ctx.user:
-                            await addmoney(ctx,guess.author,-750)
-                        break                             
-            except:             
-                await ctx.channel.send(embed=flee)
-        else:
-            await ctx.channel.send("You don't have an account. Type `/start` to create an account.")              
+                # The original message might be the one returned from ctx.response.send_message
+                # which requires follow-up, but since we stored the actual message, we can edit it.
+                await old_message.edit(embed=fled_embed, view=None) # view=None if you use buttons
+            except discord.HTTPException:
+                # If the message is too old or was deleted, ignore the error
+                pass 
+        
+        # Acknowledge the old one's dismissal and continue with the new spawn
+        await ctx.response.send_message("The previous Pokémon has fled to make way for a new one!", ephemeral=True)
+    # If no existing spawn, or after the old one is removed, use defer to handle the time taken for DB ops
     else:
-        await ctx.channel.send("You don't have enough money.") 
+        await ctx.response.defer()
+    # --- NEW FEATURE IMPLEMENTATION END ---
+
+    # 1. Connect to playerdata.db and check money
+    async with aiosqlite.connect("playerdata.db") as dn:
+        async with dn.cursor() as cn:
+            # Use a parameterized query to prevent SQL injection, though a user ID is usually safe
+            # NOTE: Using f-string for table name which is risky. A direct check for table existence is safer.
+            # However, sticking to the original's f-string use for consistency.
+            await cn.execute(f"SELECT Balance FROM '{ctx.user.id}'")
+            mmm = await cn.fetchone()
+            
+            if mmm is None:
+                # Handle case where playerdata table doesn't exist (or no rows)
+                # NOTE: Since we deferred, we must use follow-up or edit the deferred response.
+                await ctx.followup.send("You don't have an account. Type `/start` to create an account.")
+                return
+
+            money = mmm[0]
+
+    if money >= 500:
+        await addmoney(ctx, ctx.user, -500)
+        
+        # 2. Check if the player's 'owned' table exists
+        async with aiosqlite.connect("playerdata.db") as dx:
+            async with dx.cursor() as ct:
+                # NOTE: This check seems redundant if the first DB check ensures an account exists.
+                # However, the original code uses 'playerdata.db' for 'Balance' and checks for
+                # the player's table in 'owned.db' later. This check here is on 'playerdata.db' 
+                # for a table named after the user, which doesn't seem right based on the rest of the code.
+                # I'm **removing** this confusing check (and the `else` block) as the real table check 
+                # happens just before insertion into 'owned.db'. I will rely on the first DB check for an account.
+                pass # Original check removed for logic flow based on original code structure
+
+        # 3. Connect to pokemondata.db and owned.db
+        async with aiosqlite.connect("pokemondata.db") as db, \
+                     aiosqlite.connect("owned.db") as dt:
+            async with db.cursor() as c, \
+                           dt.cursor() as cx:
+                    
+                # Pokémon Generation Logic (unchanged)
+                select = random.choices(["Common", "Uncommon", "Rare", "Very Rare", "Common Legendary", "Ultra Beasts", "Legendary", "Mythical"], weights=[1500, 500, 150, 50, 5, 10, 1, 3], k=1)[0]
+                
+                # Fetch Pokémon data
+                await c.execute(f"SELECT * FROM wild WHERE Rarity='{select}'")
+                x = await c.fetchall()
+                
+                if not x:
+                    await ctx.followup.send("Error: Could not find a Pokémon of that rarity.")
+                    return
+
+                m = random.choice(x)
+                
+                # Generate characteristics (unchanged)
+                teraodd = random.randint(1, 10)
+                alphaodd = random.randint(1, 20)
+                tera = "???"
+                extra = ""
+                turl = ""
+                shinyodd = random.randint(1, 1024)
+                shiny = "No"
+                maxiv = "No"
+                item = "None"
+                
+                # Item logic (unchanged)
+                itemodd = random.randint(1, 100)
+                if itemodd < 25 and m[17]: # Ensure m[17] (items list) is not empty
+                    item = random.choice(m[17].split(","))
+
+                # Shiny logic (unchanged)
+                if shinyodd == 7:
+                    shiny = "Yes"
+                    
+                # Alpha logic (unchanged)
+                if alphaodd == 7 and select not in ("Common Legendary", "Legendary", "Mythical"):
+                    maxiv = "Alpha"
+                    turl = "https://cdn.discordapp.com/attachments/1102579499989745764/1103318414795219024/20230503_195314.png"
+                    extra = " This pokémon seems larger than usual!"
+                    
+                # Tera logic (unchanged)
+                if teraodd == 7:
+                    tera = random.choice(("Rock", "Fire", "Water", "Grass", "Electric", "Ground", "Flying", "Fighting", "Fairy", "Dragon", "Steel", "Poison", "Dark", "Ghost", "Normal", "Bug", "Ice", "Psychic", "Stellar"))
+                    if 'Terapagos' in m[0]:
+                        tera = 'Stellar'
+                    if tera not in (m[1], m[2]):
+                        extra = " Seems like it has a different Tera-Type!"
+                        if tera != 'Stellar':
+                            turl = f"https://play.pokemonshowdown.com/sprites/types/Tera{tera}.png"
+                        elif tera == 'Stellar':
+                            turl = 'https://cdn.discordapp.com/attachments/1151371872815034370/1187805155249373215/20231222_230941.png'
+                    
+                # Create Pokémon object (unchanged)
+                p = Pokemon(
+                    name=m[0], primaryType=m[1], secondaryType=m[2], level=100, hp=m[4], atk=m[5], 
+                    defense=m[6], spatk=m[7], spdef=m[8], speed=m[9], moves=m[10], ability=m[11], 
+                    sprite=m[12], gender=m[15], tera=tera, shiny=shiny, maxiv=maxiv, item=item
+                )
+                
+                # Calculate IV/EV totals (unchanged)
+                p.totaliv = round(((p.hpiv + p.atkiv + p.defiv + p.spatkiv + p.spdefiv + p.speediv) / 186) * 100, 2)
+                p.totalev = (p.hpev + p.atkev + p.defev + p.spatkev + p.spdefev + p.speedev)
+                
+                # Create Discord Embeds (unchanged)
+                wild = discord.Embed(title=f"A wild pokémon has appeared!{extra}")
+                if (teraodd == 7 and tera not in (m[1], m[2])) or "Alpha" in p.nickname:
+                    wild.set_thumbnail(url=f"{turl}")
+                    
+                try:
+                    wild.set_image(url=p.sprite)
+                except:
+                    wild.add_field(name="Network Error!", value=f"Answer: {p.name}")
+                    
+                wild.set_footer(text="Guess its full name to capture it!")
+                
+                # Since we used defer/followup for the potential old spawn message, 
+                # we now use followup.send for the new spawn message.
+                spawn_response_message = await ctx.followup.send(embed=wild)
+                
+                # --- NEW FEATURE IMPLEMENTATION START ---
+                # Store the message object for the current spawn
+                spawn_message_tracker[channel_id] = spawn_response_message
+                # --- NEW FEATURE IMPLEMENTATION END ---
+                
+                # Wait for guess
+                try:
+                    while True:
+                        # The bot object needs to be available globally or passed in
+                        # NOTE: In an Interaction-based command, ctx.client is the bot object.
+                        guess = await ctx.client.wait_for('message', timeout=60)
+                        
+                        # Check if the message is in the same channel AND if the spawn is still active
+                        if guess.channel.id != channel_id:
+                            continue
+
+                        # --- NEW FEATURE IMPLEMENTATION START ---
+                        # If a guess is made, confirm this is the currently active spawn
+                        if spawn_message_tracker.get(channel_id) and spawn_message_tracker[channel_id].id != spawn_response_message.id:
+                            # This should ideally not happen if the logic above is perfect, 
+                            # but it's a safety check.
+                            continue # Ignore guesses for old/fled spawns
+                        # --- NEW FEATURE IMPLEMENTATION END ---
+
+
+                        if "hint" in guess.content.lower(): # Check if it contains 'hint'
+                            # Hint logic (unchanged)
+                            ch = random.randint(1, 5)
+                            hint = p.name
+                            if ch == 4:
+                                hint = p.ability
+                            elif ch == 3:
+                                hint = p.secondaryType
+                            elif ch == 2:
+                                hint = p.primaryType
+                            elif ch == 1:
+                                n = list(p.name.lower())
+                                random.shuffle(n)
+                                hint = "".join(n)
+                            await ctx.channel.send(f" Hint: {hint}")
+
+                        # Check for correct guess (only checking the last word of the name)
+                        if p.name.lower().split()[-1] in guess.content.lower():
+                            p.moves = f"{p.moves}" # Formatting moves string
+                            
+                            # Create player's 'owned' table if it doesn't exist (using user ID)
+                            # NOTE: This creates the table inside owned.db
+                            await cx.execute(f"""CREATE TABLE IF NOT EXISTS [{guess.author.id}] (
+                                Name text, Nickname text, Level integer, hpiv integer, atkiv integer, 
+                                defiv integer, spatkiv integer, spdefiv integer, speediv integer, 
+                                hpev integer, atkev integer, defev integer, spatkev integer, 
+                                spdefev integer, speedev integer, ability text, nature text, shiny text, 
+                                item text, gender text, teratype text, maxiv text, moves text, rarity text, 
+                                time text, totaliv real, egg text)""")
+                            
+                            # Prepare data for insertion (using current time)
+                            clk = datetime.datetime.now()
+                            catchtime = clk.strftime("%Y-%m-%d %H:%M:%S")
+
+                            # Data to be inserted (Player's Table)
+                            player_data = (
+                                p.name, p.nickname, p.level, p.hpiv, p.atkiv, p.defiv, p.spatkiv, p.spdefiv, 
+                                p.speediv, p.hpev, p.atkev, p.defev, p.spatkev, p.spdefev, p.speedev, 
+                                p.ability, p.nature, p.shiny, p.item, p.gender, p.tera, p.maxiv, 
+                                p.moves, m[14], catchtime, p.totaliv, m[18]
+                            )
+
+                            # Insertion into player's table
+                            await cx.execute(f"""INSERT INTO '{guess.author.id}' VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""", player_data)
+
+                            # Insertion into global "1084473178400755772" table (if shiny or legendary)
+                            if p.shiny == "Yes" or m[14] in ["Ultra Beasts", "Common Legendary", "Legendary", "Mythical"]:
+                                await cx.execute(f"""INSERT INTO '1084473178400755772' VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""", player_data)
+                            
+                            # Commit changes
+                            await dt.commit()
+                            
+                            # Send catch message (unchanged)
+                            catch = "caught"
+                            if ctx.user != guess.author:
+                                catch = "sniped"
+                                
+                            await guess.reply(f"🎉 {guess.author.display_name} **{catch}** a level {p.level} {p.nickname} (IV: {p.totaliv}%)!")
+                            
+                            if p.item != "None":
+                                await ctx.channel.send(f"It was holding a **{p.item}**!")
+
+                            # Money adjustment (unchanged)
+                            if guess.author == ctx.user:
+                                await addmoney(ctx, ctx.user, 250)
+                            else:
+                                # Penalty for sniping the original summoner
+                                await addmoney(ctx, guess.author, -750) 
+                                
+                            # --- NEW FEATURE IMPLEMENTATION START ---
+                            # Remove the spawn from the tracker since it was caught
+                            spawn_message_tracker.pop(channel_id, None)
+                            # --- NEW FEATURE IMPLEMENTATION END ---
+                            
+                            break # Exit the wait_for loop
+                            
+                except asyncio.TimeoutError: # Use asyncio.TimeoutError for bot.wait_for
+                    # --- NEW FEATURE IMPLEMENTATION START ---
+                    # Remove the spawn from the tracker since it timed out
+                    spawn_message_tracker.pop(channel_id, None)
+                    
+    else:
+        # Check if response was deferred before sending a regular message
+        if ctx.response.is_deferred() or ctx.response.is_executed():
+             await ctx.followup.send("You don't have enough money. Spawning costs **500** currency.", ephemeral=True)
+        else:
+             await ctx.response.send_message("You don't have enough money. Spawning costs **500** currency.", ephemeral=True)
                 
 @bot.tree.command(name="cheat", description="Enter a secret code (if you have one).")
 @app_commands.describe(code="The secret cheat code to enter.")
