@@ -158,8 +158,8 @@ async def weakness(ctx,x,y,field,em):
         x.atktype="Normal"
     #CHANGING NORMAL TYPE MOVES
     if x.atktype=="Normal":
-        if x.ability in ["Pixilate","Aerilate","Galvanize","Refrigerate","Liquid Voice","Burnate","Poisonate","Buginize"] and "Neutralizing Gas" not in y.ability:
-            ability_dict = {"Pixilate": "Fairy", "Aerilate": "Flying", "Galvanize": "Electric", "Refrigerate": "Ice", "Liquid Voice": "Water","Burnate":"Fire","Poisonate":"Poison","Buginize":"Bug"}
+        if x.ability in ["Pixilate","Aerilate","Galvanize","Refrigerate","Liquid Voice","Burnate","Poisonate","Buginize","Dragonize"] and "Neutralizing Gas" not in y.ability:
+            ability_dict = {"Pixilate": "Fairy", "Aerilate": "Flying", "Galvanize": "Electric", "Refrigerate": "Ice", "Liquid Voice": "Water","Burnate":"Fire","Poisonate":"Poison","Buginize":"Bug","Dragonize":"Dragon"}
             x.atktype = ability_dict[x.ability]
             eff *= 1.2
     type_chart = {

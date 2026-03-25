@@ -772,6 +772,11 @@ async def entryeff(ctx, x, y, tr1, tr2, field, turn):
         x.hp = x.maxhp * per
         em.set_image(url=x.sprite)
         em.set_thumbnail(url="https://cdn.discordapp.com/attachments/1102579499989745764/1109011460601954364/Red_Orb.png")  
+    if x.ability !="Neutralizing Gas":
+        if y.ability=="Abyssal Pressure":
+            y.showability=True
+            entry.add_field(name=f"{y.icon} {y.name}'s Abyssal Pressure!",value=f"{x.name} is feeling heavy pressure like the oceanic abyss!")
+            await spdefchange(entry,x,y,-0.5)
     if x.ability=="Primordial Sea" and field.weather!="Heavy Rain":
         x.showability=True
         entry.add_field(name=f"{x.icon} {x.name}'s Primordial Sea!",value=f"A heavy rain began to fall!")
@@ -833,8 +838,6 @@ async def entryeff(ctx, x, y, tr1, tr2, field, turn):
         # Steel is super-effective against Fairy, Rock, Ice
         steel_spikes_weak_types = ["Fairy", "Rock", "Ice"]
         buff = await calculate_hazard_buff(x, steel_spikes_weak_types)
-        
-        # Damage calculation: 1 + (Max HP * 0.0625 * buff) where 0.0625 is 1/16
         x.hp -= (1 + (x.maxhp * 0.0625 * buff))
         entry.add_field(name=f"Steel Spikes!",value=f"️Pointed steel spikes dug into {x.name}!")     
     await prebuff(ctx,x,y,tr1,tr2,turn,field)
@@ -2028,7 +2031,57 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
     em.set_thumbnail(url="https://cdn.discordapp.com/attachments/1102579499989745764/1108284098641940521/Mega.png")
     tr1.canmega=False
     if True:
-        print(x.name,x.item)
+        if x.item=="Golurkite" and "Golurk" in x.name and x.hp<=x.maxhp:
+            x.secondaryType="Flying"
+            per=x.hp/x.maxhp
+            x.weight=1352.24
+            x.hp=89
+            x.atk=165
+            x.defense=120
+            x.spatk=70
+            x.spdef=110
+            x.speed=76
+            calcst(x)
+            x.hp=x.maxhp*per
+        if x.item=="Garchompite Z" and "Garchomp" in x.name and x.hp<=x.maxhp:
+            x.nickname="Mega Garchomp Z"
+            x.ability="Levitate"
+            per=x.hp/x.maxhp
+            x.weight=132.24
+            x.hp=108
+            x.atk=180
+            x.defense=105
+            x.spatk=115
+            x.spdef=95
+            x.speed=132
+            calcst(x)
+            x.hp=x.maxhp*per
+        if x.item=="Absolite Z" and "Absol" in x.name and x.hp<=x.maxhp:
+            x.nickname="Mega Absol Z"
+            x.secondaryType="Fairy"
+            per=x.hp/x.maxhp
+            x.weight=132.24
+            x.hp=65
+            x.atk=170
+            x.defense=75
+            x.spatk=130
+            x.spdef=85
+            x.speed=135
+            calcst(x)
+            x.hp=x.maxhp*per
+        if x.item=="Lucarionite Z" and "Lucario" in x.name and x.hp<=x.maxhp:
+            x.nickname="Mega Lucario Z"
+            x.secondaryType="Dragon"
+            per=x.hp/x.maxhp
+            x.weight=132.24
+            x.hp=70
+            x.atk=165
+            x.defense=100
+            x.spatk=145
+            x.spdef=95
+            x.speed=130
+            calcst(x)
+            x.hp=x.maxhp*per
         if x.item=="Zygardite" and "Zygarde" in x.name and x.hp<=x.maxhp:
             per=x.hp/x.maxhp
             x.weight=1344.82
@@ -2103,7 +2156,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             x.sprite="https://i.postimg.cc/h4xDmq8T/Mega-Chingling.png"
             x.hp=x.maxhp*per
         elif x.item=="Feraligite" and "Feraligatr" in x.name:
-            x.ability="Strong Jaw"
+            x.ability="Dragonize"
             x.secondaryType="Dragon"
             per=x.hp/x.maxhp
             x.weight=153.41
@@ -2129,7 +2182,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             calcst(x)
             x.hp=x.maxhp*per
         elif x.item=="Froslassite" and "Froslass" in x.name:
-            x.ability="Intimidate"
+            x.ability="Snow Warning"
             per=x.hp/x.maxhp
             x.weight=153.41
             x.hp=70
@@ -2155,7 +2208,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             calcst(x)
             x.hp=x.maxhp*per
         elif x.item=="Emboarite" and "Emboar" in x.name:
-            x.ability="Supreme Overlord"
+            x.ability="Mold Breaker"
             per=x.hp/x.maxhp
             x.weight=153.41
             x.hp=110
@@ -2193,7 +2246,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             calcst(x)
             x.hp=x.maxhp*per
         elif x.item=="Meganiumite" and "Meganium" in x.name:
-            x.ability="Natural Cure"
+            x.ability="Mega Sol"
             x.secondaryType="Fairy"
             per=x.hp/x.maxhp
             x.weight=153.41
@@ -2294,7 +2347,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             calcst(x)
             x.hp=x.maxhp*per
         elif x.item=="Dragoninite" and "Dragonite" in x.name:
-            x.ability="Aerilate"
+            x.ability="Multiscale"
             per=x.hp/x.maxhp
             x.weight=672.41
             x.hp=91

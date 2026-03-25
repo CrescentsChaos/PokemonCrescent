@@ -1935,8 +1935,12 @@ async def mimic(ctx,x,y,tr1,em,field,turn):
 #Growth
 async def growth(ctx,x,y,tr1,em,field,turn):
     em.add_field(name=f"Move:",value=f"{x.name} used Growth!")    
-    await atkchange(em,x,x,1)    
-    await spatkchange(em,x,x,1)    
+    if field.weather in ["Sunny","Extreme Sunlight"] or x.ability in ["Chloroplast","Big Leaves","Mega Sol"]:
+        await atkchange(em,x,x,2)    
+        await spatkchange(em,x,x,2) 
+    else:
+        await atkchange(em,x,x,1)    
+        await spatkchange(em,x,x,1)   
 #Decorate
 async def decorate(ctx,x,y,tr1,em,field,turn):
     em.add_field(name=f"Move:",value=f"{x.name} used Decorate!")    
@@ -4997,7 +5001,7 @@ async def razorwind(ctx,x,y,tr1,em,field,turn):
 #Solar Beam
 async def solarbeam(ctx,x,y,tr1,em,field,turn):
     em.add_field(name=f"Move:",value=f"{x.name} used Solar Beam!")    
-    if x.item=="Power Herb" or x.precharge is True or field.weather in ["Sunny","Extreme Sunlight"] or x.ability in ["Chloroplast","Big Leaves"]:
+    if x.item=="Power Herb" or x.precharge is True or field.weather in ["Sunny","Extreme Sunlight"] or x.ability in ["Chloroplast","Big Leaves","Mega Sol"]:
         if x.item=="Power Herb":
             x.item+="[Used]"  
             em.add_field(name=f"Item:",value=f"{x.name} became fully charged due to its Power Herb.")  
@@ -5037,7 +5041,7 @@ async def electroshot(ctx,x,y,tr1,em,field,turn):
 #Solar Blade
 async def solarblade(ctx,x,y,tr1,em,field,turn):
     em.add_field(name=f"Move:",value=f"{x.name} used Solar Blade!")    
-    if x.item=="Power Herb" or x.precharge is True or field.weather in ["Sunny","Extreme Sunlight"] or x.ability in ["Chloroplast","Big Leaves"]:
+    if x.item=="Power Herb" or x.precharge is True or field.weather in ["Sunny","Extreme Sunlight"] or x.ability in ["Chloroplast","Big Leaves","Mega Sol"]:
         if x.item=="Power Herb":
             x.item+="[Used]"  
             em.add_field(name=f"Item:",value=f"{x.name} became fully charged due to its Power Herb.")  
@@ -6460,10 +6464,10 @@ async def weatherball(ctx,x,y,tr1,em,field,turn):
     r=await randroll()
     em.add_field(name=f"Move:",value=f"{x.name} used Weather Ball!")    
     x.atktype="Normal"
-    if field.weather=="Rainy":
+    if field.weather in ["Rainy","Heavy Rain"]:
         x.atktype="Water"
         al*=1.5
-    elif field.weather=="Sunny":
+    if field.weather in ["Sunny","Extreme Sunlight"] or x.ability in ["Chloroplast","Big Leaves","Mega Sol"]:
         x.atktype="Fire"
         al*=1.5
     elif field.weather=="Sandstorm":
@@ -7315,7 +7319,7 @@ async def makeitrain(ctx,x,y,tr1,em,field,turn):
 #Synthesis
 async def synthesis(ctx,x,y,tr1,em,field,turn):     
     em.add_field(name=f"Move:",value=f"{x.name} used Synthesis!")   
-    if field.weather in ["Sunny","Extreme Sunlight"]:
+    if field.weather in ["Sunny","Extreme Sunlight"] or x.ability in ["Chloroplast","Big Leaves","Mega Sol"]:
         x.hp+=(x.maxhp*(2/3))
         em.add_field(name="Heal:",value=f"{x.name} regained some of its health!")
     elif field.weather in ["Sandstorm","Hail","Rainy","Snowstorm"]:
