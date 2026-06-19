@@ -683,7 +683,7 @@ async def weakness(ctx,x,y,field,em):
             eff*=1.5
             em.add_field(name=f"{x.icon} {x.name}'s {await itemicon(x.item)} {x.item}!",value=f"{x.item} strengthened the damage of {x.icon} {x.name}'s {x.atktype}-type moves!")
             x.item+="[Used]"
-        if (y.ability in ["Levitate","Winged"] and x.ability not in ["Mold Breaker","Teravolt","Turboblaze","Propeller Tail","Stalwart","Neutralizing Gas"] and x.use not in typemoves.abilityigmoves and x.grav is not True):
+        if (y.ability in ["Levitate","Winged","Eelevate"] and x.ability not in ["Mold Breaker","Teravolt","Turboblaze","Propeller Tail","Stalwart","Neutralizing Gas"] and x.use not in typemoves.abilityigmoves and x.grav is not True):
             y.showability=True
             em.add_field(name=f"{y.icon} {y.name}'s {y.ability}!",value=f"{y.name} is levitating on the air and immune to Ground attacks!")
             eff*=0
@@ -817,6 +817,8 @@ async def weakness(ctx,x,y,field,em):
             eff*=1.5
             em.add_field(name=f"{x.icon} {x.name}'s {await itemicon(x.item)} {x.item}!",value=f"{x.item} strengthened the damage of {x.icon} {x.name}'s {x.atktype}-type moves!")
             x.item+="[Used]"
+        if x.ability == "Fire Mane":
+            eff*=1.5
         if x.ability=="Blaze" and x.ability not in ["Mold Breaker","Teravolt","Turboblaze","Propeller Tail","Stalwart","Neutralizing Gas"] and x.use not in typemoves.abilityigmoves:
             if x.hp<=(x.maxhp/3):
                 eff*=1.5

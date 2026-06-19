@@ -14,7 +14,7 @@ from typing import Optional,List, Tuple,TYPE_CHECKING,Set, Dict
 from typematchup import *
 from AI import *
 from hiddenpower import *
-megastones=("Heatranite","Zeraorite","Darkranite","Chimecite","Baxcaliburite","Floettite","Chandelurite","Scolipite","Falinksite","Pyroarite","Scraftinite","Drampanite","Eelektrossite","Dragalgite","Barbaracite","Clefablite","Starminite","Meganiumite","Excadrite","Emboarite","Froslassite","Feraligite","Skarmorite","Raichunite X","Raichunite Y","Greninjite","Delphoxite","Chesnaughtite","Malamarite","Hawluchanite","Victreebelite","Dragoninite","Gyaradosite","Venusaurite","Charizardite X","Charizardite Y","Abomasite","Absolite","Aerodactylite","Aggronite","Alakazite","Altarianite","Ampharosite","Audinite","Banettite","Beedrillite","Blastoisinite","Blazikenite","Camerupite","Diancite","Galladite","Garchompite","Gardevoirite","Gengarite","Glalitite","Heracronite","Houndoominite","Kangaskhanite","Latiasite","Latiosite","Lopunnite","Lucarionite","Manectite","Mawilite","Medichamite","Metagrossite","Mewtwonite X","Mewtwonite Y","Pidgeotite","Pinsirite","Sablenite","Salamencite","Sceptilite","Scizorite","Sharpedonite","Slowbronite","Steelixite","Seampertite","Tyranitarite")
+megastones=("Staraptite","Heatranite","Zeraorite","Darkranite","Chimecite","Baxcaliburite","Floettite","Chandelurite","Scolipite","Falinksite","Pyroarite","Scraftinite","Drampanite","Eelektrossite","Dragalgite","Barbaracite","Clefablite","Starminite","Meganiumite","Excadrite","Emboarite","Froslassite","Feraligite","Skarmorite","Raichunite X","Raichunite Y","Greninjite","Delphoxite","Chesnaughtite","Malamarite","Hawluchanite","Victreebelite","Dragoninite","Gyaradosite","Venusaurite","Charizardite X","Charizardite Y","Abomasite","Absolite","Aerodactylite","Aggronite","Alakazite","Altarianite","Ampharosite","Audinite","Banettite","Beedrillite","Blastoisinite","Blazikenite","Camerupite","Diancite","Galladite","Garchompite","Gardevoirite","Gengarite","Glalitite","Heracronite","Houndoominite","Kangaskhanite","Latiasite","Latiosite","Lopunnite","Lucarionite","Manectite","Mawilite","Medichamite","Metagrossite","Mewtwonite X","Mewtwonite Y","Pidgeotite","Pinsirite","Sablenite","Salamencite","Sceptilite","Scizorite","Sharpedonite","Slowbronite","Steelixite","Seampertite","Tyranitarite")
 players = ("Pokemon Trainer Ludlow","Pokemon Trainer Liko","Pokemon Trainer Roy","Pokemon Trainer Dot","Pokemon Trainer Ult",
         "Explorers Chalce","Explorers Lucius","Explorers Coral","Explorers Sidian","Flare Nouveau Grisham","Flare Nouveau Griselle",
         "SBC Lebanne","SBC Jacinthe","Detective Emma","Fist of Justice Gwynn","Fist of Justice Ivor",
@@ -2033,6 +2033,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
     if True:
         if x.item=="Golurkite" and "Golurk" in x.name and x.hp<=x.maxhp:
             x.secondaryType="Flying"
+            x.ability="Unseen Fist"
             per=x.hp/x.maxhp
             x.weight=1352.24
             x.hp=89
@@ -2171,6 +2172,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             x.hp=x.maxhp*per
         elif x.item=="Chandelurite" and "Chandelure" in x.name:
             per=x.hp/x.maxhp
+            x.ability="Infiltrator"
             x.weight=153.41
             x.hp=60
             x.atk=75
@@ -2194,19 +2196,6 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             x.sprite="https://i.postimg.cc/MTqpnk1L/mega-froslass.png"
             calcst(x)
             x.hp=x.maxhp*per
-        elif x.item=="Scolipite" and "Scolipede" in x.name:
-            x.ability="Tinted Lens"
-            per=x.hp/x.maxhp
-            x.weight=153.41
-            x.hp=60
-            x.atk=130
-            x.defense=109
-            x.spatk=65
-            x.spdef=995
-            x.speed=122
-            x.sprite="https://pbs.twimg.com/media/G0ghgGtXUAE1XSd.png"
-            calcst(x)
-            x.hp=x.maxhp*per
         elif x.item=="Emboarite" and "Emboar" in x.name:
             x.ability="Mold Breaker"
             per=x.hp/x.maxhp
@@ -2221,7 +2210,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             calcst(x)
             x.hp=x.maxhp*per
         elif x.item=="Excadrite" and "Excadrill" in x.name:
-            x.ability="Tough Claws"
+            x.ability="Piercing Drill"
             per=x.hp/x.maxhp
             x.weight=153.41
             x.hp=110
@@ -2234,6 +2223,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             calcst(x)
             x.hp=x.maxhp*per
         elif x.item=="Falinksite" and "Falinks" in x.name:
+            x.ability="Defiant"
             per=x.hp/x.maxhp
             x.weight=153.41
             x.hp=65
@@ -2262,6 +2252,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
         elif x.item=="Pyroarite" and "Pyroar" in x.name:
             per=x.hp/x.maxhp
             x.weight=153.41
+            x.ability="Fire Mane"
             x.hp=86
             x.atk=88
             x.defense=92
@@ -2271,11 +2262,25 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             x.sprite="https://i.postimg.cc/VkZSNyPZ/mega-pyroar.png"
             calcst(x)
             x.hp=x.maxhp*per
-        elif x.item=="Starminite" and "Starmie" in x.name:
+        elif x.item=="Staraptite" and "Staraptor" in x.name:
             per=x.hp/x.maxhp
             x.weight=153.41
-            x.hp=60
+            x.ability="Contrary"
+            x.hp=86
             x.atk=140
+            x.defense=100
+            x.spatk=60
+            x.spdef=90
+            x.speed=110
+            x.sprite="https://i.postimg.cc/LX112TcJ/mega-staraptor.png"
+            calcst(x)
+            x.hp=x.maxhp*per
+        elif x.item=="Starminite" and "Starmie" in x.name:
+            per=x.hp/x.maxhp
+            x.ability="Huge Power"
+            x.weight=153.41
+            x.hp=60
+            x.atk=100
             x.defense=105
             x.spatk=130
             x.spdef=105
@@ -2299,6 +2304,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             x.hp=x.maxhp*per
         elif x.item=="Scolipedite" and "Scolipede" in x.name:
             per=x.hp/x.maxhp
+            x.ability="Shell Armor"
             x.weight=153.41
             x.hp=60
             x.atk=140
@@ -2311,6 +2317,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             x.hp=x.maxhp*per
         elif x.item=="Scraftinite" and "Scrafty" in x.name:
             per=x.hp/x.maxhp
+            x.ability="Intimidate"
             x.weight=153.41
             x.hp=60
             x.atk=130
@@ -2323,6 +2330,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             x.hp=x.maxhp*per
         elif x.item=="Skarmorite" and "Skarmory" in x.name:
             per=x.hp/x.maxhp
+            x.ability="Stalwart"
             x.weight=153.41
             x.hp=65
             x.atk=140
@@ -2361,6 +2369,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             x.hp=x.maxhp*per
         elif x.item=="Drampanite" and "Drampa" in x.name:
             per=x.hp/x.maxhp
+            x.ability="Berserk"
             x.weight=672.41
             x.hp=78
             x.atk=85
@@ -2373,6 +2382,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             x.hp=x.maxhp*per
         elif x.item=="Eelektrossite" and "Eelektross" in x.name:
             per=x.hp/x.maxhp
+            x.ability="Eelevate"
             x.weight=672.41
             x.hp=85
             x.atk=145
@@ -2384,7 +2394,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             calcst(x)
             x.hp=x.maxhp*per
         elif x.item=="Victreebelite" and "Victreebel" in x.name:
-            x.ability="Corrosion"
+            x.ability="Innards Out"
             per=x.hp/x.maxhp
             x.weight=672.41
             x.hp=80
@@ -2397,7 +2407,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             calcst(x)
             x.hp=x.maxhp*per
         elif x.item=="Greninjite" and "Greninja" in x.name:
-            x.ability="Techician"
+            x.ability="Protean"
             per=x.hp/x.maxhp
             x.weight=672.41
             x.hp=72
@@ -2410,6 +2420,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             calcst(x)
             x.hp=x.maxhp*per
         elif x.item=="Floettite" and "Eternal Floette" in x.name:
+            x.ability="Fairy Aura"
             per=x.hp/x.maxhp
             x.weight=672.41
             x.hp=74
@@ -2435,6 +2446,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             calcst(x)
             x.hp=x.maxhp*per
         elif x.item=="Dragalgite" and "Dragalge" in x.name:
+            x.ability="Regenerator"
             per=x.hp/x.maxhp
             x.weight=672.41
             x.hp=65
@@ -2447,7 +2459,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             calcst(x)
             x.hp=x.maxhp*per
         elif x.item=="Chesnaughtite" and "Chesnaught" in x.name:
-            x.ability="Stamina"
+            x.ability="Bulletproof"
             per=x.hp/x.maxhp
             x.weight=672.41
             x.hp=88
@@ -2460,7 +2472,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             calcst(x)
             x.hp=x.maxhp*per
         elif x.item=="Hawluchanite" and "Hawlucha" in x.name:
-            x.ability="Defiant"
+            x.ability="No Guard"
             per=x.hp/x.maxhp
             x.weight=72.41
             x.hp=78
@@ -2474,6 +2486,7 @@ async def megatrans(ctx,x,y,tr1,tr2,field,turn):
             x.hp=x.maxhp*per
         elif x.item=="Barbaracite" and "Barbaracle" in x.name:
             x.secondaryType="Fighting"
+            x.ability="Tough Claws"
             per=x.hp/x.maxhp
             x.weight=72.41
             x.hp=72
@@ -3356,7 +3369,7 @@ async def faint(ctx, bot, x, y, tr1, tr2, field, turn):
                 await spatkchange(em, y, y, 1)
             elif "Ice" in y.name:
                 await atkchange(em, y, y, 1)
-        elif y.ability == "Beast Boost":
+        elif y.ability in ["Beast Boost","Eelevate"]:
             em.add_field(name=f"{y.icon} {y.name}'s {y.ability}!", value=f"Knocking Out {x.name} made {y.name} go on a rampage!")
             # Determine highest stat to boost
             # Note: The way 'm' is defined and then using 'pp' as a variable name is confusing, 
